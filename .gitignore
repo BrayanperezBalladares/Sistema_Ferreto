@@ -1,0 +1,45 @@
+# Secrets and local environment files
+/.env*
+!/.env.example
+**/.env
+**/.env.*
+!/.env.example
+/.secrets/
+/auth.json
+*.local.php
+
+# Dependencies and caches
+/.cache/
+/vendor/
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Logs
+*.log
+/logs/
+
+# Temporary files and directories
+/tmp/
+/temp/
+*.tmp
+*.temp
+*.swp
+*~
+
+# PID and runtime state
+*.pid
+*.pid.lock
+*.sock
+/runtime/
+/var/run/
+
+# Coverage output
+/coverage/
+/.coverage/
+/coverage.xml
+/clover.xml
+
+# Maintainer-excluded local-only paths
+/.atl/
+/Docs/requeriments/professor-reference/php_bulma_htmx.pdf
+/reference/professor-poc/miniframework_cech/conexion.php

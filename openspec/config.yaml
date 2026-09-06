@@ -1,0 +1,44 @@
+schema: spec-driven
+
+context: |
+  Project: Sistema_Ferreto — Ferreterías El Constructor.
+  Current workspace contains requirements and technical design documents only; no implementation project was discovered.
+  Proposed stack: procedural PHP with PDO, HTMX, Bulma CSS, and MariaDB/SQL Server portability.
+  Proposed architecture: modular five-file convention (_c controller, _v view, _l business logic, _d data, _m maintenance).
+  Source requirements are documented in the root Markdown files and are currently Spanish-language project references.
+  SDD artifacts are maintained in English.
+
+strict_tdd: false
+
+projects: []
+
+testing:
+  strict_tdd: false
+  workspace_test_command: ""
+  reason: "No supported implementation project root and no explicit workspace-wide test command were discovered."
+  capabilities_file: "openspec/testing-capabilities.md"
+
+rules:
+  proposal:
+    - State intent, scope, affected modules, and rollback considerations for risky changes.
+  specs:
+    - Use Given/When/Then scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+  design:
+    - Document architecture decisions with rationale and boundaries.
+    - Include sequence diagrams for complex flows.
+  tasks:
+    - Group tasks by phase and use hierarchical numbering.
+    - Keep tasks completable in one session.
+  apply:
+    guidelines:
+      - Follow the documented PHP/HTMX/Bulma module convention when implementation begins.
+      - Add or update tests with implementation changes.
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
