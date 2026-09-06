@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\Csrf;
+use App\Foundation\ErrorMapper;
+use App\Foundation\Kernel;
+use App\Foundation\Logger;
 use App\Foundation\Handler;
 use App\Foundation\HealthHandler;
 use App\Foundation\Renderer;
@@ -163,6 +166,68 @@ final class HttpTest extends TestCase
         self::assertSame(200, $htmx->status);
         self::assertSame('/health', $htmx->headers['HX-Redirect']);
         self::assertStringContainsString('notification', $htmx->headers['HX-Trigger']);
+    }
+
+    public function testUnexpectedFailureIsGenericCorrelatedAndLoggedOnce(): void
+    {
+        $log = tempnam(sys_get_temp_dir(), 'ferreto-log-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        $session = new MemorySession();
+        $csrf = new Csrf($session);
+        $renderer = new Renderer(dirname(__DIR__, 2));
+        $routes = [['GET', '/boom', static function (): Response {
+            throw new \RuntimeException('secret-sentinel');
+        }]];
+        $kernel = new Kernel(new Router($routes), $csrf, new ErrorMapper(new Logger(), $renderer));
+
+        $response = $kernel->handle(new Request('GET', '/boom'));
+
+        if (is_string($previous)) {
+            ini_set('error_log', $previous);
+        }
+
+        $logged = (string) file_get_contents($log);
+        unlink($log);
+
+        self::assertSame(500, $response->status);
+        self::assertMatchesRegularExpression('/Reference: [a-f0-9]{16}/', $response->body);
+        self::assertStringNotContainsString('secret-sentinel', $response->body . $logged);
+        self::assertSame(1, substr_count(trim($logged), PHP_EOL) + 1);
+        self::assertStringContainsString('"route":"/boom"', $logged);
+    }
+
+    public function testErrorMapperFallbackHandlesRendererFailureWithoutThrowing(): void
+    {
+        $log = tempnam(sys_get_temp_dir(), 'ferreto-log-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        $tempRoot = sys_get_temp_dir() . '/ferreto-err-' . bin2hex(random_bytes(4));
+        mkdir($tempRoot . '/templates', 0777, true);
+        file_put_contents($tempRoot . '/templates/error.php', '<?php throw new \\RuntimeException("template-render-crash");');
+
+        $brokenRenderer = new Renderer($tempRoot);
+        $mapper = new ErrorMapper(new Logger(), $brokenRenderer);
+
+        $response = $mapper->map(new \RuntimeException('secret-renderer-crash'), '/fallback');
+
+        if (is_string($previous)) {
+            ini_set('error_log', $previous);
+        }
+
+        $logged = (string) file_get_contents($log);
+        unlink($log);
+        unlink($tempRoot . '/templates/error.php');
+        rmdir($tempRoot . '/templates');
+        rmdir($tempRoot);
+
+        self::assertSame(500, $response->status);
+        self::assertMatchesRegularExpression('/Reference: [a-f0-9]{16}/', $response->body);
+        self::assertStringNotContainsString('secret-renderer-crash', $response->body . $logged);
+        self::assertStringNotContainsString('template-render-crash', $response->body);
+        self::assertSame(1, substr_count(trim($logged), PHP_EOL) + 1);
     }
 
     /**

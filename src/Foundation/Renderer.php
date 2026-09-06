@@ -10,6 +10,7 @@ final readonly class Renderer
         'page.health' => 'pages/health.php',
         'fragment.health' => 'fragments/health.php',
         'fragment.notification' => 'fragments/notification.php',
+        'error' => 'error.php',
     ];
 
     public function __construct(private string $root)
