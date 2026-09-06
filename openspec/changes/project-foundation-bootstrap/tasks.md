@@ -26,13 +26,13 @@ Chain strategy: stacked-to-main
 
 ## Phase 1: Reproducible Runtime
 
-- [ ] 1.1 Verify PHP/extensions, Composer, MariaDB, package, and asset compatibility; record exact selections or fail closed in `README.md`.
-- [ ] 1.2 Add pinned `composer.json`, `composer.lock`, PSR-4/dev tooling, fixed `@php` `scripts/{console,setup}.php`, and `src/Modules/.gitkeep`.
-- [ ] 1.3 Add `.env.example`, `.gitignore`, and `config/{defaults,bootstrap}.php` validation that names invalid fields without secrets.
-- [ ] 1.4 Add reviewed local `public/assets/{htmx.min.js,bulma.min.css,app.js}` and `assets/{provenance.json,LICENSES.md}`; setup verifies checksums without substitution.
-- [ ] 1.5 RED: add `tests/Integration/ConsoleTest.php` proving unknown/metacharacter command arguments cause no effects and a Windows path containing spaces runs safely.
-- [ ] 1.6 Implement the fixed allowlist/root validation in `src/Foundation/{Console,AssetVerifier,Config}.php` and make the RED console cases pass.
-- [ ] 1.7 Document the PowerShell environment, locked setup, asset, and Windows workflow in `README.md`; add `tests/bootstrap.php`, `phpunit.xml`, and `phpstan.neon`.
+- [x] 1.1 Verify PHP/extensions, Composer, MariaDB, package, and asset compatibility; record exact selections or fail closed in `README.md`.
+- [x] 1.2 Add pinned `composer.json`, `composer.lock`, PSR-4/dev tooling, fixed `@php` `scripts/{console,setup}.php`, and `src/Modules/.gitkeep`.
+- [x] 1.3 Add `.env.example`, `.gitignore`, and `config/{defaults,bootstrap}.php` validation that names invalid fields without secrets.
+- [x] 1.4 Add reviewed local `public/assets/{htmx.min.js,bulma.min.css,app.js}` and `assets/{provenance.json,LICENSES.md}`; setup verifies checksums without substitution.
+- [x] 1.5 RED: add `tests/Integration/ConsoleTest.php` proving unknown/metacharacter command arguments cause no effects and a Windows path containing spaces runs safely.
+- [x] 1.6 Implement the fixed allowlist/root validation in `src/Foundation/{Console,AssetVerifier,Config}.php` and make the RED console cases pass.
+- [x] 1.7 Document the PowerShell environment, locked setup, asset, and Windows workflow in `README.md`; add `tests/bootstrap.php`, `phpunit.xml`, and `phpstan.neon`.
 
 ## Phase 2: Secure HTTP Delivery
 

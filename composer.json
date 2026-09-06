@@ -1,0 +1,31 @@
+{
+  "name": "ferreterias-el-constructor/sistema-ferreto",
+  "description": "Server-rendered foundation for Sistema Ferreto",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.5",
+    "ext-dom": "*",
+    "ext-mbstring": "*",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-xml": "*",
+    "ext-xmlwriter": "*",
+    "ext-zip": "*"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "2.2.13",
+    "phpunit/phpunit": "13.3.2"
+  },
+  "autoload": {"psr-4": {"App\\": "src/"}},
+  "autoload-dev": {"psr-4": {"Tests\\": "tests/"}},
+  "scripts": {
+    "setup": ["@composer install --no-interaction --prefer-dist", "@php scripts/setup.php"],
+    "serve": "@php scripts/console.php serve",
+    "migrate": "@php scripts/console.php migrate",
+    "seed": "@php scripts/console.php seed",
+    "test": "phpunit",
+    "analyse": "phpstan analyse"
+  },
+  "config": {"sort-packages": true, "allow-plugins": false}
+}

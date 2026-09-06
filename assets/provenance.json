@@ -1,0 +1,29 @@
+{
+  "reviewed_at": "2026-09-06",
+  "assets": [
+    {
+      "path": "public/assets/htmx.min.js",
+      "package": "htmx.org",
+      "version": "2.0.10",
+      "source": "https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.10.tgz",
+      "sha256": "71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de",
+      "license": "0BSD"
+    },
+    {
+      "path": "public/assets/bulma.min.css",
+      "package": "bulma",
+      "version": "1.0.4",
+      "source": "https://registry.npmjs.org/bulma/-/bulma-1.0.4.tgz",
+      "sha256": "67fa26df1ca9e95d8f2adc7c04fa1b15fa3d24257470ebc10cc68b9aab914bee",
+      "license": "MIT"
+    },
+    {
+      "path": "public/assets/app.js",
+      "package": "project-authored",
+      "version": "1",
+      "source": "repository",
+      "sha256": "e6bba082f1d7defadd66964e677eca7f1ea3ec81aa4b438a0c48e3dc0ce6978e",
+      "license": "proprietary"
+    }
+  ]
+}
