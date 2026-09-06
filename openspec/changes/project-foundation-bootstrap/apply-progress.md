@@ -126,3 +126,64 @@ The first PHPStan execution failed with 8 type-narrowing errors. The code was co
 - End: deterministic locked PHP runtime, validated injected configuration, local verified assets, canonical command surface, and concept-free console tests.
 - Follow-up: PR 2 adds HTTP delivery; PR 3 activates migration and seed commands.
 - Authored application additions: 456 lines including license documentation, excluding generated `composer.lock` and two verbatim minified third-party asset lines. This exceeds the 400-line budget by 56 lines; no tests, docs, comments, or required behavior were removed. Recommend `size:exception` for this indivisible slice.
+
+---
+
+## PR 2 Initial Attempt: Review Budget Blocker
+
+- Mode: Standard (`strict_tdd: false` from `openspec/config.yaml`)
+- Slice: PR 2 — `unit-2-secure-http-delivery` (monolithic attempt)
+- Chain strategy: stacked-to-main
+- Attempt outcome: blocked before final verification because the cohesive candidate exceeded the review budget
+- Blocker evidence: The initial monolithic implementation reached 593 authored additions / 634 total lines before OpenSpec updates, exceeding the 400-line PR threshold by 193 lines.
+- Resolution: Maintainer explicitly declined a `size:exception` and mandated a non-destructive reslice into autonomous, reviewable successor units targeting <= 400 lines without discarding verified work.
+
+---
+
+## PR 2 Reslice Execution: Three Autonomous Slices
+
+The monolithic candidate was non-destructively resliced and implemented across three sequential stacked branches, preserving existing RED-test evidence and resolving all 11 PHPStan errors at the root:
+
+### Slice 2A: Routing & Request Safety
+- Branch: `foundation/http-routing-safety`
+- Commit: `9442f15` (`feat(http): implement safe routing, request parsing, and redirect validation`)
+- Stack: `1500f9c` -> `9442f15`
+- Authored lines: 304 lines (5 files: `src/Foundation/{Handler,Request,Response,Router}.php`, `tests/Integration/HttpTest.php`)
+- Scope: Request/Response value objects, path traversal/separator rejection (HTTP 400), doc-path blocking (HTTP 404), method semantics (HTTP 405 with `Allow`), and strict redirect validation.
+- Verification: 22 tests, 36 assertions passing; PHPStan Level 8 with 0 errors (7 errors in `Request.php` and `Router.php` resolved at root).
+
+### Slice 2B: Secure Server-Rendered Interactions
+- Branch: `foundation/http-rendered-forms`
+- Commit: `d1c3278` (`feat(http): add session, csrf, safe rendering, and health form interaction`)
+- Stack: `9442f15` -> `d1c3278`
+- Authored lines: 352 lines (11 files: `src/Foundation/{Session,NativeSession,Csrf,ValidationResult,Renderer,HealthHandler}.php`, 4 templates, +101 lines in `tests/Integration/HttpTest.php`)
+- Scope: Native session adapter, cryptographic CSRF token generation/validation (HTTP 403 on failure), strongly-typed validation DTO, nested buffer unwinding and HTML entity escaping in renderer, health form with dual full-page/fragment rendering, PRG (HTTP 303), and HTMX headers (`HX-Redirect`, `HX-Trigger`).
+- Verification: 25 tests, 55 assertions passing; PHPStan Level 8 with 0 errors (4 errors resolved at root).
+
+### Slice 2C: Front-Controller & Correlated Failure Boundary
+- Branch: `foundation/http-boundary`
+- Commit: `1ff6503` (`feat(http): establish front controller, kernel, and correlated error logging`)
+- Stack: `d1c3278` -> `1ff6503`
+- Authored lines: 185 lines (8 files: `src/Foundation/{Logger,ErrorMapper,Kernel}.php`, `config/routes.php`, `public/index.php`, `templates/error.php`, +1 line in `src/Foundation/Renderer.php`, +65 lines in `tests/Integration/HttpTest.php`)
+- Scope: Thin web front-controller (`public/index.php`), centralized route declaration (`config/routes.php`), kernel dispatch pipeline, generic 500 error mapping with 16-hex correlation token, and single-line structured JSON `error_log` adapter without leaking stack traces, file paths, or secrets.
+- Authorized Integration Fix: `Renderer.php` allowlist gained `'error' => 'error.php'` (1 line) to allow rendering the error view, alongside a robust last-resort fallback in `ErrorMapper` preventing recursive failure if template evaluation throws.
+- Verification: 27 tests, 67 assertions passing; PHPStan Level 8 with 0 errors; `composer setup` clean.
+
+---
+
+## Cumulative Unit 2 Verification Evidence
+
+| Evidence | Command / Source | Exact Outcome | Verification Status |
+|---|---|---|---|
+| Complete Test Suite | `composer test` | Exit 0; 27 tests, 67 assertions, 0 failures, 0 warnings | PASS |
+| Static Analysis | `composer analyse` | Exit 0; 21/21 files analysed, 0 errors, no suppressions/baseline | PASS |
+| Dependency / Asset Setup | `composer setup` | Exit 0; locked dependencies, autoload, and local assets verified | PASS |
+| Failure Boundary | `HttpTest::testUnexpectedFailureIsGenericCorrelatedAndLoggedOnce` | Exit 0; generic HTTP 500 with correlation ID, no secrets/traces leaked, logged once | PASS |
+| Last-Resort Fallback | `HttpTest::testErrorMapperFallbackHandlesRendererFailureWithoutThrowing` | Exit 0; fallback HTML emitted with correlation ID, no recursive throw | PASS |
+| Working Tree State | `git status` | Clean after Slice 2C commit `1ff6503` | PASS |
+
+## Task & Review Status After Unit 2
+
+- [x] Tasks 1.1–1.7: Unit 1 reproducible runtime complete (`1500f9c`).
+- [x] Tasks 2.1–2.5: Unit 2 secure HTTP delivery complete across 3 autonomous review slices (`9442f15`, `d1c3278`, `1ff6503`).
+- [ ] Tasks 3.1–3.5: Unit 3 transactional data foundation remains pending.
