@@ -3,7 +3,7 @@
 ## Phase 1: Catalog Foundation (Slice 1 — `product-catalog`)
 
 - [ ] 1.1 Create migration `database/migrations/0002_create_categoria.up.sql` (`categoria` table: `id_categoria` PK, `nombre` UNIQUE, `descripcion`, timestamps) and compensating reversal `0002_create_categoria.down.sql`.
-- [ ] 1.2 Create migration `database/migrations/0003_create_producto.up.sql` (`producto` table: `id_producto` PK, nullable `id_categoria` FK with SET NULL, `nombre`, `descripcion`, `precio_actual` DECIMAL(12,2) with CHECK >= 0, `estado_activo`, timestamps) and reversal `0003_create_producto.down.sql`.
+- [ ] 1.2 Create migration `database/migrations/0003_create_producto.up.sql` (`producto` table: `id_producto` PK, nullable `id_categoria` FK RESTRICT, `nombre`, `descripcion`, `precio_actual` DECIMAL(12,2) with CHECK >= 0, `estado_activo`, timestamps) and reversal `0003_create_producto.down.sql`.
 - [ ] 1.3 Implement `src/Modules/Inventory/CategoryQuery.php` and `CategoryCommand.php` for unique category registration and listing via PDO prepared statements.
 - [ ] 1.4 Implement `src/Modules/Inventory/ProductQuery.php` and `ProductCommand.php` for product registration, price update, and soft deactivation (`estado_activo = 0`).
 - [ ] 1.5 Implement `src/Modules/Inventory/CatalogValidator.php` for exact string decimal price validation (accepting at most 2 fractional digits via `/^\d+(\.\d{1,2})?$/`, rejecting negative values, without PHP float arithmetic).

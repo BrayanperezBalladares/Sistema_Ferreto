@@ -61,7 +61,7 @@ MariaDB DDL causes implicit commits. Each migration file contains exactly one ex
 | Migration File | Statement Type | Table / Constraint Target | Compensating Reversal (.down.sql) |
 |---|---|---|---|
 | `0002_create_categoria.up.sql` | `CREATE TABLE` | `categoria` (`id_categoria` PK, `nombre` UNIQUE) | `DROP TABLE categoria` |
-| `0003_create_producto.up.sql` | `CREATE TABLE` | `producto` (`id_producto` PK, FK `categoria`, `precio_actual`, `estado_activo`) | `DROP TABLE producto` |
+| `0003_create_producto.up.sql` | `CREATE TABLE` | `producto` (`id_producto` PK, nullable FK `categoria` RESTRICT, `precio_actual`, `estado_activo`) | `DROP TABLE producto` |
 | `0004_create_ubicacion.up.sql` | `CREATE TABLE` | `ubicacion` (`id_ubicacion` PK, `codigo` UNIQUE, `estado_activo`) | `DROP TABLE ubicacion` |
 | `0005_create_inventario_stock.up.sql` | `CREATE TABLE` | `inventario_stock` (FK `producto`, FK `ubicacion`, UNIQUE pair, `cantidad >= 0`) | `DROP TABLE inventario_stock` |
 | `0006_create_conteo_inventario.up.sql` | `CREATE TABLE` | `conteo_inventario` (FK `id_stock`, `cantidad_sistema`, `cantidad_contada`, `diferencia`) | `DROP TABLE conteo_inventario` |
@@ -136,7 +136,7 @@ All mutating requests require valid CSRF tokens (`Csrf::validateToken()`). All o
 | Layer | Target | Verification Approach |
 |---|---|---|
 | **Unit** | Domain validation & math | Test price format (`regex`), decimal string format, and variance signs. |
-| **Integration (DB)** | Migrations & queries/commands | Run against isolated `*_test` DB; verify FK cascades, `CHECK` constraints, and atomic count calculations. |
+| **Integration (DB)** | Migrations & queries/commands | Run against isolated `*_test` DB; verify FK restrictions, `CHECK` constraints, and atomic count calculations. |
 | **Integration (HTTP)** | Handlers & HTMX | Verify 200/422 status codes, CSRF rejection (403), full-page vs fragment headers (`Vary: HX-Request`). |
 
 ---
