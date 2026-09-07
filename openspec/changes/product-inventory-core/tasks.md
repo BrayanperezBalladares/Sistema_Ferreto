@@ -31,12 +31,19 @@
 - [x] 4.3 Register catalog routes in `config/routes.php` (`GET /products`, `POST /products`, `POST /products/{id}/price`, `POST /products/{id}/deactivate`, `POST /categories`).
 - [x] 4.4 Add HTTP integration test `tests/Integration/CatalogHttpTest.php` verifying 200/422 status, HTMX partial rendering, and CSRF token enforcement.
 
-## Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — `inventory-locations-stock`)
+## Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — `inventory-locations`)
 
-- [ ] 5.1 Implement `src/Modules/Inventory/InventoryHandler.php` handling stock overview, location registration, stock position setup, and observational count entry.
-- [ ] 5.2 Create Bulma templates `templates/pages/inventory.php` and `templates/fragments/count_history.php` with CSRF-protected count entry form.
-- [ ] 5.3 Register inventory routes in `config/routes.php` (`GET /inventory`, `POST /inventory/locations`, `POST /inventory/stock`, `POST /inventory/counts`).
-- [ ] 5.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying stock overview, observational count submission, variance display, and CSRF enforcement.
+- [ ] 5A.1 Implement a module-owned `LocationHandler` in `src/Modules/Inventory/LocationHandler.php` for location listing and creation using existing `LocationQuery` and `LocationCommand`.
+- [ ] 5A.2 Create Bulma templates `templates/pages/locations.php` with canonical locations table, empty state, and CSRF-protected location creation modal following `docs/ui/DESIGN.md`.
+- [ ] 5A.3 Register routes `GET /locations` and `POST /locations` in `config/routes.php` and wire `LocationHandler` into the production front controller `public/index.php`.
+- [ ] 5A.4 Add HTTP integration test `tests/Integration/LocationHttpTest.php` verifying 200/422 status, listing, empty state, creation, duplicate-code validation, CSRF enforcement, HTML escaping, production composition, and absence of unsupported CRUD actions.
+
+## Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — `inventory-stock-counts`)
+
+- [ ] 5B.1 Implement `src/Modules/Inventory/InventoryHandler.php` handling multi-location stock overview, stock position setup, and observational count entry.
+- [ ] 5B.2 Create Bulma templates `templates/pages/inventory.php` and `templates/fragments/count_history.php` with CSRF-protected count entry form.
+- [ ] 5B.3 Register inventory routes in `config/routes.php` (`GET /inventory`, `POST /inventory/stock`, `POST /inventory/counts`).
+- [ ] 5B.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying stock overview, observational count submission, variance display, and CSRF enforcement.
 
 ## Phase 6: Development Seeds & Regression Verification
 

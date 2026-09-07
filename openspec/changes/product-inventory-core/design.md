@@ -131,10 +131,23 @@ All mutating requests require valid CSRF tokens (`Csrf::validateToken()`). All o
 | `POST` | `/products/{id}/deactivate` | Deactivate product | `fragment.product_row` |
 | `POST` | `/products/{id}/activate` | Reactivate inactive product | `fragment.product_row` |
 | `POST` | `/categories` | Create product category | Redirect `/products` or modal swap |
-| `GET` | `/inventory` | Multi-location stock overview | `page.inventory` |
-| `POST` | `/inventory/locations` | Register storage location | `fragment.location_list` |
-| `POST` | `/inventory/stock` | Establish stock position | `fragment.stock_row` |
-| `POST` | `/inventory/counts` | Record observational count | `fragment.count_row` |
+| `GET` | `/locations` | Physical locations listing & empty state | `page.locations` |
+| `POST` | `/locations` | Register new physical storage location | Redirect `/locations` or modal response |
+| `GET` | `/inventory` | Multi-location stock overview (Phase 5B) | `page.inventory` |
+| `POST` | `/inventory/stock` | Establish stock position (Phase 5B) | `fragment.stock_row` |
+| `POST` | `/inventory/counts` | Record observational count (Phase 5B) | `fragment.count_row` |
+
+### Locations UI Decomposition (Approved Phase 5A)
+To decouple physical storage location management from inventory stock and counts:
+- **`LocationHandler`**: A module-owned HTTP handler (`src/Modules/Inventory/LocationHandler.php`) consuming existing `LocationQuery` and `LocationCommand`. Handles `GET /locations` (page listing with empty state) and `POST /locations` (creation modal mutation with CSRF and duplicate-code validation). It does NOT introduce repositories, generic CRUD handlers, or new DI containers.
+- **Production Wiring**: Wired explicitly in `public/index.php` alongside `CatalogHandler` and `HealthHandler` to guarantee production front-controller availability and avoid missing-entrypoint defects.
+- **Authorized Routes**: `GET /locations` and `POST /locations`. Physical deletion (`DELETE /locations/{id}`), modification (`PUT`/`PATCH`), lifecycle toggles (`POST /locations/{id}/deactivate`, `POST /locations/{id}/activate`), and restore actions remain strictly unsupported.
+- **Functional Scope**: Supports listing physical locations, creating locations with unique uppercase code, optional description, default active status, Spanish validation feedback, CSRF protection, and XSS escaping. Explicitly excludes stock quantity editing, product assignments, counts, branch modeling, warehouse modeling, and bin/aisle hierarchy.
+- **Template Architecture**: Delivered via `templates/pages/locations.php` inheriting the canonical visual shell from `docs/ui/DESIGN.md` (charcoal sidebar, light workspace, header, primary action *Nueva ubicación*, and accessible modal).
+- **Table Contract**: Server-rendered table with columns `Código`, `Descripción`, and `Estado` (`Activo` soft green badge). Acciones column is omitted because no row actions are supported.
+- **Modal Contract**: Focused modal `Nueva ubicación` with fields for `Código` (mandatory) and `Descripción` (optional). Default active status remains implicit. Actions: `Cancelar` and `Guardar ubicación`.
+- **Navigation**: Sidebar under `Catálogo` exposes `Productos` and `Ubicaciones`. Stock and Counts navigation links remain omitted until Phase 5B.
+- **Phase 5B Scope**: `GET /inventory`, `POST /inventory/stock`, and `POST /inventory/counts` remain reserved for Phase 5B. Phase 5B will utilize existing locations created via `/locations` without duplicating location-management responsibilities.
 
 ### Product Reactivation Extension (Approved Post-4A)
 To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:
@@ -151,7 +164,9 @@ To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:
 | **1. Catalog Core** | Migrations 0002/0003, `Category` & `Product` queries/commands, validation, and integration tests. | ~300 lines |
 | **2. Storage Locations & Stock** | Migrations 0004/0005, `Location` & `Stock` queries/commands, decimal constraints, and integration tests. | ~310 lines |
 | **3. Observational Counts** | Migration 0006, `Count` query/atomic command, variance math, and immutability tests. | ~260 lines |
-| **4. Server-Rendered UI** | Route wiring, Bulma templates (`pages/`, `fragments/`), and full-page/HTMX integration tests. | ~350 lines |
+| **4. Server-Rendered Catalog UI** | Route wiring, Bulma templates (`pages/`, `fragments/`), and full-page/HTMX integration tests. | ~350 lines |
+| **5A. Server-Rendered Locations UI** | Standalone `LocationHandler`, `locations.php` template, `GET/POST /locations` routes, production wiring, and HTTP tests. | ~300 lines |
+| **5B. Server-Rendered Stock & Counts UI** | `InventoryHandler`, `inventory.php` template, `GET /inventory`, `POST /inventory/stock`, `POST /inventory/counts`, and HTTP tests. | ~350 lines |
 
 ---
 

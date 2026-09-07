@@ -191,7 +191,8 @@
 ---
 
 ## Remaining Tasks
-- **Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — Tasks 5.1–5.4)**: Pending
+- **Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — Tasks 5A.1–5A.4)**: Pending
+- **Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — Tasks 5B.1–5B.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
 - **Phase 7: Product Reactivation (Tasks 7.1–7.5)**: Complete
 
@@ -234,3 +235,16 @@
   - Full suite: 143 tests, 530 assertions (100% green).
   - PHPStan: 39/39 files, 0 errors at Level Max.
   - Development DB: Untouched, isolation verified.
+
+---
+
+## Phase 5 Decomposition Amendment: Locations UI vs Stock & Counts UI
+
+- **Planning Decision**: Following completion of the Product Catalog and Reactivation lifecycle, the maintainer approved decomposing the bundled Phase 5 UI into two autonomous, reviewable slices:
+  - **Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — Tasks 5A.1–5A.4)**: Standalone `LocationHandler`, `templates/pages/locations.php`, routes `GET /locations` and `POST /locations`, production front-controller wiring, and comprehensive HTTP integration tests. Supports listing and creation with unique code validation and default active status. Strictly excludes edit, delete, deactivate, activate, restore, stock quantity editing, product assignment, or branch/warehouse modeling.
+  - **Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — Tasks 5B.1–5B.4)**: Retains `InventoryHandler`, `templates/pages/inventory.php`, `GET /inventory`, `POST /inventory/stock`, and `POST /inventory/counts` for subsequent implementation.
+- **Rationale**:
+  - Clearer page responsibilities: Locations are a master data catalog concept (matching `Catálogo -> Ubicaciones` in `docs/ui/DESIGN.md`), distinct from operational stock balances and physical count audits.
+  - Review-budget control: Separating locations from stock and count workflows prevents oversized pull requests and preserves the $\le 400$ changed authored lines budget limit.
+  - Incremental verification: Enables independent browser smoke testing and verification of physical locations before introducing multi-location stock positions.
+- **Status**: Planning amendment complete. Phase 5A and 5B implementations remain pending. No domain or functional requirements were removed.
