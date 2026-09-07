@@ -85,7 +85,7 @@ final readonly class CatalogHandler implements Handler
         $desc = ($validation->safeInput['descripcion'] ?? '') !== '' ? $validation->safeInput['descripcion'] : null;
         $this->categoryCommand->create($name, $desc);
 
-        return $this->mutationSuccess($request, 'Category created successfully.');
+        return $this->mutationSuccess($request, 'Categoría creada correctamente.');
     }
 
     private function createProduct(Request $request): Response
@@ -103,7 +103,7 @@ final readonly class CatalogHandler implements Handler
         $desc = ($validation->safeInput['descripcion'] ?? '') !== '' ? $validation->safeInput['descripcion'] : null;
         $this->productCommand->register($validation->safeInput['nombre'], $validation->safeInput['precio_actual'], $catId, $desc);
 
-        return $this->mutationSuccess($request, 'Product registered successfully.');
+        return $this->mutationSuccess($request, 'Producto registrado correctamente.');
     }
 
     private function updatePrice(Request $request, int $id): Response
@@ -123,7 +123,7 @@ final readonly class CatalogHandler implements Handler
 
         $this->productCommand->updatePrice($id, $validation->safeInput['precio_actual']);
 
-        return $this->mutationSuccess($request, 'Price updated successfully.');
+        return $this->mutationSuccess($request, 'Precio actualizado correctamente.');
     }
 
     private function deactivate(Request $request, int $id): Response
@@ -134,7 +134,7 @@ final readonly class CatalogHandler implements Handler
 
         $this->productCommand->deactivate($id);
 
-        return $this->mutationSuccess($request, 'Product deactivated successfully.');
+        return $this->mutationSuccess($request, 'Producto desactivado correctamente.');
     }
 
     private function activate(Request $request, int $id): Response
@@ -145,11 +145,11 @@ final readonly class CatalogHandler implements Handler
 
         $this->productCommand->activate($id);
 
-        return $this->mutationSuccess($request, 'Product activated successfully.');
+        return $this->mutationSuccess($request, 'Producto activado correctamente.');
     }
 
-
     private function mutationSuccess(Request $request, string $message): Response
+
     {
         $trigger = (string) json_encode(['notification' => ['message' => $message, 'level' => 'success']], JSON_THROW_ON_ERROR);
         return $request->isHtmx()
