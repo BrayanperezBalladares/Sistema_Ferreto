@@ -10,6 +10,8 @@ final readonly class Renderer
         'page.health' => 'pages/health.php',
         'fragment.health' => 'fragments/health.php',
         'fragment.notification' => 'fragments/notification.php',
+        'page.products' => 'pages/products.php',
+        'fragment.product_table' => 'fragments/product_table.php',
         'error' => 'error.php',
     ];
 
