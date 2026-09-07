@@ -193,3 +193,20 @@
 ## Remaining Tasks
 - **Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — Tasks 5.1–5.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
+- **Phase 7: Product Reactivation (Tasks 7.2–7.5)**: Pending
+
+---
+
+## Contract Amendment: Product Reactivation (Approved Post-4A)
+- **Status**: Specification and design formalized (Task 7.1 complete); implementation pending (Tasks 7.2–7.5).
+- **Maintainer Decision**: Following manual Catalog UI review, the maintainer approved replacing the baseline `ACTIVE -> INACTIVE` one-way lifecycle with a reversible `ACTIVE <-> INACTIVE` lifecycle.
+- **Contract Rules**:
+  - Inactive products can be reactivated using the existing database record and original `id_producto`.
+  - Reactivation preserves all existing stock positions, observational counts, and historical references.
+  - No duplicate or replacement product record is created.
+  - Physical SQL deletion (`DELETE`) remains strictly forbidden.
+- **Implementation State**:
+  - `ProductCommand::activate`: Pending.
+  - `POST /products/{id}/activate`: Pending.
+  - UI `Activar` action & confirmation modal: Pending.
+  - Regression tests: Pending.

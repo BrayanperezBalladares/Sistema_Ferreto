@@ -42,3 +42,11 @@
 
 - [ ] 6.1 Update `database/seeds/development.php` with idempotent development fixtures for categories, products, locations, and initial stock quantities.
 - [ ] 6.2 Execute canonical regression suite (`composer setup`, `composer test`, `composer analyse`) verifying zero regressions and full spec compliance.
+
+## Phase 7: Product Reactivation
+
+- [x] 7.1 Extend product-catalog specification and design for reversible active/inactive lifecycle (`spec.md`, `design.md`, `proposal.md`, `exploration.md`).
+- [ ] 7.2 Implement `ProductCommand::activate` using the existing product record and `id_producto`.
+- [ ] 7.3 Register CSRF-protected `POST /products/{id}/activate` and `CatalogHandler::activate` support.
+- [ ] 7.4 Render `Activar` only for inactive products and preserve `Desactivar` only for active products.
+- [ ] 7.5 Add domain and HTTP regression tests proving same-id reactivation, CSRF enforcement, reference preservation, and absence of physical deletion.

@@ -7,12 +7,16 @@ Establish the baseline product catalog, storage locations, and multi-location in
 ## Scope
 
 ### In Scope
-- **Catalog Master**: Categories and Products with current selling price (`precio_actual`) and optional category assignment (`id_categoria` nullable).
+- **Catalog Master**: Categories and Products with current selling price (`precio_actual`), optional category assignment (`id_categoria` nullable), and reversible active/inactive lifecycle (`estado_activo`).
 - **Physical Locations**: Generic storage positions (`codigo`, `descripcion`, `estado_activo`) independent from branches or warehouses.
 - **Associative Stock**: Decimal stock quantities (`DECIMAL(12,3)`) linked associatively via `INVENTARIO_STOCK (id_producto, id_ubicacion)` with `CHECK (cantidad >= 0.000)` and `UNIQUE(id_producto, id_ubicacion)`.
 - **Observational Counts**: Append-only audit records (`CONTEO_INVENTARIO`) capturing system snapshot, physical count, and variance linked to `id_stock`. Zero mutation of recorded stock.
 - **Server-Rendered UI**: Bulma + HTMX views for catalog search, product/category modal forms, stock list, and observational count entry.
 - **Data Access & Tests**: Module-owned PDO queries/commands in `src/Modules/Inventory/`, schema migrations, development seeds, and integration tests.
+
+> [!NOTE]
+> **Product Lifecycle Amendment**:
+> While initially scoped as active -> inactive only, the maintainer subsequently approved a reversible `ACTIVE <-> INACTIVE` lifecycle allowing reactivation of inactive products using the same `id_producto` and preserving all references. Physical deletion remains strictly out of scope.
 
 ### Out of Scope
 - SKU and barcode tracking (deferred to R5/future).

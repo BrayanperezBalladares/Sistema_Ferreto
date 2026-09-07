@@ -19,7 +19,7 @@ Implement the core product catalog and multi-location decimal inventory establis
 | **Decimal Arithmetic** | MariaDB `DECIMAL(12,3)` + PHP string validation | PHP `float` or BCMath extension | Floats produce binary rounding drift; DB decimal operations guarantee exact precision. |
 | **Count Capture** | Atomic `INSERT ... SELECT` from `inventario_stock` | Multi-query read-then-insert | Eliminates race conditions; calculates `diferencia` and captures `cantidad_sistema` in one atomic step. |
 | **Count Immutability** | Append-only (no UPDATE/DELETE routes) | Status flag with soft delete | Specs mandate immutable observation records; preventing mutation eliminates audit tampering. |
-| **Deactivation Policy** | Minimal `estado_activo` flag | Physical SQL `DELETE` or trash lifecycle | Preserves referential integrity for historical stock/count records without complex workflows. |
+| **Lifecycle & Deactivation Policy** | Reversible `estado_activo` flag (`ACTIVE <-> INACTIVE`) | Physical SQL `DELETE` or trash lifecycle | Preserves referential integrity for historical stock/count records and allows reactivation without duplicate product entities. |
 
 ---
 
@@ -87,6 +87,7 @@ interface ProductRepository {
     public function create(string $name, ?string $description, string $price, ?int $categoryId): int;
     public function updatePrice(int $id, string $price): bool;
     public function deactivate(int $id): bool;
+    public function activate(int $id): bool;
 }
 
 interface StockRepository {
@@ -112,11 +113,18 @@ All mutating requests require valid CSRF tokens (`Csrf::validateToken()`). All o
 | `POST` | `/products` | Register new product | Redirect `/products` or `fragment.product_row` |
 | `POST` | `/products/{id}/price` | Update current selling price | `fragment.product_row` |
 | `POST` | `/products/{id}/deactivate` | Deactivate product | `fragment.product_row` |
+| `POST` | `/products/{id}/activate` | Reactivate inactive product | `fragment.product_row` |
 | `POST` | `/categories` | Create product category | Redirect `/products` or modal swap |
 | `GET` | `/inventory` | Multi-location stock overview | `page.inventory` |
 | `POST` | `/inventory/locations` | Register storage location | `fragment.location_list` |
 | `POST` | `/inventory/stock` | Establish stock position | `fragment.stock_row` |
 | `POST` | `/inventory/counts` | Record observational count | `fragment.count_row` |
+
+### Product Reactivation Extension (Approved Post-4A)
+To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:
+- **`ProductCommand::activate(int $id): bool`**: Executes parameterized `UPDATE producto SET estado_activo = 1, updated_at = UTC_TIMESTAMP() WHERE id_producto = :id` within the active transaction boundary. Operates strictly on the existing `id_producto`; creates no replacement or duplicate product row.
+- **`CatalogHandler::activate(Request $request, int $id): Response`**: Handles `POST /products/{id}/activate`. Enforces CSRF token validation, verifies that the product exists (returns 404 if not found), calls `ProductCommand::activate($id)`, and returns an HTMX swap or 303 redirect with a success notification.
+- **Route**: Registered as `POST /products/{id}/activate` in `config/routes.php`. Physical deletion (`DELETE /products/{id}`) remains strictly unsupported.
 
 ---
 

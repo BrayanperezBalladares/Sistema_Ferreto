@@ -241,6 +241,16 @@ CREATE TABLE conteo_inventario (
 | User action audit log in JSON | **Deferred / Unsupported for this change** | Belongs to R6. |
 | Data Warehouse ETL & BI dashboards | **Deferred / Unsupported for this change** | Belongs to R7 / R4. |
 
+#### 10.1 Decision Amendment: Reversible Product Lifecycle (Approved Post-4A)
+- **Original Baseline Decision:** Products followed an `ACTIVE -> INACTIVE` one-way deactivation rule with no reactivation workflow.
+- **Approved Decision Amendment (2026-09-07):** The maintainer explicitly approved changing the product lifecycle to a reversible `ACTIVE <-> INACTIVE` state transition.
+- **Rationale:** Products subject to temporary discontinuation, seasonal supplier availability changes, or accidental deactivations must be able to return to active status in the catalog without requiring duplicate product records or fracturing relational continuity.
+- **Core Invariants Preserved:**
+  1. Reactivation operates strictly on the existing database row with the same `id_producto`.
+  2. No duplicate or replacement product record is created.
+  3. All historical, inventory stock (`inventario_stock`), and count (`conteo_inventario`) references remain intact.
+  4. Physical SQL `DELETE` remains strictly prohibited for end-to-end traceability.
+
 ---
 
 ### Potential Implementation Slices (Review Budget <= 400 lines)

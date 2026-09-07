@@ -51,16 +51,37 @@ The system MUST maintain a single current selling price for each product. The pr
 
 ---
 
-### Requirement: Product Deactivation
+### Requirement: Product Lifecycle and Reactivation
 
-The system MUST provide a mechanism to deactivate a product. Deactivating a product MUST NOT physically delete the database record.
+The system MUST maintain a reversible lifecycle for product records (`ACTIVE` <-> `INACTIVE`). A newly registered product begins in the `ACTIVE` state. An active product may be deactivated, and an inactive product may subsequently be activated again. Both transitions MUST operate on the existing database row, preserving the original `id_producto`, attributes, and all existing inventory, count, and historical references. Physical deletion (`DELETE`) remains unsupported and strictly prohibited. Reactivation MUST NOT create a duplicate or replacement product record.
 
-#### Scenario: Deactivate an active product
+#### Scenario: Deactivate active product
 
-- GIVEN an active product
-- WHEN the product is deactivated
-- THEN its active status MUST be marked inactive
+- GIVEN an existing active product
+- WHEN deactivation is requested
+- THEN its active status MUST be marked inactive (`estado_activo = 0`)
+- AND the existing product record MUST remain in the database with unchanged `id_producto`
 - AND existing stock or count records referencing the product MUST remain intact
+
+#### Scenario: Reactivate inactive product
+
+- GIVEN an existing inactive product
+- WHEN activation is requested
+- THEN its active status MUST be marked active (`estado_activo = 1`)
+- AND the product record MUST maintain its existing `id_producto`
+- AND no duplicate or replacement product record is created
+
+#### Scenario: Preserve references across lifecycle changes
+
+- GIVEN a product with existing stock positions or observational count references
+- WHEN the product is deactivated and subsequently activated again
+- THEN all referenced product identities and relational associations MUST remain intact throughout both transitions
+
+#### Scenario: Physical deletion remains unsupported
+
+- GIVEN an existing product in either active or inactive state
+- WHEN lifecycle state transitions occur
+- THEN the system MUST NOT execute physical `DELETE` statements or remove the database row
 
 ---
 
