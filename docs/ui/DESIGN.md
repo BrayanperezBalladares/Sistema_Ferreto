@@ -315,12 +315,12 @@ The approved catalog screen (`/products`) unites the shell, controls, and data g
 4. **Estado:** Badge (`Activo` / `Inactivo`).
 5. **Acciones:**
    - Active products: `Actualizar precio` | `Desactivar`
-   - Inactive products: `Actualizar precio` (no deactivation, no reactivation action).
+   - Inactive products: `Actualizar precio` | `Activar`
 
 > [!CAUTION]
 > **Strict Operational Boundary:**
-> Do **NOT** render unapproved actions such as "Editar todo", "Eliminar", "Reactivar", or "Ver historial".
-> Only the approved domain operations (`Actualizar precio`, `Desactivar`) may appear.
+> Do **NOT** render unapproved actions such as "Editar todo", "Eliminar", "Restaurar", "Recuperar", or "Ver historial".
+> Only the approved domain operations (`Actualizar precio`, `Desactivar`, `Activar`) may appear.
 
 ---
 
@@ -362,8 +362,20 @@ The approved catalog screen (`/products`) unites the shell, controls, and data g
   - Confirmation Body:
     > *¿Estás seguro de que deseas desactivar el producto **[Nombre del Producto]**?*
     > *El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.*
-- **Actions:** `[ Confirmar desactivación ]` (Danger Red) | `[ Cancelar ]` (Secondary Light).
-- **Constraint:** Inactive products have no reactivation workflow in current scope.
+- **Actions:** `[ Confirmar desactivación ]` / `[ Desactivar ]` (Danger Red) | `[ Cancelar ]` (Secondary Light).
+
+### 5. Product Activation Confirmation Dialog
+- **Trigger:** Action button `Activar` on an inactive product.
+- **Dialog Context:**
+  - Header: `Activar producto`
+  - Confirmation Body:
+    > *¿Estás seguro de que deseas activar el producto **[Nombre del Producto]**?*
+    > *Este producto volverá a estar activo en el catálogo. Se conservará su información y sus referencias existentes.*
+- **Actions:** `[ Activar ]` (Primary Amber or Success) | `[ Cancelar ]` (Secondary Light).
+- **Constraints:**
+  - Activation is non-destructive and MUST NOT use danger/red styling.
+  - Operates strictly on the existing product record (`id_producto`).
+  - Canonical term is strictly `Activar` (never use "Restaurar", "Recuperar", or "Reactivar" in user copy).
 
 ---
 
@@ -443,6 +455,7 @@ All user-facing interface copy is strictly in **Spanish**:
 | Inactive | **Inactivo** | Status badge |
 | Unclassified | **Sin clasificar** | Missing category indicator |
 | Update Price | **Actualizar precio** | Row action |
+| Activate | **Activar** | Row action & modal title |
 | Deactivate | **Desactivar** | Row action & modal title |
 | Cancel | **Cancelar** | Secondary button |
 | Save | **Guardar cambios** | Primary modal button |
