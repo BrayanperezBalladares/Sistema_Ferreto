@@ -4,8 +4,18 @@ use App\Foundation\Renderer;
 
 /** @var list<array{id_producto: int, id_categoria: ?int, categoria_nombre: ?string, nombre: string, descripcion: ?string, precio_actual: string, estado_activo: int, created_at: string, updated_at: string}> $products */
 $products = $data['products'] ?? [];
+/** @var array<string, string> $errors */
+$errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
 ?>
 <div id="product-table-container">
+<?php if ($errors !== []): ?>
+  <div class="notification is-danger is-light mb-4" data-test="validation-errors">
+    <?php foreach ($errors as $field => $msg): ?>
+      <p><strong><?= Renderer::escape($field) ?>:</strong> <?= Renderer::escape($msg) ?></p>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
 <?php if ($products === []): ?>
   <div class="notification is-info is-light" data-test="empty-catalog">
     <p>No products found.</p>

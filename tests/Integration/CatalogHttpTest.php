@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\Config;
+use App\Foundation\Csrf;
 use App\Foundation\Database;
 use App\Foundation\MigrationRunner;
 use App\Foundation\Renderer;
 use App\Foundation\Request;
 use App\Foundation\Response;
 use App\Foundation\Router;
+use App\Foundation\Session;
 use App\Foundation\Transaction;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
+use App\Modules\Inventory\CategoryQuery;
 use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\ProductQuery;
 use PDO;
@@ -23,9 +26,10 @@ final class CatalogHttpTest extends TestCase
 {
     private static Database $testDb;
     private static Transaction $tx;
+    private static CategoryQuery $catQuery;
     private static CategoryCommand $catCmd;
-    private static ProductCommand $prodCmd;
     private static ProductQuery $prodQuery;
+    private static ProductCommand $prodCmd;
     private static Renderer $renderer;
 
     public static function setUpBeforeClass(): void
@@ -38,9 +42,10 @@ final class CatalogHttpTest extends TestCase
         $config = Config::fromEnvironment(require dirname(__DIR__, 2) . '/config/defaults.php');
         self::$testDb = new Database($config, useTestDatabase: true);
         self::$tx = new Transaction(self::$testDb);
+        self::$catQuery = new CategoryQuery(self::$testDb);
         self::$catCmd = new CategoryCommand(self::$tx);
-        self::$prodCmd = new ProductCommand(self::$tx);
         self::$prodQuery = new ProductQuery(self::$testDb);
+        self::$prodCmd = new ProductCommand(self::$tx);
         self::$renderer = new Renderer(dirname(__DIR__, 2));
 
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
@@ -61,9 +66,7 @@ final class CatalogHttpTest extends TestCase
 
     public function testNormalCatalogNavigationReturnsFullHtml(): void
     {
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request('GET', '/products'));
-
+        $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('<!doctype html>', $response->body);
         self::assertStringContainsString('Product Catalog', $response->body);
@@ -78,14 +81,7 @@ final class CatalogHttpTest extends TestCase
         self::$prodCmd->register('Martillo Galponero', '15.50', $catId);
         self::$prodCmd->register('Taladro Percutor', '89.00', $catId);
 
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request(
-            'GET',
-            '/products',
-            query: ['q' => 'Martillo'],
-            headers: ['hx-request' => 'true']
-        ));
-
+        $response = $this->dispatch(new Request('GET', '/products', query: ['q' => 'Martillo'], headers: ['hx-request' => 'true']));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<!doctype html>', $response->body);
         self::assertStringContainsString('Martillo Galponero', $response->body);
@@ -98,14 +94,7 @@ final class CatalogHttpTest extends TestCase
         $catId = self::$catCmd->create('Ferretería');
         self::$prodCmd->register('Clavo 2in', '0.05', $catId);
 
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request(
-            'GET',
-            '/products',
-            query: ['q' => 'Desconocido'],
-            headers: ['hx-request' => 'true']
-        ));
-
+        $response = $this->dispatch(new Request('GET', '/products', query: ['q' => 'Desconocido'], headers: ['hx-request' => 'true']));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<!doctype html>', $response->body);
         self::assertStringContainsString('No products found.', $response->body);
@@ -117,13 +106,7 @@ final class CatalogHttpTest extends TestCase
         $catId = self::$catCmd->create('Plomería');
         self::$prodCmd->register('Tubo PVC 1/2', '3.50', $catId);
 
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request(
-            'GET',
-            '/products',
-            headers: ['hx-request' => 'true']
-        ));
-
+        $response = $this->dispatch(new Request('GET', '/products', headers: ['hx-request' => 'true']));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<!doctype html>', $response->body);
         self::assertStringContainsString('id="product-table-container"', $response->body);
@@ -136,9 +119,7 @@ final class CatalogHttpTest extends TestCase
         $catId = self::$catCmd->create('<script>alert("cat-xss")</script>');
         self::$prodCmd->register('<script>alert("prod-xss")</script>', '12.50', $catId);
 
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request('GET', '/products'));
-
+        $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<script>alert("prod-xss")</script>', $response->body);
         self::assertStringContainsString('&lt;script&gt;alert(&quot;prod-xss&quot;)&lt;/script&gt;', $response->body);
@@ -149,29 +130,167 @@ final class CatalogHttpTest extends TestCase
     public function testActiveInactiveAndUnclassifiedPresentation(): void
     {
         $catId = self::$catCmd->create('Electricidad');
-        $p1 = self::$prodCmd->register('Cable 10mm', '4.20', $catId);
-        $p2 = self::$prodCmd->register('Tornillo Roscalata', '0.15', null);
+        self::$prodCmd->register('Cable 10mm', '4.20', $catId);
+        self::$prodCmd->register('Tornillo Roscalata', '0.15', null);
         $p3 = self::$prodCmd->register('Fusible 20A', '1.50', $catId);
         self::$prodCmd->deactivate($p3);
 
-        $router = $this->createRouter();
-        $response = $router->dispatch(new Request('GET', '/products'));
-
+        $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
-        // Active classified
         self::assertStringContainsString('Cable 10mm', $response->body);
         self::assertStringContainsString('Electricidad', $response->body);
-        // Active unclassified
         self::assertStringContainsString('Tornillo Roscalata', $response->body);
         self::assertStringContainsString('Unclassified', $response->body);
-        // Inactive classified
         self::assertStringContainsString('Fusible 20A', $response->body);
         self::assertStringContainsString('Inactive', $response->body);
     }
 
-    private function createRouter(): Router
+    public function testCategoryCreationSucceeds(): void
     {
-        $handler = new CatalogHandler(self::$renderer, self::$prodQuery);
+        $response = $this->post('/categories', ['nombre' => 'Fijaciones', 'descripcion' => 'Tornillos y anclajes']);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $saved = self::$catQuery->findByName('Fijaciones');
+        self::assertNotNull($saved);
+        self::assertSame('Fijaciones', $saved['nombre']);
+        self::assertSame('Tornillos y anclajes', $saved['descripcion']);
+    }
+
+    public function testDuplicateCategoryReturnsSafeValidationBehavior(): void
+    {
+        self::$catCmd->create('Fijaciones');
+        $response = $this->post('/categories', ['nombre' => 'Fijaciones']);
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('Category name already exists.', $response->body);
+        self::assertStringNotContainsString('SQLSTATE', $response->body);
+        self::assertStringNotContainsString('Duplicate entry', $response->body);
+    }
+
+    public function testCategoryOptionalDescriptionBehavior(): void
+    {
+        $response = $this->post('/categories', ['nombre' => 'Sin Descripcion', 'descripcion' => '']);
+        self::assertSame(303, $response->status);
+        $saved = self::$catQuery->findByName('Sin Descripcion');
+        self::assertNotNull($saved);
+        self::assertNull($saved['descripcion']);
+    }
+
+    public function testProductCreationWithCategory(): void
+    {
+        $catId = self::$catCmd->create('Pinturas');
+        $response = $this->post('/products', [
+            'nombre' => 'Esmalte Sintético', 'precio_actual' => '12.50', 'id_categoria' => (string) $catId, 'descripcion' => 'Secado rápido',
+        ]);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $results = self::$prodQuery->search('Esmalte Sintético');
+        self::assertCount(1, $results);
+        self::assertSame('Esmalte Sintético', $results[0]['nombre']);
+        self::assertSame('Pinturas', $results[0]['categoria_nombre']);
+        self::assertSame('12.50', $results[0]['precio_actual']);
+        self::assertSame(1, $results[0]['estado_activo']);
+    }
+
+    public function testProductCreationWithoutCategory(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'Lija al Agua', 'precio_actual' => '1.00', 'id_categoria' => '']);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $results = self::$prodQuery->search('Lija al Agua');
+        self::assertCount(1, $results);
+        self::assertNull($results[0]['id_categoria']);
+        self::assertNull($results[0]['categoria_nombre']);
+    }
+
+    public function testProductStartsActiveByDefault(): void
+    {
+        $this->post('/products', ['nombre' => 'Producto Activo', 'precio_actual' => '5.00']);
+        $results = self::$prodQuery->search('Producto Activo');
+        self::assertCount(1, $results);
+        self::assertSame(1, $results[0]['estado_activo']);
+    }
+
+    public function testValidZeroPriceAccepted(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'Muestra Gratis', 'precio_actual' => '0.00']);
+        self::assertSame(303, $response->status);
+        $results = self::$prodQuery->search('Muestra Gratis');
+        self::assertCount(1, $results);
+        self::assertSame('0.00', $results[0]['precio_actual']);
+    }
+
+    public function testNegativePriceRejected(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'Invalid Negative', 'precio_actual' => '-5.00']);
+        self::assertSame(422, $response->status);
+        self::assertEmpty(self::$prodQuery->search('Invalid Negative'));
+    }
+
+    public function testOverprecisionPriceRejected(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'Invalid Precision', 'precio_actual' => '10.123']);
+        self::assertSame(422, $response->status);
+        self::assertEmpty(self::$prodQuery->search('Invalid Precision'));
+    }
+
+    public function testMalformedPriceRejected(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'Invalid Format', 'precio_actual' => 'abc']);
+        self::assertSame(422, $response->status);
+        self::assertEmpty(self::$prodQuery->search('Invalid Format'));
+    }
+
+    public function testCsrfMissingOrInvalidForCategoryCreationProduces403(): void
+    {
+        $response = $this->post('/categories', ['nombre' => 'No Token'], withCsrf: false);
+        self::assertSame(403, $response->status);
+    }
+
+    public function testCsrfMissingOrInvalidForProductCreationProduces403(): void
+    {
+        $response = $this->post('/products', ['nombre' => 'No Token', 'precio_actual' => '1.00'], withCsrf: false);
+        self::assertSame(403, $response->status);
+    }
+
+    public function testRenderedRedisplayedUserInputIsEscaped(): void
+    {
+        $malicious = '<script>alert("prod-err")</script>';
+        $response = $this->post('/products', ['nombre' => $malicious, 'precio_actual' => 'invalid-price']);
+        self::assertSame(422, $response->status);
+        self::assertStringNotContainsString($malicious, $response->body);
+        self::assertStringContainsString('&lt;script&gt;alert(&quot;prod-err&quot;)&lt;/script&gt;', $response->body);
+    }
+
+    public function testNoInitialStatusSelectionBehaviorExists(): void
+    {
+        $response = $this->dispatch(new Request('GET', '/products'));
+        self::assertSame(200, $response->status);
+        self::assertStringNotContainsString('name="estado_activo"', $response->body);
+        self::assertStringNotContainsString('status dropdown', strtolower($response->body));
+    }
+
+    /**
+     * @param array<string, string> $body
+     */
+    private function post(string $path, array $body, bool $withCsrf = true): Response
+    {
+        $session = new CatalogMemorySession();
+        $csrf = new Csrf($session);
+        if ($withCsrf) {
+            $body['_csrf'] = $csrf->token();
+        }
+        return $this->dispatch(new Request('POST', $path, body: $body), $csrf);
+    }
+
+    private function dispatch(Request $request, ?Csrf $csrf = null): Response
+    {
+        $session = new CatalogMemorySession();
+        $actualCsrf = $csrf ?? new Csrf($session);
+        $actualCsrf->token();
+        $handler = new CatalogHandler(self::$renderer, self::$prodQuery, self::$catQuery, self::$catCmd, self::$prodCmd, $actualCsrf);
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
         $routes = [];
@@ -180,7 +299,36 @@ final class CatalogHttpTest extends TestCase
                 $routes[] = [$method, $path, $handler->handle(...)];
             }
         }
+        $router = new Router($routes);
 
-        return new Router($routes);
+        return $router->dispatch($request, static function (Request $matched) use ($actualCsrf): ?Response {
+            if (!in_array($matched->method, ['GET', 'HEAD', 'OPTIONS'], true) && !$actualCsrf->valid($matched)) {
+                return new Response(403, [], 'Forbidden');
+            }
+            return null;
+        });
+    }
+}
+
+final class CatalogMemorySession implements Session
+{
+    /** @var array<string, mixed> */
+    private array $values = [];
+
+    public function get(string $key): mixed
+    {
+        return $this->values[$key] ?? null;
+    }
+
+    public function set(string $key, mixed $value): void
+    {
+        $this->values[$key] = $value;
+    }
+
+    public function remove(string $key): mixed
+    {
+        $value = $this->get($key);
+        unset($this->values[$key]);
+        return $value;
     }
 }
