@@ -26,10 +26,10 @@
 
 ## Phase 4: Server-Rendered Catalog UI (Slice 4A — `product-catalog`)
 
-- [ ] 4.1 Implement `src/Modules/Inventory/CatalogHandler.php` handling catalog listing, live search, product creation, price updating, and category creation.
-- [ ] 4.2 Create Bulma templates `templates/pages/products.php` and `templates/fragments/product_table.php` with HTMX live search and CSRF-protected modal forms.
-- [ ] 4.3 Register catalog routes in `config/routes.php` (`GET /products`, `POST /products`, `POST /products/{id}/price`, `POST /products/{id}/deactivate`, `POST /categories`).
-- [ ] 4.4 Add HTTP integration test `tests/Integration/CatalogHttpTest.php` verifying 200/422 status, HTMX partial rendering, and CSRF token enforcement.
+- [x] 4.1 Implement `src/Modules/Inventory/CatalogHandler.php` handling catalog listing, live search, product creation, price updating, and category creation.
+- [x] 4.2 Create Bulma templates `templates/pages/products.php` and `templates/fragments/product_table.php` with HTMX live search and CSRF-protected modal forms.
+- [x] 4.3 Register catalog routes in `config/routes.php` (`GET /products`, `POST /products`, `POST /products/{id}/price`, `POST /products/{id}/deactivate`, `POST /categories`).
+- [x] 4.4 Add HTTP integration test `tests/Integration/CatalogHttpTest.php` verifying 200/422 status, HTMX partial rendering, and CSRF token enforcement.
 
 ## Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — `inventory-locations-stock`)
 

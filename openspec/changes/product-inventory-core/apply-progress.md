@@ -110,7 +110,71 @@
 
 ---
 
+### Slice 4A: Server-Rendered Catalog UI
+- **Phase Intent**: Complete Tasks 4.1 through 4.4 implementing catalog browsing, live HTMX search, category creation, product registration, price updating, and product deactivation with CSRF protection and output escaping.
+- **Review Budget & Subdivision Strategy**:
+  - Proactively subdivided into **4A1** (Catalog Browse & Search) and **4A2** (Catalog Mutations) to satisfy the $\le 400$ changed authored lines budget limit.
+  - When combined 4A2 produced 575 insertions, the review-budget stop gate was triggered and the decision made to further subdivide into **4A2a** (Category & Product Creation) and **4A2b** (Price Update & Product Deactivation) without size exceptions.
+
+#### Slice 4A1: Catalog Browse & Search
+- **Commit**: `f31eb95` (`feat(inventory): add catalog browsing interface`)
+- **Diff Stat**: 6 files changed, 318 insertions(+), 0 deletions(-) (318 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Foundation/Renderer.php`: Registered `page.products` and `fragment.product_table` in allowlist.
+  - `config/routes.php`: Registered `GET /products` route.
+  - `src/Modules/Inventory/CatalogHandler.php`: Handled `GET /products` using `ProductQuery::search()`, returning `page.products` for standard navigation and `fragment.product_table` for HTMX with `Vary: HX-Request`.
+  - `templates/fragments/product_table.php`: Rendered product table displaying product name, category name (or explicit `Unclassified`), price, and status, with empty-state handling.
+  - `templates/pages/products.php`: Server-rendered Bulma page layout with search bar supporting live search via `hx-get="/products"`, `hx-target="#product-table-container"`, `hx-swap="outerHTML"`.
+  - `tests/Integration/CatalogHttpTest.php`: 6 tests verifying full HTML page navigation, matching keyword search, non-matching empty state, HTMX fragment swapping, XSS escaping, and active/inactive/unclassified display.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`scratch/wt-4a1`) at `f31eb95`.
+  - Targeted tests: 6 tests, 32 assertions (100% green).
+  - Full suite: 107 tests, 285 assertions (100% green).
+  - PHPStan: 39/39 files, 0 errors at Level Max.
+  - Development DB: 0 tables (untouched).
+
+#### Slice 4A2a: Category & Product Creation
+- **Commit**: `0f6aa88` (`feat(inventory): add category and product creation`)
+- **Diff Stat**: 5 files changed, 385 insertions(+), 61 deletions(-) (385 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `config/routes.php`: Registered `POST /categories` and `POST /products`.
+  - `src/Modules/Inventory/CatalogHandler.php`: Added `createCategory` (unique name enforcement, optional description, 422 validation response) and `createProduct` (required name, decimal price, optional category verification, default active status, 422 validation response).
+  - `templates/pages/products.php`: Added CSRF-protected Bulma creation forms for category and product.
+  - `templates/fragments/product_table.php`: Added validation error display.
+  - `tests/Integration/CatalogHttpTest.php`: 20 tests verifying category creation, duplicate category error handling, product registration with/without category, default active status, 0.00 price acceptance, negative/overprecision/malformed price rejection, CSRF 403 enforcement, XSS escaping, and absence of initial-status controls.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`scratch/wt-4a2a`) at `0f6aa88`.
+  - Targeted tests: 20 tests, 75 assertions (100% green).
+  - Full suite: 121 tests, 328 assertions (100% green).
+  - PHPStan: 39/39 files, 0 errors at Level Max.
+  - Development DB: 0 tables (untouched).
+
+#### Slice 4A2b: Price Update & Product Deactivation
+- **Commit**: `bc40dcc` (`feat(inventory): add price update and product deactivation`)
+- **Diff Stat**: 6 files changed, 215 insertions(+), 3 deletions(-) (215 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Foundation/Router.php`: Added minimal, generic parameterized route matching (`matchPath`) supporting `{param}` pattern without product-specific coupling, preserving exact route performance, traversal checks, and 404/405 semantics.
+  - `config/routes.php`: Registered `POST /products/{id}/price` and `POST /products/{id}/deactivate`.
+  - `src/Modules/Inventory/CatalogHandler.php`: Added `updatePrice` (exact decimal price validation, zero-price support, 404 on missing product, 422 on invalid price) and `deactivate` (soft deactivation preserving rows and references, 404 on missing product).
+  - `templates/fragments/product_table.php`: Added inline price update form with CSRF and deactivation button for active products; inactive products render inactive tag without reactivation action.
+  - `tests/Integration/HttpTest.php`: Added parameterized route tests verifying exact match, parameter match, 405 Method Not Allowed, and 404 Not Found.
+  - `tests/Integration/CatalogHttpTest.php`: 32 tests verifying valid price update, zero price update, negative/overprecision/malformed price rejection, price-update CSRF 403, active product deactivation, deactivation CSRF 403, storage retention after deactivation, inactive state, absence of physical DELETE routes, absence of reactivation routes, and inactive display without activate button.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`scratch/wt-4a2b`) at `bc40dcc`.
+  - Targeted tests: 32 tests, 107 assertions (100% green); `HttpTest`: 23 tests, 67 assertions (100% green).
+  - Full suite: 134 tests, 367 assertions (100% green).
+  - PHPStan: 39/39 files, 0 errors at Level Max.
+  - Development DB: 0 tables (untouched).
+
+---
+
+## Database Invariant Audit
+- Local environment audited against maintainer-approved configuration:
+  - Development (`sistema_ferreto` on `127.0.0.1:3309` as `ferreto_app@127.0.0.1`): 0 tables, completely untouched.
+  - Test (`sistema_ferreto_test` on `127.0.0.1:3309` as `ferreto_test@127.0.0.1`): verified ending in `_test`, isolated execution.
+
+---
+
 ## Remaining Tasks
-- **Phase 4: Server-Rendered Catalog UI (Slice 4A — Tasks 4.1–4.4)**: Pending
 - **Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — Tasks 5.1–5.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
