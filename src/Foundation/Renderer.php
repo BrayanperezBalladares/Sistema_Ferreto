@@ -12,6 +12,7 @@ final readonly class Renderer
         'fragment.notification' => 'fragments/notification.php',
         'page.products' => 'pages/products.php',
         'fragment.product_table' => 'fragments/product_table.php',
+        'page.locations' => 'pages/locations.php',
         'error' => 'error.php',
     ];
 

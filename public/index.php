@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
-use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, ProductCommand, ProductQuery};
+use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -38,10 +38,16 @@ $catalog = new CatalogHandler(
     new ProductCommand($tx),
     $csrf
 );
+$location = new LocationHandler(
+    $renderer,
+    new LocationQuery($database),
+    $csrf
+);
 
 $handlers = [
     'health' => $health->handle(...),
     'catalog' => $catalog->handle(...),
+    'location' => $location->handle(...),
 ];
 
 /** @var list<array{string, string, string}> $routeConfig */

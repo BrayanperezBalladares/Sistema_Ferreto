@@ -19,11 +19,18 @@
           <span class="brand-sub">Ferreterías</span>
         </div>
       </div>
+<?php
+$activeNav = $activeNav ?? 'products';
+?>
       <nav class="sidebar-nav" aria-label="Navegación principal">
         <div class="nav-section-label">Catálogo</div>
-        <a href="/products" class="nav-item is-active">
+        <a href="/products" class="nav-item <?= $activeNav === 'products' ? 'is-active' : '' ?>">
           <span class="nav-icon" aria-hidden="true">📦</span>
           <span class="nav-label">Productos</span>
+        </a>
+        <a href="/locations" class="nav-item <?= $activeNav === 'locations' ? 'is-active' : '' ?>">
+          <span class="nav-icon" aria-hidden="true">📍</span>
+          <span class="nav-label">Ubicaciones</span>
         </a>
       </nav>
     </aside>
@@ -32,7 +39,7 @@
         <div class="topbar-context">
           <span class="topbar-crumb">Catálogo</span>
           <span class="topbar-sep" aria-hidden="true">/</span>
-          <span class="topbar-current">Productos</span>
+          <span class="topbar-current"><?= $activeNav === 'locations' ? 'Ubicaciones' : 'Productos' ?></span>
         </div>
       </header>
       <main class="app-workspace">
