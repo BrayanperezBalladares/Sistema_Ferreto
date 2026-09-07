@@ -166,6 +166,12 @@ final class StockTest extends TestCase
     {
         $runner = new MigrationRunner(self::$testDb);
         $migrationsPath = dirname(__DIR__, 2) . '/database/migrations';
+        if (file_exists($migrationsPath . '/0006_create_conteo_inventario.up.sql')) {
+            $applied = self::$testDb->pdo()->query("SELECT 1 FROM schema_migrations WHERE identifier = '0006_create_conteo_inventario'")->fetch();
+            if ($applied !== false) {
+                $runner->revert('0006_create_conteo_inventario', $migrationsPath);
+            }
+        }
 
         $runner->revert('0005_create_inventario_stock', $migrationsPath);
         $tablesStock = self::$testDb->pdo()->query("SHOW TABLES LIKE 'inventario_stock'")->fetchAll();
