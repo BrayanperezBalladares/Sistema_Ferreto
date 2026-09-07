@@ -171,6 +171,57 @@ final class CatalogTest extends TestCase
         self::assertSame(0, (int) $prod['estado_activo']);
     }
 
+    public function testProductActivation(): void
+    {
+        $prodId = self::$prodCmd->register('Nivel Torpedo', '60.00');
+        self::assertTrue(self::$prodCmd->deactivate($prodId));
+        $prod = self::$prodQuery->findById($prodId);
+        self::assertIsArray($prod);
+        self::assertSame(0, (int) $prod['estado_activo']);
+
+        self::assertTrue(self::$prodCmd->activate($prodId));
+        $activated = self::$prodQuery->findById($prodId);
+        self::assertIsArray($activated);
+        self::assertSame(1, (int) $activated['estado_activo']);
+        self::assertSame('Nivel Torpedo', $activated['nombre']);
+        self::assertSame('60.00', $activated['precio_actual']);
+    }
+
+    public function testActivationPreservesSameProductIdentityAndReferences(): void
+    {
+        $catId = self::$catCmd->create('Ferretería General');
+        $prodId = self::$prodCmd->register('Martillo Forjado', '120.00', $catId, 'Herramienta pesada');
+
+        $pdo = self::$testDb->pdo();
+        $pdo->exec("INSERT INTO ubicacion (codigo, descripcion, estado_activo, created_at, updated_at) VALUES ('PASILLO-R1', 'Pasillo R1', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $locId = (int) $pdo->lastInsertId();
+
+        $pdo->exec("INSERT INTO inventario_stock (id_producto, id_ubicacion, cantidad, created_at, updated_at) VALUES ({$prodId}, {$locId}, 25.000, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $stockId = (int) $pdo->lastInsertId();
+
+        self::assertTrue(self::$prodCmd->deactivate($prodId));
+        $prodDeact = self::$prodQuery->findById($prodId);
+        self::assertIsArray($prodDeact);
+        self::assertSame(0, (int) $prodDeact['estado_activo']);
+
+        self::assertTrue(self::$prodCmd->activate($prodId));
+
+        $allProducts = self::$prodQuery->search('Martillo Forjado');
+        self::assertCount(1, $allProducts);
+        self::assertSame($prodId, $allProducts[0]['id_producto']);
+        self::assertSame(1, $allProducts[0]['estado_activo']);
+        self::assertSame($catId, $allProducts[0]['id_categoria']);
+        self::assertSame('120.00', $allProducts[0]['precio_actual']);
+
+        $stmt = $pdo->query("SELECT id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = {$stockId}");
+        $stock = $stmt->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($stock);
+        self::assertSame($prodId, (int) $stock['id_producto']);
+        self::assertSame($locId, (int) $stock['id_ubicacion']);
+        self::assertSame('25.000', $stock['cantidad']);
+    }
+
+
     public function testReferentialIntegrityRestrictsCategoryDeletionWithProducts(): void
     {
         $catId = self::$catCmd->create('Electricidad');

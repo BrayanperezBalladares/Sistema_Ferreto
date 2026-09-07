@@ -388,13 +388,71 @@ final class CatalogHttpTest extends TestCase
         self::assertNotNull($exists);
     }
 
-    public function testNoReactivationRouteOrBehavior(): void
+    public function testInactiveProductCanBeActivated(): void
     {
-        $id = self::$prodCmd->register('Sin Reactivar', '25.00');
+        $id = self::$prodCmd->register('Sierra Caladora', '95.00');
         self::$prodCmd->deactivate($id);
+        $deactivated = self::$prodQuery->findById($id);
+        self::assertNotNull($deactivated);
+        self::assertSame(0, $deactivated['estado_activo']);
+
         $response = $this->post("/products/{$id}/activate", []);
-        self::assertContains($response->status, [404, 405]);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $activated = self::$prodQuery->findById($id);
+        self::assertNotNull($activated);
+        self::assertSame(1, $activated['estado_activo']);
+        self::assertSame('Sierra Caladora', $activated['nombre']);
+        self::assertSame('95.00', $activated['precio_actual']);
+        self::assertSame($id, $activated['id_producto']);
     }
+
+    public function testActivationCsrfFailureProduces403(): void
+    {
+        $id = self::$prodCmd->register('Test Act CSRF', '10.00');
+        self::$prodCmd->deactivate($id);
+        $response = $this->post("/products/{$id}/activate", [], withCsrf: false);
+        self::assertSame(403, $response->status);
+    }
+
+    public function testActivationNonexistentProductReturns404(): void
+    {
+        $response = $this->post('/products/99999/activate', []);
+        self::assertSame(404, $response->status);
+    }
+
+    public function testActivationPreservesStockReferenceAndCreatesNoDuplicate(): void
+    {
+        $catId = self::$catCmd->create('Corte');
+        $id = self::$prodCmd->register('Disco Diamantado', '40.00', $catId);
+
+        $pdo = self::$testDb->pdo();
+        $pdo->exec("INSERT INTO ubicacion (codigo, descripcion, estado_activo, created_at, updated_at) VALUES ('UBIC-ACT-1', 'Estante C', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $locId = (int) $pdo->lastInsertId();
+        $pdo->exec("INSERT INTO inventario_stock (id_producto, id_ubicacion, cantidad, created_at, updated_at) VALUES ({$id}, {$locId}, 12.000, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $stockId = (int) $pdo->lastInsertId();
+
+        self::$prodCmd->deactivate($id);
+
+        $response = $this->post("/products/{$id}/activate", []);
+        self::assertSame(303, $response->status);
+
+        $searchResults = self::$prodQuery->search('Disco Diamantado');
+        self::assertCount(1, $searchResults);
+        self::assertSame($id, $searchResults[0]['id_producto']);
+        self::assertSame(1, $searchResults[0]['estado_activo']);
+        self::assertSame($catId, $searchResults[0]['id_categoria']);
+        self::assertSame('40.00', $searchResults[0]['precio_actual']);
+
+        $stmt = $pdo->query("SELECT id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = {$stockId}");
+        $stock = $stmt->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($stock);
+        self::assertSame($id, (int) $stock['id_producto']);
+        self::assertSame($locId, (int) $stock['id_ubicacion']);
+        self::assertSame('12.000', $stock['cantidad']);
+    }
+
 
     public function testInactiveProductDoesNotRenderReactivateAction(): void
     {

@@ -49,4 +49,14 @@ final readonly class ProductCommand
             return $stmt->rowCount() > 0;
         });
     }
+
+    public function activate(int $idProducto): bool
+    {
+        return $this->tx->run(function (PDO $pdo) use ($idProducto): bool {
+            $stmt = $pdo->prepare('UPDATE producto SET estado_activo = 1, updated_at = UTC_TIMESTAMP() WHERE id_producto = :id');
+            $stmt->bindValue(':id', $idProducto, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->rowCount() > 0;
+        });
+    }
 }

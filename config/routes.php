@@ -10,4 +10,5 @@ return [
     ['POST', '/products', 'catalog'],
     ['POST', '/products/{id}/price', 'catalog'],
     ['POST', '/products/{id}/deactivate', 'catalog'],
+    ['POST', '/products/{id}/activate', 'catalog'],
 ];

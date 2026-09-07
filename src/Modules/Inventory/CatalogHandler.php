@@ -41,7 +41,11 @@ final readonly class CatalogHandler implements Handler
             if (preg_match('#^/products/(\d+)/deactivate$#', $request->path, $matches) === 1) {
                 return $this->deactivate($request, (int) $matches[1]);
             }
+            if (preg_match('#^/products/(\d+)/activate$#', $request->path, $matches) === 1) {
+                return $this->activate($request, (int) $matches[1]);
+            }
         }
+
 
         return new Response(405, ['Allow' => 'GET, POST']);
     }
@@ -132,6 +136,18 @@ final readonly class CatalogHandler implements Handler
 
         return $this->mutationSuccess($request, 'Product deactivated successfully.');
     }
+
+    private function activate(Request $request, int $id): Response
+    {
+        if ($this->productQuery->findById($id) === null) {
+            return new Response(404);
+        }
+
+        $this->productCommand->activate($id);
+
+        return $this->mutationSuccess($request, 'Product activated successfully.');
+    }
+
 
     private function mutationSuccess(Request $request, string $message): Response
     {
