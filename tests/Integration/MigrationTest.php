@@ -123,7 +123,7 @@ final class MigrationTest extends TestCase
         self::assertSame(['0001_ok'], $history);
 
         $lockConn = new Database(self::$testConfig, useTestDatabase: true);
-        $lockName = 'ferreto_migrations_lock_sistema_ferreto_test';
+        $lockName = 'ferreto_migrations_lock_' . self::$testConfig->get('TEST_DB_NAME');
         $acquired = $lockConn->pdo()->query("SELECT GET_LOCK('{$lockName}', 0)")->fetchColumn();
         self::assertSame(1, (int) $acquired, 'Runner must release its advisory lock in finally on failure.');
         $lockConn->pdo()->query("SELECT RELEASE_LOCK('{$lockName}')");
@@ -181,7 +181,7 @@ final class MigrationTest extends TestCase
     public function testAdvisoryLockContentionAndRelease(): void
     {
         $lockConn = new Database(self::$testConfig, useTestDatabase: true);
-        $lockName = 'ferreto_migrations_lock_sistema_ferreto_test';
+        $lockName = 'ferreto_migrations_lock_' . self::$testConfig->get('TEST_DB_NAME');
 
         $acquired = $lockConn->pdo()->query("SELECT GET_LOCK('{$lockName}', 5)")->fetchColumn();
         self::assertSame(1, (int) $acquired);

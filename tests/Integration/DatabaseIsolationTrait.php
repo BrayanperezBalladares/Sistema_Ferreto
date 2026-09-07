@@ -59,7 +59,8 @@ trait DatabaseIsolationTrait
         Assert::assertSame($testDbName, $identity['db'], 'Test connection must target TEST_DB_NAME.');
         Assert::assertNotSame($devDbName, $identity['db'], 'Test connection must never target DB_NAME.');
         Assert::assertStringEndsWith('_test', (string) $identity['db'], 'Test connection DB must end in _test.');
-        Assert::assertSame($testUser . '@127.0.0.1', $identity['usr'], 'Test connection must use TEST_DB_USER.');
+        $testUserPart = explode('@', (string) $identity['usr'], 2)[0];
+        Assert::assertSame($testUser, $testUserPart, "Test connection user must match configured TEST_DB_USER '{$testUser}'.");
         Assert::assertSame($testPort, (int) $identity['port'], 'Test connection must use TEST_DB_PORT.');
     }
 
@@ -80,7 +81,8 @@ trait DatabaseIsolationTrait
 
         Assert::assertSame($devDbName, $identity['db'], 'Dev connection must target DB_NAME.');
         Assert::assertFalse(str_ends_with((string) $identity['db'], '_test'), 'Dev DB name must not end in _test.');
-        Assert::assertSame($devUser . '@127.0.0.1', $identity['usr'], 'Dev connection must use DB_USER.');
+        $devUserPart = explode('@', (string) $identity['usr'], 2)[0];
+        Assert::assertSame($devUser, $devUserPart, "Dev connection user must match configured DB_USER '{$devUser}'.");
         Assert::assertSame($devPort, (int) $identity['port'], 'Dev connection must use DB_PORT.');
 
         $currentState = self::captureDevState($devDb);

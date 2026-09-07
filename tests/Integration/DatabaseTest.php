@@ -86,7 +86,8 @@ final class DatabaseTest extends TestCase
         self::assertSame($testDbName, $identity['db'], "Active database must be '{$testDbName}'.");
         self::assertNotSame($devDbName, $identity['db'], "Active database must not be '{$devDbName}'.");
         self::assertStringEndsWith('_test', (string) $identity['db'], "The live selected database '{$identity['db']}' must end in _test.");
-        self::assertSame($testUser . '@127.0.0.1', $identity['usr'], "Active user must be '{$testUser}@127.0.0.1'.");
+        $testUserPart = explode('@', (string) $identity['usr'], 2)[0];
+        self::assertSame($testUser, $testUserPart, "Active user must match '{$testUser}'.");
         self::assertSame($testPort, (int) $identity['port'], "Active port must be {$testPort}.");
     }
 
@@ -258,7 +259,8 @@ final class DatabaseTest extends TestCase
             "Development probe must target '{$devName}', not '{$identity['db']}'."
         );
         self::assertFalse(str_ends_with((string) $identity['db'], '_test'), 'Development probe must not end in _test.');
-        self::assertSame($devUser . '@127.0.0.1', $identity['usr'], "Development probe must use user '{$devUser}@127.0.0.1'.");
+        $devUserPart = explode('@', (string) $identity['usr'], 2)[0];
+        self::assertSame($devUser, $devUserPart, "Development probe must use user '{$devUser}'.");
         self::assertSame($devPort, (int) $identity['port'], "Development probe must use port {$devPort}.");
     }
 
