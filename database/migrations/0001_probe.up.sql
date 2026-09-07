@@ -1,0 +1,5 @@
+CREATE TABLE infrastructure_probe (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    created_at DATETIME     NOT NULL DEFAULT (UTC_TIMESTAMP()),
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

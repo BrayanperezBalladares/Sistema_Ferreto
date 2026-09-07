@@ -30,9 +30,10 @@ final class Console
         try {
             return match ($arguments[0]) {
                 'verify-assets' => $this->verifyAssets(),
-                'config' => $this->validateConfig(),
-                'serve' => $this->serve(),
-                'migrate', 'seed' => $this->notAvailable($arguments[0]),
+                'config'        => $this->validateConfig(),
+                'serve'         => $this->serve(),
+                'migrate'       => $this->runMigrate(),
+                'seed'          => $this->notAvailable('seed'),
                 default => 64,
             };
         } catch (Throwable $exception) {
@@ -62,6 +63,14 @@ final class Console
         }
         $process = proc_open($command, [STDIN, STDOUT, STDERR], $pipes, $this->root);
         return is_resource($process) ? proc_close($process) : 1;
+    }
+
+    private function runMigrate(): int
+    {
+        $config = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db     = new Database($config);
+        (new MigrationRunner($db))->run($this->root . '/database/migrations');
+        return 0;
     }
 
     private function notAvailable(string $command): int
