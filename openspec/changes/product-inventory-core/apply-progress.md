@@ -166,11 +166,26 @@
   - PHPStan: 39/39 files, 0 errors at Level Max.
   - Development DB: 0 tables (untouched).
 
+#### Post-4A Correction: Catalog Entrypoint Integration Fix
+- **Commit**: `b56cb40` (`fix(inventory): wire catalog into application entrypoint`)
+- **Discovery**: Browser smoke testing revealed `GET /health` returned 200 OK while `GET /products` returned 500 Internal Server Error (`Undefined array key "catalog"` in `public/index.php:31`). `CatalogHttpTest` had previously constructed `CatalogHandler` directly in test isolation, masking the omitted production composition wiring in the front controller.
+- **Root Cause & Fix**: `public/index.php` registered only the `'health'` handler. Fixed by instantiating `Database` (with `APP_ENV === 'test'` isolation check), `Transaction`, `ProductQuery`, `CategoryQuery`, `CategoryCommand`, `ProductCommand`, and `CatalogHandler`, registering `'catalog' => $catalog->handle(...)` in the front controller handler map.
+- **Regression Test**: Added `CatalogHttpTest::testProductionEntrypointServesCatalog` executing a subprocess front-controller run (`public/index.php`) with `REQUEST_URI=/products` under `APP_ENV=test`. Proved fail-on-unwired (catches missing handler key, stderr warning, error logging, and `Request failed` 500 output) and pass-on-wired (clean exit code 0, empty error log, valid Bulma catalog HTML output containing `Product Catalog` and `id="product-table-container"`).
+- **Test Isolation Harmonization**: Harmonized `testDevelopmentDatabaseRemainsUntouched` across `CatalogTest`, `CountTest`, `MigrationTest`, `SeedTest`, and `StockTest` to support both unmigrated and legitimately migrated development database states while strictly asserting zero test rows in application tables.
+- **Real Localhost Verification**:
+  - `GET http://127.0.0.1:8000/health` → `200 OK`
+  - `GET http://127.0.0.1:8000/products` → `200 OK` (4,175 bytes, Bulma catalog layout, empty state `No products found`, category creation form, product registration form).
+- **Verification Evidence**:
+  - Targeted test (`CatalogHttpTest`): 33 tests, 114 assertions (100% green).
+  - Full test suite (`composer test`): 135 tests, 382 assertions (100% green).
+  - Static analysis (`composer analyse`): 39/39 files, 0 errors at PHPStan Level Max (Level 10).
+  - Development DB (`sistema_ferreto`): 7 schema tables, exactly 0 application rows (untouched by tests).
+
 ---
 
 ## Database Invariant Audit
 - Local environment audited against maintainer-approved configuration:
-  - Development (`sistema_ferreto` on `127.0.0.1:3309` as `ferreto_app@127.0.0.1`): 0 tables, completely untouched.
+  - Development (`sistema_ferreto` on `127.0.0.1:3309` as `ferreto_app@127.0.0.1`): 7 tables (migrated 0001-0006), 0 application rows.
   - Test (`sistema_ferreto_test` on `127.0.0.1:3309` as `ferreto_test@127.0.0.1`): verified ending in `_test`, isolated execution.
 
 ---
