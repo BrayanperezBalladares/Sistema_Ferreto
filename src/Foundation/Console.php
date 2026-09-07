@@ -33,7 +33,7 @@ final class Console
                 'config'        => $this->validateConfig(),
                 'serve'         => $this->serve(),
                 'migrate'       => $this->runMigrate(),
-                'seed'          => $this->notAvailable('seed'),
+                'seed'          => $this->runSeed(),
                 default => 64,
             };
         } catch (Throwable $exception) {
@@ -73,9 +73,11 @@ final class Console
         return 0;
     }
 
-    private function notAvailable(string $command): int
+    private function runSeed(): int
     {
-        fwrite(STDERR, "Command '{$command}' is reserved for the transactional data slice.\n");
-        return 69;
+        $config = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db     = new Database($config);
+        (new SeedRunner($db, $config->get('APP_ENV')))->run($this->root . '/database/seeds');
+        return 0;
     }
 }

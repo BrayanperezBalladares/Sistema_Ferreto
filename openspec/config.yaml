@@ -14,8 +14,8 @@ projects: []
 
 testing:
   strict_tdd: false
-  workspace_test_command: ""
-  reason: "No supported implementation project root and no explicit workspace-wide test command were discovered."
+  workspace_test_command: "composer test"
+  reason: "Verified PHPUnit test suite covering Foundation runtime, HTTP delivery, and MariaDB transactional persistence."
   capabilities_file: "openspec/testing-capabilities.md"
 
 rules:
@@ -35,10 +35,10 @@ rules:
       - Follow the documented PHP/HTMX/Bulma module convention when implementation begins.
       - Add or update tests with implementation changes.
     tdd: false
-    test_command: ""
+    test_command: "composer test"
   verify:
-    test_command: ""
-    build_command: ""
+    test_command: "composer test"
+    build_command: "composer setup"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas.
