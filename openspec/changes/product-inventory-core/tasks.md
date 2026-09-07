@@ -2,12 +2,12 @@
 
 ## Phase 1: Catalog Foundation (Slice 1 — `product-catalog`)
 
-- [ ] 1.1 Create migration `database/migrations/0002_create_categoria.up.sql` (`categoria` table: `id_categoria` PK, `nombre` UNIQUE, `descripcion`, timestamps) and compensating reversal `0002_create_categoria.down.sql`.
-- [ ] 1.2 Create migration `database/migrations/0003_create_producto.up.sql` (`producto` table: `id_producto` PK, nullable `id_categoria` FK RESTRICT, `nombre`, `descripcion`, `precio_actual` DECIMAL(12,2) with CHECK >= 0, `estado_activo`, timestamps) and reversal `0003_create_producto.down.sql`.
-- [ ] 1.3 Implement `src/Modules/Inventory/CategoryQuery.php` and `CategoryCommand.php` for unique category registration and listing via PDO prepared statements.
-- [ ] 1.4 Implement `src/Modules/Inventory/ProductQuery.php` and `ProductCommand.php` for product registration, price update, and soft deactivation (`estado_activo = 0`).
-- [ ] 1.5 Implement `src/Modules/Inventory/CatalogValidator.php` for exact string decimal price validation (accepting at most 2 fractional digits via `/^\d+(\.\d{1,2})?$/`, rejecting negative values, without PHP float arithmetic).
-- [ ] 1.6 Add integration test `tests/Integration/CatalogTest.php` verifying category uniqueness, product CRUD, price non-negativity, nullable category assignment, and deactivation.
+- [x] 1.1 Create migration `database/migrations/0002_create_categoria.up.sql` (`categoria` table: `id_categoria` PK, `nombre` UNIQUE, `descripcion`, timestamps) and compensating reversal `0002_create_categoria.down.sql`.
+- [x] 1.2 Create migration `database/migrations/0003_create_producto.up.sql` (`producto` table: `id_producto` PK, nullable `id_categoria` FK RESTRICT, `nombre`, `descripcion`, `precio_actual` DECIMAL(12,2) with CHECK >= 0, `estado_activo`, timestamps) and reversal `0003_create_producto.down.sql`.
+- [x] 1.3 Implement `src/Modules/Inventory/CategoryQuery.php` and `CategoryCommand.php` for unique category registration and listing via PDO prepared statements.
+- [x] 1.4 Implement `src/Modules/Inventory/ProductQuery.php` and `ProductCommand.php` for product registration, price update, and soft deactivation (`estado_activo = 0`).
+- [x] 1.5 Implement `src/Modules/Inventory/CatalogValidator.php` for exact string decimal price validation (accepting at most 2 fractional digits via `/^\d+(\.\d{1,2})?$/`, rejecting negative values, without PHP float arithmetic).
+- [x] 1.6 Add integration test `tests/Integration/CatalogTest.php` verifying category uniqueness, product CRUD, price non-negativity, nullable category assignment, and deactivation.
 
 ## Phase 2: Storage Locations & Associative Stock (Slice 2 — `inventory-locations-stock`)
 
