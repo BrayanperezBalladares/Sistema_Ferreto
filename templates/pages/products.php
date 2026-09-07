@@ -190,7 +190,30 @@ ob_start();
       </form>
     </div>
   </div>
+
+  <!-- Modal: Activar producto -->
+  <div class="modal" id="modal-activate" role="dialog" aria-modal="true" aria-labelledby="modal-activate-title">
+    <div class="modal-background" data-modal-close></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-activate-title">Activar producto</p>
+        <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+      </header>
+      <form method="post" id="form-activate-product" action="">
+        <section class="modal-card-body">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <p class="mb-2">¿Estás seguro de que deseas activar el producto <strong id="modal-activate-product-name"></strong>?</p>
+          <p class="is-size-7 has-text-grey">Este producto volverá a estar activo en el catálogo. Se conservará su información y sus referencias existentes.</p>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn-primary" type="submit">Activar</button>
+        </footer>
+      </form>
+    </div>
+  </div>
 </section>
+
 <?php
 $content = (string) ob_get_clean();
 require dirname(__DIR__) . '/layout.php';

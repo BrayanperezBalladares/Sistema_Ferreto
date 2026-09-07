@@ -454,19 +454,67 @@ final class CatalogHttpTest extends TestCase
     }
 
 
-    public function testInactiveProductDoesNotRenderReactivateAction(): void
+    public function testInactiveProductRendersActivateActionAndActiveProductRendersDeactivateAction(): void
     {
-        $id = self::$prodCmd->register('Inactivo Visible', '30.00');
-        self::$prodCmd->deactivate($id);
+        $catId = self::$catCmd->create('Electricidad');
+        $activeId = self::$prodCmd->register('Activo Visible', '25.00', $catId);
+        $inactiveId = self::$prodCmd->register('Inactivo Visible', '30.00', $catId);
+        self::$prodCmd->deactivate($inactiveId);
 
         $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('Inactivo Visible', $response->body);
         self::assertStringContainsString('Inactivo', $response->body);
         self::assertStringNotContainsString('Inactive', $response->body);
-        self::assertStringNotContainsString('/activate', $response->body);
-        self::assertStringNotContainsString('reactiv', strtolower($response->body));
-        self::assertStringNotContainsString('data-modal-open="modal-deactivate"', $response->body);
+
+        // Inactive row has Activar trigger
+        self::assertStringContainsString('data-modal-open="modal-activate"', $response->body);
+        self::assertStringContainsString('Activar', $response->body);
+
+        // Active row has Desactivar trigger
+        self::assertStringContainsString('data-modal-open="modal-deactivate"', $response->body);
+        self::assertStringContainsString('Desactivar', $response->body);
+
+        // Prove no forbidden terminology in UI
+        self::assertStringNotContainsString('Restaurar', $response->body);
+        self::assertStringNotContainsString('Recuperar', $response->body);
+        self::assertStringNotContainsString('Reactivar', $response->body);
+        self::assertStringNotContainsString('Eliminar', $response->body);
+    }
+
+    public function testActivationModalIsRenderedWithSpanishCopyAndCsrf(): void
+    {
+        $response = $this->dispatch(new Request('GET', '/products'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="modal-activate"', $response->body);
+        self::assertStringContainsString('id="modal-activate-title"', $response->body);
+        self::assertStringContainsString('Activar producto', $response->body);
+        self::assertStringContainsString('¿Estás seguro de que deseas activar el producto', $response->body);
+        self::assertStringContainsString('Este producto volverá a estar activo en el catálogo. Se conservará su información y sus referencias existentes.', $response->body);
+        self::assertStringContainsString('id="form-activate-product"', $response->body);
+        self::assertStringContainsString('name="_csrf"', $response->body);
+        self::assertStringContainsString('btn-primary', $response->body);
+        self::assertStringNotContainsString('btn-danger" type="submit">Activar', $response->body);
+    }
+
+    public function testLifecycleTransitionReflectedInRenderedUi(): void
+    {
+        $catId = self::$catCmd->create('Ferretería');
+        $id = self::$prodCmd->register('Taladro de Banco', '350.00', $catId);
+        self::$prodCmd->deactivate($id);
+
+        $before = $this->dispatch(new Request('GET', '/products'));
+        self::assertStringContainsString('Taladro de Banco', $before->body);
+        self::assertStringContainsString('data-modal-open="modal-activate"', $before->body);
+
+        $postRes = $this->post("/products/{$id}/activate", []);
+        self::assertSame(303, $postRes->status);
+
+        $after = $this->dispatch(new Request('GET', '/products'));
+        self::assertStringContainsString('Taladro de Banco', $after->body);
+        self::assertStringContainsString('Activo', $after->body);
+        self::assertStringContainsString('data-modal-open="modal-deactivate"', $after->body);
+        self::assertStringNotContainsString('data-modal-open="modal-activate"', $after->body);
     }
 
     public function testInteractionModalsAndContextAreRendered(): void
@@ -480,13 +528,16 @@ final class CatalogHttpTest extends TestCase
         self::assertStringContainsString('id="modal-product"', $response->body);
         self::assertStringContainsString('id="modal-price"', $response->body);
         self::assertStringContainsString('id="modal-deactivate"', $response->body);
+        self::assertStringContainsString('id="modal-activate"', $response->body);
         self::assertStringContainsString('id="modal-price-product-name"', $response->body);
         self::assertStringContainsString('id="modal-price-current-value"', $response->body);
         self::assertStringContainsString('¿Estás seguro de que deseas desactivar el producto', $response->body);
         self::assertStringContainsString('El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.', $response->body);
+        self::assertStringContainsString('¿Estás seguro de que deseas activar el producto', $response->body);
         self::assertStringContainsString('data-modal-open="modal-price"', $response->body);
         self::assertStringContainsString('data-modal-open="modal-deactivate"', $response->body);
     }
+
 
     /**
      * @param array<string, string> $body

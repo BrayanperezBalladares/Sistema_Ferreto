@@ -85,7 +85,19 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
                   >
                     Desactivar
                   </button>
+                <?php else: ?>
+                  <button
+                    type="button"
+                    class="btn-secondary"
+                    style="padding: 4px 10px; font-size: 13px; color: var(--color-amber-dark);"
+                    data-modal-open="modal-activate"
+                    data-product-id="<?= Renderer::escape((string) $p['id_producto']) ?>"
+                    data-product-name="<?= Renderer::escape($p['nombre']) ?>"
+                  >
+                    Activar
+                  </button>
                 <?php endif; ?>
+
               </div>
             </td>
           </tr>

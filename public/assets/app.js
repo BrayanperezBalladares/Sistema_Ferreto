@@ -33,6 +33,15 @@ function openModal(modal, trigger) {
     if (formEl) formEl.action = '/products/' + (trigger.getAttribute('data-product-id') || '') + '/deactivate';
   }
 
+  if (modal.id === 'modal-activate' && trigger) {
+    const nameEl = document.getElementById('modal-activate-product-name');
+    const formEl = document.getElementById('form-activate-product');
+
+    if (nameEl) nameEl.textContent = trigger.getAttribute('data-product-name') || '';
+    if (formEl) formEl.action = '/products/' + (trigger.getAttribute('data-product-id') || '') + '/activate';
+  }
+
+
   modal.classList.add('is-active');
   const focusTarget = modal.querySelector('input:not([type="hidden"]), textarea, select, button[type="submit"]');
   if (focusTarget) focusTarget.focus();
