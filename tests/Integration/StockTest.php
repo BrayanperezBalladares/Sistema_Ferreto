@@ -10,6 +10,10 @@ use App\Foundation\MigrationRunner;
 use App\Foundation\Transaction;
 use App\Modules\Inventory\LocationCommand;
 use App\Modules\Inventory\LocationQuery;
+use App\Modules\Inventory\ProductCommand;
+use App\Modules\Inventory\StockCommand;
+use App\Modules\Inventory\StockQuery;
+use App\Modules\Inventory\StockValidator;
 use PDO;
 use PDOException;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +24,9 @@ final class StockTest extends TestCase
     private static Database $testDb;
     private static LocationQuery $locQuery;
     private static LocationCommand $locCmd;
+    private static StockQuery $stockQuery;
+    private static StockCommand $stockCmd;
+    private static ProductCommand $prodCmd;
 
     public static function setUpBeforeClass(): void
     {
@@ -34,6 +41,9 @@ final class StockTest extends TestCase
 
         self::$locQuery   = new LocationQuery(self::$testDb);
         self::$locCmd     = new LocationCommand($tx);
+        self::$stockQuery = new StockQuery(self::$testDb);
+        self::$stockCmd   = new StockCommand($tx);
+        self::$prodCmd    = new ProductCommand($tx);
 
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
     }
@@ -43,7 +53,7 @@ final class StockTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['ubicacion', 'producto', 'categoria'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE {$tbl}");
             }
@@ -77,10 +87,84 @@ final class StockTest extends TestCase
         self::$locCmd->create('BODEGA-01');
     }
 
+    public function testStockPositionCreationWithZeroAndFractionalQuantities(): void
+    {
+        $pId = self::$prodCmd->register('Tornillo 2 pulg', '2.50');
+        $lId = self::$locCmd->create('ESTANTE-01');
+
+        $sId = self::$stockCmd->createPosition($pId, $lId, '0.000');
+        self::assertGreaterThan(0, $sId);
+
+        $pos = self::$stockQuery->getPosition($pId, $lId);
+        self::assertIsArray($pos);
+        self::assertSame('0.000', $pos['cantidad']);
+
+        self::assertTrue(self::$stockCmd->updateQuantity($sId, '125.750'));
+        $updated = self::$stockQuery->findById($sId);
+        self::assertIsArray($updated);
+        self::assertSame('125.750', $updated['cantidad']);
+    }
+
+    public function testDuplicateStockPositionRejection(): void
+    {
+        $pId = self::$prodCmd->register('Tuerca 1/4', '0.50');
+        $lId = self::$locCmd->create('CAJA-05');
+
+        self::$stockCmd->createPosition($pId, $lId, '10.000');
+        $this->expectException(PDOException::class);
+        self::$stockCmd->createPosition($pId, $lId, '5.000');
+    }
+
+    public function testForeignKeyIntegrityEnforced(): void
+    {
+        $pId = self::$prodCmd->register('Arandela', '0.10');
+        $this->expectException(PDOException::class);
+        self::$stockCmd->createPosition($pId, 99999, '1.000');
+    }
+
+    public function testNegativeQuantityRejectedByDatabaseConstraint(): void
+    {
+        $pId = self::$prodCmd->register('Clavo 3 pulg', '1.00');
+        $lId = self::$locCmd->create('ESTANTE-02');
+
+        $this->expectException(PDOException::class);
+        self::$stockCmd->createPosition($pId, $lId, '-1.000');
+    }
+
+    public function testQuantityValidationRules(): void
+    {
+        self::assertTrue(StockValidator::validateQuantity('0')->valid());
+        self::assertTrue(StockValidator::validateQuantity('0.000')->valid());
+        self::assertTrue(StockValidator::validateQuantity('15.5')->valid());
+        self::assertTrue(StockValidator::validateQuantity('100.123')->valid());
+
+        // Reject negative
+        self::assertFalse(StockValidator::validateQuantity('-5.000')->valid());
+        // Reject >3 decimal places
+        self::assertFalse(StockValidator::validateQuantity('10.1234')->valid());
+        // Reject invalid/empty
+        self::assertFalse(StockValidator::validateQuantity('')->valid());
+        self::assertFalse(StockValidator::validateQuantity('abc')->valid());
+    }
+
+    public function testReferentialIntegrityPreventsParentDeletionWhenStockExists(): void
+    {
+        $pId = self::$prodCmd->register('Pintura Azul', '50.00');
+        $lId = self::$locCmd->create('ALMACEN-A');
+        self::$stockCmd->createPosition($pId, $lId, '5.000');
+
+        $this->expectException(PDOException::class);
+        self::$testDb->pdo()->exec("DELETE FROM ubicacion WHERE id_ubicacion = {$lId}");
+    }
+
     public function testMigrationReversalAndReRun(): void
     {
         $runner = new MigrationRunner(self::$testDb);
         $migrationsPath = dirname(__DIR__, 2) . '/database/migrations';
+
+        $runner->revert('0005_create_inventario_stock', $migrationsPath);
+        $tablesStock = self::$testDb->pdo()->query("SHOW TABLES LIKE 'inventario_stock'")->fetchAll();
+        self::assertCount(0, $tablesStock);
 
         $runner->revert('0004_create_ubicacion', $migrationsPath);
         $tablesLoc = self::$testDb->pdo()->query("SHOW TABLES LIKE 'ubicacion'")->fetchAll();
@@ -88,6 +172,7 @@ final class StockTest extends TestCase
 
         $runner->run($migrationsPath);
         self::assertCount(1, self::$testDb->pdo()->query("SHOW TABLES LIKE 'ubicacion'")->fetchAll());
+        self::assertCount(1, self::$testDb->pdo()->query("SHOW TABLES LIKE 'inventario_stock'")->fetchAll());
     }
 
     public function testDevelopmentDatabaseRemainsUntouched(): void

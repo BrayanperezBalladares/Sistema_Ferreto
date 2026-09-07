@@ -42,12 +42,6 @@ final class CatalogTest extends TestCase
         self::$prodQuery  = new ProductQuery(self::$testDb);
         self::$prodCmd    = new ProductCommand($tx);
 
-        $pdo = self::$testDb->pdo();
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        $pdo->exec('DROP TABLE IF EXISTS producto');
-        $pdo->exec('DROP TABLE IF EXISTS categoria');
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
-
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
     }
 
@@ -55,17 +49,12 @@ final class CatalogTest extends TestCase
     {
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        $pdo->exec('TRUNCATE TABLE producto');
-        $pdo->exec('TRUNCATE TABLE categoria');
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
-    }
-
-    public static function tearDownAfterClass(): void
-    {
-        $pdo = self::$testDb->pdo();
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        $pdo->exec('DROP TABLE IF EXISTS producto');
-        $pdo->exec('DROP TABLE IF EXISTS categoria');
+        $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria'] as $tbl) {
+            if (in_array($tbl, $tables, true)) {
+                $pdo->exec("TRUNCATE TABLE {$tbl}");
+            }
+        }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
@@ -99,6 +88,15 @@ final class CatalogTest extends TestCase
     {
         $runner = new MigrationRunner(self::$testDb);
         $migrationsPath = dirname(__DIR__, 2) . '/database/migrations';
+
+        foreach (['0006_create_conteo_inventario', '0005_create_inventario_stock', '0004_create_ubicacion'] as $child) {
+            if (file_exists($migrationsPath . '/' . $child . '.up.sql')) {
+                $applied = self::$testDb->pdo()->query("SELECT 1 FROM schema_migrations WHERE identifier = '{$child}'")->fetch();
+                if ($applied !== false) {
+                    $runner->revert($child, $migrationsPath);
+                }
+            }
+        }
 
         $runner->revert('0003_create_producto', $migrationsPath);
         $runner->revert('0002_create_categoria', $migrationsPath);
