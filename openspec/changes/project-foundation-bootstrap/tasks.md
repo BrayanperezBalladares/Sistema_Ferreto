@@ -44,8 +44,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Transactional Data Foundation
 
-- [ ] 3.1 Add `src/Foundation/{Database,Transaction,MigrationRunner,SeedRunner,HealthQuery}.php`: `_test` refusal, PDO flags/UTC/binding, rollback, migration lock/history/checksum/failure stop, development-only seed.
-- [ ] 3.2 Add `database/migrations/0001_probe.{up,down}.sql` and `database/seeds/development.php` for only the infrastructure probe and idempotent fixed-key seed.
-- [ ] 3.3 Add `tests/{Unit/ContractsTest.php,Integration/DatabaseTest.php,Integration/MigrationTest.php}` for binding, commit/rollback, isolated database protection, migration order/drift/failure, seed repetition, and no business/ETL objects.
-- [ ] 3.4 Run setup→migrate→seed→test→analyse→serve and the browser checklist in `tests/E2E/checklist.md`; structurally read back routes, assets, schema, and no R1–R10 scope.
-- [ ] 3.5 Only after successful commands, update `openspec/{config.yaml,testing-capabilities.md}` with executable capabilities and verified commands.
+- [x] 3.1 Add `src/Foundation/{Database,Transaction,MigrationRunner,SeedRunner,HealthQuery}.php`: `_test` refusal, PDO flags/UTC/binding, rollback, migration lock/history/checksum/failure stop, development-only seed.
+- [x] 3.2 Add `database/migrations/0001_probe.{up,down}.sql` and `database/seeds/development.php` for only the infrastructure probe and idempotent fixed-key seed.
+- [x] 3.3 Add `tests/{Unit/ContractsTest.php,Integration/DatabaseTest.php,Integration/MigrationTest.php}` for binding, commit/rollback, isolated database protection, migration order/drift/failure, seed repetition, and no business/ETL objects.
+- [x] 3.4 Run setup→migrate→seed→test→analyse→serve and the browser checklist in `tests/E2E/checklist.md`; structurally read back routes, assets, schema, and no R1–R10 scope.
+- [x] 3.5 Only after successful commands, update `openspec/{config.yaml,testing-capabilities.md}` with executable capabilities and verified commands.

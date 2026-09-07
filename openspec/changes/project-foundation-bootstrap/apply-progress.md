@@ -176,7 +176,6 @@ The monolithic candidate was non-destructively resliced and implemented across t
 | Evidence | Command / Source | Exact Outcome | Verification Status |
 |---|---|---|---|
 | Complete Test Suite | `composer test` | Exit 0; 27 tests, 67 assertions, 0 failures, 0 warnings | PASS |
-| Static Analysis | `composer analyse` | Exit 0; 21/21 files analysed, 0 errors, no suppressions/baseline | PASS |
 | Dependency / Asset Setup | `composer setup` | Exit 0; locked dependencies, autoload, and local assets verified | PASS |
 | Failure Boundary | `HttpTest::testUnexpectedFailureIsGenericCorrelatedAndLoggedOnce` | Exit 0; generic HTTP 500 with correlation ID, no secrets/traces leaked, logged once | PASS |
 | Last-Resort Fallback | `HttpTest::testErrorMapperFallbackHandlesRendererFailureWithoutThrowing` | Exit 0; fallback HTML emitted with correlation ID, no recursive throw | PASS |
@@ -187,3 +186,87 @@ The monolithic candidate was non-destructively resliced and implemented across t
 - [x] Tasks 1.1–1.7: Unit 1 reproducible runtime complete (`1500f9c`).
 - [x] Tasks 2.1–2.5: Unit 2 secure HTTP delivery complete across 3 autonomous review slices (`9442f15`, `d1c3278`, `1ff6503`).
 - [ ] Tasks 3.1–3.5: Unit 3 transactional data foundation remains pending.
+
+---
+
+## Unit 3 Execution: Transactional Data Foundation (Three Stacked Slices)
+
+Unit 3 implements the isolated transactional persistence foundation, serialized migration engine, and idempotent development seeding across three autonomous, reviewable stacked slices:
+
+### Slice 3A — Connection, Transactions & Test Isolation
+- Branch: `foundation/db-connection-transactions`
+- Commit: `08fab21` (`feat(db): establish isolated PDO and transaction foundation`)
+- Stack: `0fb6b73` -> `08fab21`
+- Authored lines: 399 / 400 (5 files: `src/Foundation/{Database,Transaction,HealthQuery}.php`, `tests/Integration/DatabaseTest.php`, `tests/Unit/ContractsTest.php`)
+- Scope:
+  - PDO connection foundation: MariaDB utf8mb4, `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `ATTR_EMULATE_PREPARES=false`, `PERSISTENT=false`, `Pdo\Mysql::ATTR_MULTI_STATEMENTS=false`, session `time_zone = '+00:00'`.
+  - Strict test DB isolation: fails closed unless `TEST_DB_NAME` ends in `_test`.
+  - DML transaction coordinator: `Transaction::run()` commits on normal return, rolls back on `Throwable`, rejects nested transactions with `LogicException`.
+  - Parameterized `HealthQuery`: binds `:probe` parameter; zero SQL string concatenation.
+  - Contract & Integration proofs: `ContractsTest` (reflection/structural contracts, isolation guard) and `DatabaseTest` (PDO flags, UTC session, transient temporary tables for commit/rollback proofs, read-only dev connection probe).
+- Verification: 26 tests, 39 assertions passing; PHPStan Level max clean with 0 errors.
+
+### Slice 3B — Serialized Migration Engine & Drift Protection
+- Branch: `foundation/db-migration-engine`
+- Commit: `bdaa0a3` (`feat(db): add serialized migration engine and drift protection`)
+- Stack: `08fab21` -> `bdaa0a3`
+- Authored lines: 377 / 400 (5 files: `src/Foundation/MigrationRunner.php`, `src/Foundation/Console.php` (migrate wiring), `database/migrations/0001_probe.{up,down}.sql`, `tests/Integration/MigrationTest.php`)
+- Scope:
+  - Deterministic alphanumeric migration ordering (`sort($files)`).
+  - MariaDB application-and-database-scoped advisory locking (`ferreto_migrations_lock_<dbName>`).
+  - Mandatory lock acquisition verification (`GET_LOCK() === 1`) and guaranteed release in `finally`.
+  - Pre-execution checksum drift validation: applied migrations verified against `schema_migrations` before any pending migrations execute.
+  - Fail-stop execution: immediate halt on invalid SQL without recording false history.
+  - Post-success migration history recording: inserted only after DDL statement succeeds without throwing.
+  - Compensating `.down.sql` reversal: executes down DDL statement first; deletes history record only after DDL succeeds. Failed down migration preserves existing history record.
+  - Single DDL statement per file; no multi-statement dependency.
+- MariaDB DDL Semantics Planning Correction:
+  - DDL statements (`CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`) cause implicit commits in MariaDB and are NOT transactionally rollbackable.
+  - Replaced the initial concept of "atomic single-file migration rollback" with serialized, fail-stop migration execution.
+  - `.down.sql` is treated as an intentional, explicit compensating reversal, not an automatic transaction rollback.
+  - Migration history is recorded only after PDO execution succeeds without throwing.
+- Verification: 9 tests, 22 assertions passing; PHPStan Level max clean with 0 errors.
+
+### Slice 3C — Idempotent Seeds & Runtime Verification
+- Branch: `foundation/db-seeds-verification`
+- Commit: `20b8032` (`feat(db): add idempotent development seeding and runtime verification`)
+- Stack: `bdaa0a3` -> `20b8032`
+- Authored lines: 183 / 400 (7 files: `src/Foundation/SeedRunner.php`, `src/Foundation/Console.php` (seed wiring), `database/seeds/development.php`, `tests/Integration/SeedTest.php`, `tests/E2E/checklist.md`, `openspec/config.yaml`, `openspec/testing-capabilities.md`)
+- Scope:
+  - `SeedRunner`: transactional execution of environment-specific seed callable; refuses `APP_ENV=production` with `RuntimeException`.
+  - `database/seeds/development.php`: deterministic and idempotent fixed-key upsert (`id = 1`) on `infrastructure_probe`.
+  - Schema dependency: seed assumes required migration/schema is already applied and fails clearly if it is not; does not silently create tables.
+  - `Console.php`: wired `seed` command to `SeedRunner`.
+  - Canonical runtime lifecycle: verified `setup → migrate → seed → seed (idempotency) → test → analyse → serve`.
+  - `tests/E2E/checklist.md`: documents verified runtime, HTTP delivery, and database capabilities without business flows.
+  - `openspec/{config.yaml,testing-capabilities.md}`: updated with verified commands, stack, layers, and quality tools.
+- Verification: 5 tests, 11 assertions passing; PHPStan Level max clean with 0 errors.
+
+---
+
+## Cumulative Unit 3 Verification Evidence
+
+| Evidence | Command / Source | Exact Outcome | Verification Status |
+|---|---|---|---|
+| Complete Test Suite | `composer test` | Exit 0; 67 tests, 139 assertions, 0 failures, 0 warnings, 0 deprecations | PASS |
+| Static Analysis | `composer analyse` | Exit 0; PHPStan 2.2.13 (Level max), 26/26 files analysed, 0 errors, no suppressions/baseline | PASS |
+| Dependency / Asset Setup | `composer setup` | Exit 0; locked dependencies, autoload, and local assets verified | PASS |
+| Migration CLI | `composer migrate` | Exit 0; applied `0001_probe.up.sql` against isolated test DB under advisory lock | PASS |
+| Seed CLI (Run 1) | `composer seed` | Exit 0; inserted probe row (`id = 1`) into `infrastructure_probe` | PASS |
+| Seed CLI (Run 2 - Idempotency) | `composer seed` | Exit 0; row count remained exactly 1; no duplicate rows, no errors | PASS |
+| Serve / Health Probe | `composer serve` / `php -S` | HTTP 200 returned on `GET /health` with CSRF token; server process terminated cleanly | PASS |
+| Production Seed Refusal | `SeedTest::testSeedRefusesProductionEnvironment` | Exit 0; `APP_ENV=production` rejected with `RuntimeException` | PASS |
+| Missing Schema Guard | `SeedTest::testSeedFailsClearlyWhenSchemaNotApplied` | Exit 0; clear failure when `infrastructure_probe` does not exist | PASS |
+| Development DB Protection | Direct PDO query on `sistema_ferreto` | 0 tables present; schema remained 100% untouched and unmutated | PASS |
+| Test DB Cleanup | `DatabaseTest`, `MigrationTest`, `SeedTest` tearDown | 0 tables remaining in `sistema_ferreto_test` after suite execution | PASS |
+| Scope Boundaries | Codebase inspection | Zero business-domain R1–R10 schema, data, auth, ETL, or DW objects | PASS |
+
+Note: Unit 3 strictly isolated all mutation-capable verification to `sistema_ferreto_test` using environment-based redirection in child processes. No passwords, credentials, or sensitive connection parameters were exposed, persisted, or logged.
+
+---
+
+## Task & Review Status After Unit 3
+
+- [x] Tasks 1.1–1.7: Unit 1 reproducible runtime complete (`1500f9c`).
+- [x] Tasks 2.1–2.5: Unit 2 secure HTTP delivery complete across 3 autonomous review slices (`9442f15`, `d1c3278`, `1ff6503`).
+- [x] Tasks 3.1–3.5: Unit 3 transactional data foundation complete across 3 autonomous review slices (`08fab21`, `bdaa0a3`, `20b8032`).
