@@ -77,27 +77,43 @@ Handlers never access `PDO`. They consume module-owned query and command objects
 ```php
 namespace App\Modules\Inventory;
 
-interface CategoryRepository {
-    public function findByName(string $name): ?Category;
-    public function create(string $name, ?string $description): int;
+interface CategoryCommand {
+    public function create(string $nombre, ?string $descripcion = null): int;
 }
 
-interface ProductRepository {
-    public function search(string $query, ?int $categoryId): array;
-    public function create(string $name, ?string $description, string $price, ?int $categoryId): int;
-    public function updatePrice(int $id, string $price): bool;
-    public function deactivate(int $id): bool;
-    public function activate(int $id): bool;
+interface CategoryQuery {
+    public function findAll(): array;
+    public function findByName(string $name): ?array;
+    public function findById(int $id): ?array;
 }
 
-interface StockRepository {
-    public function getPosition(int $productId, int $locationId): ?StockPosition;
-    public function createPosition(int $productId, int $locationId, string $quantity): int;
+interface ProductCommand {
+    public function register(string $nombre, string $precioActual, ?int $idCategoria = null, ?string $desc = null): int;
+    public function updatePrice(int $idProducto, string $nuevoPrecio): bool;
+    public function deactivate(int $idProducto): bool;
+    public function activate(int $idProducto): bool;
 }
 
-interface CountRepository {
-    public function recordCount(int $stockId, string $countedQty, ?string $notes): int;
-    public function listByStock(int $stockId): array;
+interface ProductQuery {
+    public function search(string $query = '', ?int $categoryId = null, bool $activeOnly = false): array;
+    public function findById(int $id): ?array;
+}
+
+interface StockCommand {
+    public function registerPosition(int $idProducto, int $idUbicacion, string $cantidadInicial = '0.000'): int;
+}
+
+interface StockQuery {
+    public function findPosition(int $idProducto, int $idUbicacion): ?array;
+    public function listOverview(): array;
+}
+
+interface CountCommand {
+    public function recordCount(int $idStock, string $cantidadContada, ?string $notas = null): int;
+}
+
+interface CountQuery {
+    public function listByStock(int $idStock): array;
 }
 ```
 
