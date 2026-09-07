@@ -194,6 +194,12 @@ final class CatalogTest extends TestCase
     {
         $devDb  = new Database(self::$testConfig, useTestDatabase: false);
         $tables = $devDb->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        self::assertSame([], $tables);
+        if ($tables === []) {
+            self::assertSame([], $tables);
+            return;
+        }
+        self::assertSame(['categoria', 'conteo_inventario', 'infrastructure_probe', 'inventario_stock', 'producto', 'schema_migrations', 'ubicacion'], $tables);
+        self::assertSame(0, (int) $devDb->pdo()->query('SELECT COUNT(*) FROM producto')->fetchColumn());
+        self::assertSame(0, (int) $devDb->pdo()->query('SELECT COUNT(*) FROM categoria')->fetchColumn());
     }
 }

@@ -431,6 +431,37 @@ final class CatalogHttpTest extends TestCase
             return null;
         });
     }
+
+    public function testProductionEntrypointServesCatalog(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $code = 'putenv("APP_ENV=test"); $_SERVER["REQUEST_METHOD"] = "GET"; $_SERVER["REQUEST_URI"] = "/products"; $_SERVER["SERVER_NAME"] = "localhost"; require "public/index.php";';
+
+        $process = proc_open([
+            PHP_BINARY,
+            '-r',
+            $code,
+        ], [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, $root);
+
+        self::assertIsResource($process);
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[0]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+
+        self::assertSame(0, $exitCode);
+        self::assertStringNotContainsString('Undefined array key "catalog"', $stderr);
+        self::assertStringNotContainsString('"level":"error"', $stderr);
+        self::assertStringContainsString('Product Catalog', $stdout);
+        self::assertStringContainsString('id="product-table-container"', $stdout);
+        self::assertStringNotContainsString('Request failed', $stdout);
+    }
 }
 
 final class CatalogMemorySession implements Session

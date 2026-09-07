@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Foundation\{Csrf, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router};
+use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
+use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, ProductCommand, ProductQuery};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -22,8 +23,25 @@ if (isset($assets[$request->path]) && $request->method === 'GET') {
 $session = new NativeSession(!in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], true));
 $csrf = new Csrf($session);
 $renderer = new Renderer($root);
+
+$config = Config::fromEnvironment(require $root . '/config/defaults.php');
+$database = new Database($config, $config->get('APP_ENV') === 'test');
+$tx = new Transaction($database);
+
 $health = new HealthHandler($renderer, $csrf, $session);
-$handlers = ['health' => $health->handle(...)];
+$catalog = new CatalogHandler(
+    $renderer,
+    new ProductQuery($database),
+    new CategoryQuery($database),
+    new CategoryCommand($tx),
+    new ProductCommand($tx),
+    $csrf
+);
+
+$handlers = [
+    'health' => $health->handle(...),
+    'catalog' => $catalog->handle(...),
+];
 
 /** @var list<array{string, string, string}> $routeConfig */
 $routeConfig = require $root . '/config/routes.php';
