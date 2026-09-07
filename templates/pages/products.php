@@ -13,41 +13,46 @@ $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : []
 
 ob_start();
 ?>
-<section class="section" id="catalog-section">
-  <h1 class="title mb-5">Product Catalog</h1>
+<section id="catalog-section">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Productos</h1>
+      <p class="page-subtitle">Gestión de artículos, precios de venta y disponibilidad.</p>
+    </div>
+  </div>
 
   <div class="columns mb-5">
     <div class="column is-one-third">
-      <div class="box">
-        <h2 class="subtitle is-6 has-text-weight-bold">New Category</h2>
+      <div class="ferreto-card p-4">
+        <h2 class="title is-6 mb-3 has-text-weight-bold">Nueva categoría</h2>
         <form method="post" action="/categories">
           <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
           <div class="field">
-            <label class="label is-small">Name</label>
+            <label class="label is-small">Nombre</label>
             <div class="control">
               <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
             </div>
           </div>
           <div class="field">
-            <label class="label is-small">Description</label>
+            <label class="label is-small">Descripción</label>
             <div class="control">
               <input class="input is-small" type="text" name="descripcion" value="<?= Renderer::escape($input['descripcion'] ?? '') ?>">
             </div>
           </div>
-          <button class="button is-small is-primary is-fullwidth" type="submit">Create Category</button>
+          <button class="btn-primary is-fullwidth" style="width: 100%; justify-content: center;" type="submit">Guardar categoría</button>
         </form>
       </div>
     </div>
 
     <div class="column is-two-thirds">
-      <div class="box">
-        <h2 class="subtitle is-6 has-text-weight-bold">Register Product</h2>
+      <div class="ferreto-card p-4">
+        <h2 class="title is-6 mb-3 has-text-weight-bold">Registrar producto</h2>
         <form method="post" action="/products">
           <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
           <div class="columns is-multiline">
             <div class="column is-half">
               <div class="field">
-                <label class="label is-small">Product Name</label>
+                <label class="label is-small">Nombre del producto</label>
                 <div class="control">
                   <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
                 </div>
@@ -55,7 +60,7 @@ ob_start();
             </div>
             <div class="column is-half">
               <div class="field">
-                <label class="label is-small">Price (e.g. 19.99)</label>
+                <label class="label is-small">Precio actual</label>
                 <div class="control">
                   <input class="input is-small" type="text" name="precio_actual" placeholder="0.00" value="<?= Renderer::escape($input['precio_actual'] ?? '') ?>" required>
                 </div>
@@ -63,11 +68,11 @@ ob_start();
             </div>
             <div class="column is-half">
               <div class="field">
-                <label class="label is-small">Category</label>
+                <label class="label is-small">Categoría</label>
                 <div class="control">
                   <div class="select is-small is-fullwidth">
                     <select name="id_categoria">
-                      <option value="">-- No category (unclassified) --</option>
+                      <option value="">-- Sin categoría --</option>
                       <?php foreach ($categories as $cat): ?>
                         <option value="<?= Renderer::escape((string) $cat['id_categoria']) ?>">
                           <?= Renderer::escape($cat['nombre']) ?>
@@ -80,33 +85,32 @@ ob_start();
             </div>
             <div class="column is-half">
               <div class="field">
-                <label class="label is-small">Description</label>
+                <label class="label is-small">Descripción</label>
                 <div class="control">
                   <input class="input is-small" type="text" name="descripcion" value="<?= Renderer::escape($input['descripcion'] ?? '') ?>">
                 </div>
               </div>
             </div>
           </div>
-          <button class="button is-small is-primary is-fullwidth" type="submit">Register Product</button>
+          <button class="btn-primary is-fullwidth" style="width: 100%; justify-content: center;" type="submit">Registrar producto</button>
         </form>
       </div>
     </div>
   </div>
 
-  <div class="field mb-5">
-    <div class="control">
-      <input
-        class="input"
-        type="search"
-        name="q"
-        placeholder="Search products..."
-        value="<?= Renderer::escape($query) ?>"
-        hx-get="/products"
-        hx-trigger="keyup changed delay:300ms, search"
-        hx-target="#product-table-container"
-        hx-swap="outerHTML"
-      >
-    </div>
+  <div class="search-bar-card">
+    <input
+      class="search-input"
+      type="search"
+      name="q"
+      placeholder="Buscar por nombre del producto…"
+      value="<?= Renderer::escape($query) ?>"
+      hx-get="/products"
+      hx-trigger="keyup changed delay:300ms, search"
+      hx-target="#product-table-container"
+      hx-swap="outerHTML"
+      aria-label="Buscar por nombre del producto"
+    >
   </div>
 
   <?php require dirname(__DIR__) . '/fragments/product_table.php'; ?>

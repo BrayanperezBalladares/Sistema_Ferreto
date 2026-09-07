@@ -18,50 +18,63 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
 <?php endif; ?>
 
 <?php if ($products === []): ?>
-  <div class="notification is-info is-light" data-test="empty-catalog">
-    <p>No products found.</p>
+  <div class="ferreto-card">
+    <div class="empty-state-box" data-test="empty-catalog">
+      <div class="empty-state-icon" aria-hidden="true">📦</div>
+      <h3 class="empty-state-title">No se encontraron productos</h3>
+      <p class="empty-state-desc">Ajusta la búsqueda o registra un nuevo producto.</p>
+    </div>
   </div>
 <?php else: ?>
-  <div class="table-container">
-    <table class="table is-striped is-hoverable is-fullwidth">
+  <div class="ferreto-card">
+    <table class="ferreto-table">
       <thead>
         <tr>
-          <th>Product</th>
-          <th>Category</th>
-          <th>Price</th>
-          <th>Update Price</th>
-          <th>Status / Action</th>
+          <th>Producto</th>
+          <th>Categoría</th>
+          <th class="col-price">Precio actual</th>
+          <th>Estado</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
         <?php foreach ($products as $p): ?>
           <tr data-product-id="<?= Renderer::escape((string) $p['id_producto']) ?>">
-            <td class="has-text-weight-semibold"><?= Renderer::escape($p['nombre']) ?></td>
+            <td>
+              <div class="product-title"><?= Renderer::escape($p['nombre']) ?></div>
+              <?php if ($p['descripcion'] !== null && $p['descripcion'] !== ''): ?>
+                <div class="product-desc"><?= Renderer::escape($p['descripcion']) ?></div>
+              <?php endif; ?>
+            </td>
             <td>
               <?php if ($p['categoria_nombre'] !== null && $p['categoria_nombre'] !== ''): ?>
-                <span class="tag is-info is-light"><?= Renderer::escape($p['categoria_nombre']) ?></span>
+                <span class="badge-category"><?= Renderer::escape($p['categoria_nombre']) ?></span>
               <?php else: ?>
-                <span class="tag is-light">Unclassified</span>
+                <span class="badge-unclassified">Sin clasificar</span>
               <?php endif; ?>
             </td>
-            <td>$<?= Renderer::escape($p['precio_actual']) ?></td>
-            <td>
-              <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/price" class="is-inline-flex">
-                <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-                <input class="input is-small mr-1" type="text" name="precio_actual" value="<?= Renderer::escape($p['precio_actual']) ?>" style="width: 80px;" required>
-                <button class="button is-small is-info is-light" type="submit">Save</button>
-              </form>
-            </td>
+            <td class="col-price"><?= Renderer::escape($p['precio_actual']) ?></td>
             <td>
               <?php if ($p['estado_activo'] === 1): ?>
-                <span class="tag is-success mr-2">Active</span>
-                <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/deactivate" class="is-inline">
-                  <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-                  <button class="button is-small is-danger is-light" type="submit">Deactivate</button>
-                </form>
+                <span class="badge-active">Activo</span>
               <?php else: ?>
-                <span class="tag is-danger is-light">Inactive</span>
+                <span class="badge-inactive">Inactivo</span>
               <?php endif; ?>
+            </td>
+            <td>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/price" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+                  <input class="input is-small" type="text" name="precio_actual" value="<?= Renderer::escape($p['precio_actual']) ?>" style="width: 70px;" required>
+                  <button class="btn-secondary" style="padding: 4px 8px; font-size: 12px;" type="submit">Actualizar</button>
+                </form>
+                <?php if ($p['estado_activo'] === 1): ?>
+                  <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/deactivate" style="display: inline;">
+                    <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+                    <button class="btn-danger" style="padding: 4px 8px; font-size: 12px;" type="submit">Desactivar</button>
+                  </form>
+                <?php endif; ?>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>

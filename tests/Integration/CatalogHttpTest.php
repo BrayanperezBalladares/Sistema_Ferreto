@@ -69,7 +69,13 @@ final class CatalogHttpTest extends TestCase
         $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('<!doctype html>', $response->body);
-        self::assertStringContainsString('Product Catalog', $response->body);
+        self::assertStringContainsString('Productos', $response->body);
+        self::assertStringContainsString('Ferreterías El Constructor', $response->body);
+        self::assertStringContainsString('app-sidebar', $response->body);
+        self::assertStringNotContainsString('Product Catalog', $response->body);
+        self::assertStringNotContainsString('Sucursales', $response->body);
+        self::assertStringNotContainsString('Sincronización', $response->body);
+        self::assertStringNotContainsString('Usuarios', $response->body);
         self::assertStringContainsString('id="product-table-container"', $response->body);
         self::assertSame('text/html; charset=UTF-8', $response->headers['Content-Type']);
         self::assertSame('HX-Request', $response->headers['Vary']);
@@ -97,7 +103,8 @@ final class CatalogHttpTest extends TestCase
         $response = $this->dispatch(new Request('GET', '/products', query: ['q' => 'Desconocido'], headers: ['hx-request' => 'true']));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<!doctype html>', $response->body);
-        self::assertStringContainsString('No products found.', $response->body);
+        self::assertStringContainsString('No se encontraron productos', $response->body);
+        self::assertStringNotContainsString('No products found.', $response->body);
         self::assertStringNotContainsString('Clavo 2in', $response->body);
     }
 
@@ -140,9 +147,11 @@ final class CatalogHttpTest extends TestCase
         self::assertStringContainsString('Cable 10mm', $response->body);
         self::assertStringContainsString('Electricidad', $response->body);
         self::assertStringContainsString('Tornillo Roscalata', $response->body);
-        self::assertStringContainsString('Unclassified', $response->body);
+        self::assertStringContainsString('Sin clasificar', $response->body);
+        self::assertStringNotContainsString('Unclassified', $response->body);
         self::assertStringContainsString('Fusible 20A', $response->body);
-        self::assertStringContainsString('Inactive', $response->body);
+        self::assertStringContainsString('Inactivo', $response->body);
+        self::assertStringNotContainsString('Inactive', $response->body);
     }
 
     public function testCategoryCreationSucceeds(): void
@@ -391,7 +400,8 @@ final class CatalogHttpTest extends TestCase
         $response = $this->dispatch(new Request('GET', '/products'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('Inactivo Visible', $response->body);
-        self::assertStringContainsString('Inactive', $response->body);
+        self::assertStringContainsString('Inactivo', $response->body);
+        self::assertStringNotContainsString('Inactive', $response->body);
         self::assertStringNotContainsString('activate', strtolower($response->body));
     }
 
@@ -458,7 +468,8 @@ final class CatalogHttpTest extends TestCase
         self::assertSame(0, $exitCode);
         self::assertStringNotContainsString('Undefined array key "catalog"', $stderr);
         self::assertStringNotContainsString('"level":"error"', $stderr);
-        self::assertStringContainsString('Product Catalog', $stdout);
+        self::assertStringContainsString('Productos', $stdout);
+        self::assertStringNotContainsString('Product Catalog', $stdout);
         self::assertStringContainsString('id="product-table-container"', $stdout);
         self::assertStringNotContainsString('Request failed', $stdout);
     }

@@ -24,6 +24,14 @@
       "source": "repository",
       "sha256": "e6bba082f1d7defadd66964e677eca7f1ea3ec81aa4b438a0c48e3dc0ce6978e",
       "license": "proprietary"
+    },
+    {
+      "path": "public/assets/ferreto.css",
+      "package": "project-authored",
+      "version": "1",
+      "source": "repository",
+      "sha256": "17e2b63ac0f68dbe9162a83c70e3e1b4705287a78f379a5f0cfd8341c4f072f8",
+      "license": "proprietary"
     }
   ]
 }

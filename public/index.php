@@ -13,6 +13,7 @@ $assets = [
     '/assets/htmx.min.js' => 'text/javascript',
     '/assets/bulma.min.css' => 'text/css',
     '/assets/app.js' => 'text/javascript',
+    '/assets/ferreto.css' => 'text/css',
 ];
 
 if (isset($assets[$request->path]) && $request->method === 'GET') {
