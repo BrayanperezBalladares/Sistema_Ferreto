@@ -19,10 +19,10 @@
 
 ## Phase 3: Observational Inventory Counts (Slice 3 — `inventory-locations-stock`)
 
-- [ ] 3.1 Create migration `database/migrations/0006_create_conteo_inventario.up.sql` (`conteo_inventario` table: `id_conteo` PK, FK `id_stock` RESTRICT, `cantidad_sistema`, `cantidad_contada`, `diferencia`, `notas`, `created_at`) and reversal `0006_create_conteo_inventario.down.sql`.
-- [ ] 3.2 Implement `src/Modules/Inventory/CountQuery.php` for read-only retrieval of count records by stock position.
-- [ ] 3.3 Implement `src/Modules/Inventory/CountCommand.php` executing atomic `INSERT ... SELECT` from `inventario_stock` with exact decimal string validation for counted quantity (at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic) to capture snapshot and MariaDB decimal variance without mutating stock.
-- [ ] 3.4 Add integration test `tests/Integration/CountTest.php` verifying count recording, atomic variance math, append-only immutability, and stock non-mutation.
+- [x] 3.1 Create migration `database/migrations/0006_create_conteo_inventario.up.sql` (`conteo_inventario` table: `id_conteo` PK, FK `id_stock` RESTRICT, `cantidad_sistema`, `cantidad_contada`, `diferencia`, `notas`, `created_at`) and reversal `0006_create_conteo_inventario.down.sql`.
+- [x] 3.2 Implement `src/Modules/Inventory/CountQuery.php` for read-only retrieval of count records by stock position.
+- [x] 3.3 Implement `src/Modules/Inventory/CountCommand.php` executing atomic `INSERT ... SELECT` from `inventario_stock` with exact decimal string validation for counted quantity (at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic) to capture snapshot and MariaDB decimal variance without mutating stock.
+- [x] 3.4 Add integration test `tests/Integration/CountTest.php` verifying count recording, atomic variance math, append-only immutability, and stock non-mutation.
 
 ## Phase 4: Server-Rendered Catalog UI (Slice 4A — `product-catalog`)
 

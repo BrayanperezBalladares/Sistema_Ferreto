@@ -3,13 +3,15 @@
 ## Status Summary
 
 - **Change**: `product-inventory-core`
-- **Phase**: Phase 2 — Storage Locations & Associative Stock (Slice 2)
-- **Completed Tasks**: Tasks 1.1 through 1.6, and Tasks 2.1 through 2.5
-- **Review Budget Management**:
+- **Phase**: Phase 3 — Observational Inventory Counts (Slice 3)
+- **Completed Tasks**: Tasks 1.1 through 1.6, Tasks 2.1 through 2.5, and Tasks 3.1 through 3.4
+- **Scope Audit & Review Budget Management**:
   - The original combined Slice 2 implementation reached ~487 authored changed lines across 11 files, triggering the mandatory review budget stop gate ($\le$ 400 lines).
   - The maintainer declined a size exception and approved non-destructive subdivision into two autonomous, reviewable units:
     - **Slice 2A — Physical Locations Foundation** (commit `6ac0872`, 217 changed authored lines)
     - **Slice 2B — Associative Stock Foundation** (commit `61b0bca`, 304 changed authored lines)
+  - Mandatory Scope Audit of Slice 2 confirmed `updateQuantity()` was out of approved scope (reconciliations/adjustments are explicitly out of scope for R1). The method and its dedicated assertions were excised under commit `f454a68` (`fix(inventory): keep stock core within approved scope`).
+  - **Slice 3 — Observational Inventory Counts** delivered in a single reviewable commit (`5b9acff`, 343 changed authored lines $\le$ 400).
 
 ---
 
@@ -81,6 +83,24 @@
   - `composer analyse`: 36/36 files, 0 errors at PHPStan Level Max (Level 10).
   - Development DB (`sistema_ferreto`): 0 tables (untouched).
 
+### Slice 3: Observational Inventory Counts
+- **Commit**: `5b9acff` (`feat(inventory): establish observational inventory counts`)
+- **Diff Stat**: 6 files changed, 343 insertions(+), 0 deletions(-) (343 changed authored lines $\le$ 400)
+- **Scope**:
+  - `database/migrations/0006_create_conteo_inventario.up.sql` (`conteo_inventario` table: `id_conteo` INT UNSIGNED AUTO_INCREMENT PK, `id_stock` INT UNSIGNED FK RESTRICT, `cantidad_sistema` DECIMAL(12,3) CHECK >= 0, `cantidad_contada` DECIMAL(12,3) CHECK >= 0, `diferencia` DECIMAL(12,3), `notas` TEXT NULL, `created_at` DATETIME UTC)
+  - `database/migrations/0006_create_conteo_inventario.down.sql` (reversal)
+  - `src/Modules/Inventory/CountCommand.php` (atomic `INSERT ... SELECT` from `inventario_stock`, distinct parameters `:qty_val` and `:qty_calc`, exact MariaDB decimal arithmetic, non-existent stock position guard, non-mutating)
+  - `src/Modules/Inventory/CountQuery.php` (read-only queries `findById`, `listByStock`, strictly typed list row mapping)
+  - `tests/Integration/CountTest.php` (11 scenarios: discrepancy, zero discrepancy, fractional quantities, negative/precision validation rejection, nonexistent stock position, non-mutation of stock, append-only history, immutability check, migration reversal/re-run)
+  - `tests/Integration/StockTest.php` (downstream 0006 reversal check in migration test)
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`scratch/worktree-3`) at `5b9acff`.
+  - `composer setup`: Verified dependencies and autoloading.
+  - Targeted count test (`./vendor/bin/phpunit tests/Integration/CountTest.php`): 11 tests, 42 assertions (100% green).
+  - `composer test`: 101 tests, 253 assertions (100% green).
+  - `composer analyse`: 38/38 files, 0 errors at PHPStan Level Max (Level 10).
+  - Development DB (`sistema_ferreto`): 0 tables (untouched).
+
 ---
 
 ## Database Invariant Audit
@@ -91,7 +111,6 @@
 ---
 
 ## Remaining Tasks
-- **Phase 3: Observational Inventory Counts (Slice 3 — Tasks 3.1–3.4)**: Pending
 - **Phase 4: Server-Rendered Catalog UI (Slice 4A — Tasks 4.1–4.4)**: Pending
 - **Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — Tasks 5.1–5.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
