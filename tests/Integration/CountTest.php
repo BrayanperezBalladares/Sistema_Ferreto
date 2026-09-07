@@ -22,6 +22,8 @@ use RuntimeException;
 
 final class CountTest extends TestCase
 {
+    use DatabaseIsolationTrait;
+
     private static Config $testConfig;
     private static Database $testDb;
     private static CountQuery $countQuery;
@@ -40,6 +42,8 @@ final class CountTest extends TestCase
 
         self::$testConfig = Config::fromEnvironment(require dirname(__DIR__, 2) . '/config/defaults.php');
         self::$testDb     = new Database(self::$testConfig, useTestDatabase: true);
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+        self::recordInitialDevState(new Database(self::$testConfig, useTestDatabase: false));
         $tx               = new Transaction(self::$testDb);
 
         self::$countQuery = new CountQuery(self::$testDb);
@@ -203,13 +207,9 @@ final class CountTest extends TestCase
 
     public function testDevelopmentDatabaseRemainsUntouched(): void
     {
-        $devDb  = new Database(self::$testConfig, useTestDatabase: false);
-        $tables = $devDb->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        if ($tables === []) {
-            self::assertSame([], $tables);
-            return;
-        }
-        self::assertSame(['categoria', 'conteo_inventario', 'infrastructure_probe', 'inventario_stock', 'producto', 'schema_migrations', 'ubicacion'], $tables);
-        self::assertSame(0, (int) $devDb->pdo()->query('SELECT COUNT(*) FROM conteo_inventario')->fetchColumn());
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+
+        $devDb = new Database(self::$testConfig, useTestDatabase: false);
+        self::assertDevDatabaseUntouched($devDb, self::$testConfig);
     }
 }

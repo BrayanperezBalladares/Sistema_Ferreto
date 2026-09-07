@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 
 final class CatalogTest extends TestCase
 {
+    use DatabaseIsolationTrait;
+
     private static Config $testConfig;
     private static Database $testDb;
     private static CategoryQuery $catQuery;
@@ -35,6 +37,8 @@ final class CatalogTest extends TestCase
 
         self::$testConfig = Config::fromEnvironment(require dirname(__DIR__, 2) . '/config/defaults.php');
         self::$testDb     = new Database(self::$testConfig, useTestDatabase: true);
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+        self::recordInitialDevState(new Database(self::$testConfig, useTestDatabase: false));
         $tx               = new Transaction(self::$testDb);
 
         self::$catQuery   = new CategoryQuery(self::$testDb);
@@ -192,14 +196,9 @@ final class CatalogTest extends TestCase
 
     public function testDevelopmentDatabaseRemainsUntouched(): void
     {
-        $devDb  = new Database(self::$testConfig, useTestDatabase: false);
-        $tables = $devDb->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        if ($tables === []) {
-            self::assertSame([], $tables);
-            return;
-        }
-        self::assertSame(['categoria', 'conteo_inventario', 'infrastructure_probe', 'inventario_stock', 'producto', 'schema_migrations', 'ubicacion'], $tables);
-        self::assertSame(0, (int) $devDb->pdo()->query('SELECT COUNT(*) FROM producto')->fetchColumn());
-        self::assertSame(0, (int) $devDb->pdo()->query('SELECT COUNT(*) FROM categoria')->fetchColumn());
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+
+        $devDb = new Database(self::$testConfig, useTestDatabase: false);
+        self::assertDevDatabaseUntouched($devDb, self::$testConfig);
     }
 }

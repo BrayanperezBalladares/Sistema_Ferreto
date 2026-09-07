@@ -14,6 +14,8 @@ use Throwable;
 
 final class MigrationTest extends TestCase
 {
+    use DatabaseIsolationTrait;
+
     private static Config $testConfig;
     private static Database $testDb;
     /** @var list<string> */
@@ -28,6 +30,8 @@ final class MigrationTest extends TestCase
 
         self::$testConfig = Config::fromEnvironment(require dirname(__DIR__, 2) . '/config/defaults.php');
         self::$testDb     = new Database(self::$testConfig, useTestDatabase: true);
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+        self::recordInitialDevState(new Database(self::$testConfig, useTestDatabase: false));
     }
 
     protected function setUp(): void
@@ -218,13 +222,12 @@ final class MigrationTest extends TestCase
 
     public function testDevelopmentDatabaseUntouched(): void
     {
-        $devDb  = new Database(self::$testConfig, useTestDatabase: false);
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+
+        $devDb = new Database(self::$testConfig, useTestDatabase: false);
+        self::assertDevDatabaseUntouched($devDb, self::$testConfig);
+
         $tables = $devDb->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        if ($tables === []) {
-            self::assertSame([], $tables);
-            return;
-        }
-        self::assertSame(['categoria', 'conteo_inventario', 'infrastructure_probe', 'inventario_stock', 'producto', 'schema_migrations', 'ubicacion'], $tables);
         self::assertFalse(in_array('_m1', $tables, true));
         self::assertFalse(in_array('_m2', $tables, true));
     }

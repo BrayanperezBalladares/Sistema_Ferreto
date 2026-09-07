@@ -25,6 +25,8 @@ use Throwable;
  */
 final class DatabaseTest extends TestCase
 {
+    use DatabaseIsolationTrait;
+
     private static Config $testConfig;
     private static Database $testDb;
 
@@ -52,6 +54,8 @@ final class DatabaseTest extends TestCase
 
         self::$testConfig = Config::fromEnvironment($defaults);
         self::$testDb     = new Database(self::$testConfig, useTestDatabase: true);
+        self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);
+        self::recordInitialDevState(new Database(self::$testConfig, useTestDatabase: false));
     }
 
     // -------------------------------------------------------------------------
@@ -71,13 +75,19 @@ final class DatabaseTest extends TestCase
     public function testSelectedDatabaseIsTestDatabase(): void
     {
         $pdo      = self::$testDb->pdo();
-        $selected = $pdo->query('SELECT DATABASE()')->fetchColumn();
-        self::assertIsString($selected);
-        self::assertStringEndsWith(
-            '_test',
-            $selected,
-            "The live selected database '{$selected}' must end in _test."
-        );
+        /** @var array{db: string, usr: string, port: string|int} $identity */
+        $identity = $pdo->query('SELECT DATABASE() AS db, CURRENT_USER() AS usr, @@port AS port')->fetch(PDO::FETCH_ASSOC);
+
+        $testDbName = (string) self::$testConfig->get('TEST_DB_NAME');
+        $devDbName  = (string) self::$testConfig->get('DB_NAME');
+        $testUser   = (string) self::$testConfig->get('TEST_DB_USER');
+        $testPort   = (int) self::$testConfig->get('TEST_DB_PORT');
+
+        self::assertSame($testDbName, $identity['db'], "Active database must be '{$testDbName}'.");
+        self::assertNotSame($devDbName, $identity['db'], "Active database must not be '{$devDbName}'.");
+        self::assertStringEndsWith('_test', (string) $identity['db'], "The live selected database '{$identity['db']}' must end in _test.");
+        self::assertSame($testUser . '@127.0.0.1', $identity['usr'], "Active user must be '{$testUser}@127.0.0.1'.");
+        self::assertSame($testPort, (int) $identity['port'], "Active port must be {$testPort}.");
     }
 
     // -------------------------------------------------------------------------
@@ -235,15 +245,21 @@ final class DatabaseTest extends TestCase
         $devDb = new Database(self::$testConfig, useTestDatabase: false);
         $pdo   = $devDb->pdo();
 
-        $selected = $pdo->query('SELECT DATABASE()')->fetchColumn();
-        self::assertIsString($selected);
+        /** @var array{db: string, usr: string, port: string|int} $identity */
+        $identity = $pdo->query('SELECT DATABASE() AS db, CURRENT_USER() AS usr, @@port AS port')->fetch(PDO::FETCH_ASSOC);
 
-        $devName = self::$testConfig->get('DB_NAME');
+        $devName = (string) self::$testConfig->get('DB_NAME');
+        $devUser = (string) self::$testConfig->get('DB_USER');
+        $devPort = (int) self::$testConfig->get('DB_PORT');
+
         self::assertSame(
             $devName,
-            $selected,
-            "Development probe must target '{$devName}', not '{$selected}'."
+            $identity['db'],
+            "Development probe must target '{$devName}', not '{$identity['db']}'."
         );
+        self::assertFalse(str_ends_with((string) $identity['db'], '_test'), 'Development probe must not end in _test.');
+        self::assertSame($devUser . '@127.0.0.1', $identity['usr'], "Development probe must use user '{$devUser}@127.0.0.1'.");
+        self::assertSame($devPort, (int) $identity['port'], "Development probe must use port {$devPort}.");
     }
 
     public function testDevelopmentDatabaseIsNotMutated(): void
@@ -256,5 +272,7 @@ final class DatabaseTest extends TestCase
         $version = $pdo->query('SELECT VERSION()')->fetchColumn();
         self::assertIsString($version);
         self::assertStringContainsString('MariaDB', $version);
+
+        self::assertDevDatabaseUntouched($devDb, self::$testConfig);
     }
 }
