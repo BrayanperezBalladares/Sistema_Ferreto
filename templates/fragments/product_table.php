@@ -11,8 +11,8 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
 <div id="product-table-container">
 <?php if ($errors !== []): ?>
   <div class="notification is-danger is-light mb-4" data-test="validation-errors">
-    <?php foreach ($errors as $field => $msg): ?>
-      <p><strong><?= Renderer::escape($field) ?>:</strong> <?= Renderer::escape($msg) ?></p>
+    <?php foreach ($errors as $msg): ?>
+      <p><?= Renderer::escape($msg) ?></p>
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
@@ -62,17 +62,29 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
               <?php endif; ?>
             </td>
             <td>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/price" style="display: inline-flex; align-items: center; gap: 4px;">
-                  <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-                  <input class="input is-small" type="text" name="precio_actual" value="<?= Renderer::escape($p['precio_actual']) ?>" style="width: 70px;" required>
-                  <button class="btn-secondary" style="padding: 4px 8px; font-size: 12px;" type="submit">Actualizar</button>
-                </form>
+              <div style="display: inline-flex; gap: 8px; align-items: center;">
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  style="padding: 4px 10px; font-size: 13px;"
+                  data-modal-open="modal-price"
+                  data-product-id="<?= Renderer::escape((string) $p['id_producto']) ?>"
+                  data-product-name="<?= Renderer::escape($p['nombre']) ?>"
+                  data-product-price="<?= Renderer::escape($p['precio_actual']) ?>"
+                >
+                  Actualizar precio
+                </button>
                 <?php if ($p['estado_activo'] === 1): ?>
-                  <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/deactivate" style="display: inline;">
-                    <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-                    <button class="btn-danger" style="padding: 4px 8px; font-size: 12px;" type="submit">Desactivar</button>
-                  </form>
+                  <button
+                    type="button"
+                    class="btn-secondary"
+                    style="padding: 4px 10px; font-size: 13px; color: var(--color-danger);"
+                    data-modal-open="modal-deactivate"
+                    data-product-id="<?= Renderer::escape((string) $p['id_producto']) ?>"
+                    data-product-name="<?= Renderer::escape($p['nombre']) ?>"
+                  >
+                    Desactivar
+                  </button>
                 <?php endif; ?>
               </div>
             </td>

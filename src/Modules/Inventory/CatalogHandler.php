@@ -158,8 +158,31 @@ final readonly class CatalogHandler implements Handler
             'categories' => $this->categoryQuery->all(),
             'query'      => '',
             'csrf'       => $this->csrf->token(),
-            'errors'     => $errors,
+            'errors'     => $this->localizeErrors($errors),
             'input'      => $input,
         ]));
+    }
+
+    /**
+     * @param array<string, string> $errors
+     * @return array<string, string>
+     */
+    private function localizeErrors(array $errors): array
+    {
+        $localized = [];
+        foreach ($errors as $field => $msg) {
+            $localized[$field] = match ($msg) {
+                'Category name already exists.' => 'Ya existe una categoría con ese nombre.',
+                'Selected category does not exist.' => 'La categoría seleccionada no existe.',
+                'Product name is required.' => 'El nombre del producto es obligatorio.',
+                'Product name must not exceed 150 characters.' => 'El nombre del producto no debe exceder los 150 caracteres.',
+                'Category name is required.' => 'El nombre de la categoría es obligatorio.',
+                'Category name must not exceed 100 characters.' => 'El nombre de la categoría no debe exceder los 100 caracteres.',
+                'Price must be a valid non-negative decimal with at most 2 fractional digits.' => 'El precio debe ser mayor o igual a 0 y puede tener hasta 2 decimales.',
+                'Category ID must be a positive integer.' => 'La categoría seleccionada no es válida.',
+                default => $msg,
+            };
+        }
+        return $localized;
     }
 }

@@ -171,7 +171,9 @@ final class CatalogHttpTest extends TestCase
         self::$catCmd->create('Fijaciones');
         $response = $this->post('/categories', ['nombre' => 'Fijaciones']);
         self::assertSame(422, $response->status);
-        self::assertStringContainsString('Category name already exists.', $response->body);
+        self::assertStringContainsString('Ya existe una categoría con ese nombre.', $response->body);
+        self::assertStringNotContainsString('Category name already exists.', $response->body);
+        self::assertStringNotContainsString('nombre:', $response->body);
         self::assertStringNotContainsString('SQLSTATE', $response->body);
         self::assertStringNotContainsString('Duplicate entry', $response->body);
     }
@@ -309,6 +311,8 @@ final class CatalogHttpTest extends TestCase
         $id = self::$prodCmd->register('Precio Fijo', '15.00');
         $response = $this->post("/products/{$id}/price", ['precio_actual' => '-2.00']);
         self::assertSame(422, $response->status);
+        self::assertStringContainsString('El precio debe ser mayor o igual a 0 y puede tener hasta 2 decimales.', $response->body);
+        self::assertStringNotContainsString('precio_actual:', $response->body);
 
         $product = self::$prodQuery->findById($id);
         self::assertNotNull($product);
@@ -402,7 +406,28 @@ final class CatalogHttpTest extends TestCase
         self::assertStringContainsString('Inactivo Visible', $response->body);
         self::assertStringContainsString('Inactivo', $response->body);
         self::assertStringNotContainsString('Inactive', $response->body);
-        self::assertStringNotContainsString('activate', strtolower($response->body));
+        self::assertStringNotContainsString('/activate', $response->body);
+        self::assertStringNotContainsString('reactiv', strtolower($response->body));
+        self::assertStringNotContainsString('data-modal-open="modal-deactivate"', $response->body);
+    }
+
+    public function testInteractionModalsAndContextAreRendered(): void
+    {
+        $catId = self::$catCmd->create('Herramientas');
+        self::$prodCmd->register('Martillo Demo', '18.50', $catId);
+
+        $response = $this->dispatch(new Request('GET', '/products'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="modal-category"', $response->body);
+        self::assertStringContainsString('id="modal-product"', $response->body);
+        self::assertStringContainsString('id="modal-price"', $response->body);
+        self::assertStringContainsString('id="modal-deactivate"', $response->body);
+        self::assertStringContainsString('id="modal-price-product-name"', $response->body);
+        self::assertStringContainsString('id="modal-price-current-value"', $response->body);
+        self::assertStringContainsString('¿Estás seguro de que deseas desactivar el producto', $response->body);
+        self::assertStringContainsString('El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.', $response->body);
+        self::assertStringContainsString('data-modal-open="modal-price"', $response->body);
+        self::assertStringContainsString('data-modal-open="modal-deactivate"', $response->body);
     }
 
     /**

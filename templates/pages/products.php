@@ -19,82 +19,11 @@ ob_start();
       <h1 class="page-title">Productos</h1>
       <p class="page-subtitle">Gestión de artículos, precios de venta y disponibilidad.</p>
     </div>
-  </div>
-
-  <div class="columns mb-5">
-    <div class="column is-one-third">
-      <div class="ferreto-card p-4">
-        <h2 class="title is-6 mb-3 has-text-weight-bold">Nueva categoría</h2>
-        <form method="post" action="/categories">
-          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-          <div class="field">
-            <label class="label is-small">Nombre</label>
-            <div class="control">
-              <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
-            </div>
-          </div>
-          <div class="field">
-            <label class="label is-small">Descripción</label>
-            <div class="control">
-              <input class="input is-small" type="text" name="descripcion" value="<?= Renderer::escape($input['descripcion'] ?? '') ?>">
-            </div>
-          </div>
-          <button class="btn-primary is-fullwidth" style="width: 100%; justify-content: center;" type="submit">Guardar categoría</button>
-        </form>
-      </div>
-    </div>
-
-    <div class="column is-two-thirds">
-      <div class="ferreto-card p-4">
-        <h2 class="title is-6 mb-3 has-text-weight-bold">Registrar producto</h2>
-        <form method="post" action="/products">
-          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
-          <div class="columns is-multiline">
-            <div class="column is-half">
-              <div class="field">
-                <label class="label is-small">Nombre del producto</label>
-                <div class="control">
-                  <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
-                </div>
-              </div>
-            </div>
-            <div class="column is-half">
-              <div class="field">
-                <label class="label is-small">Precio actual</label>
-                <div class="control">
-                  <input class="input is-small" type="text" name="precio_actual" placeholder="0.00" value="<?= Renderer::escape($input['precio_actual'] ?? '') ?>" required>
-                </div>
-              </div>
-            </div>
-            <div class="column is-half">
-              <div class="field">
-                <label class="label is-small">Categoría</label>
-                <div class="control">
-                  <div class="select is-small is-fullwidth">
-                    <select name="id_categoria">
-                      <option value="">-- Sin categoría --</option>
-                      <?php foreach ($categories as $cat): ?>
-                        <option value="<?= Renderer::escape((string) $cat['id_categoria']) ?>">
-                          <?= Renderer::escape($cat['nombre']) ?>
-                        </option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="column is-half">
-              <div class="field">
-                <label class="label is-small">Descripción</label>
-                <div class="control">
-                  <input class="input is-small" type="text" name="descripcion" value="<?= Renderer::escape($input['descripcion'] ?? '') ?>">
-                </div>
-              </div>
-            </div>
-          </div>
-          <button class="btn-primary is-fullwidth" style="width: 100%; justify-content: center;" type="submit">Registrar producto</button>
-        </form>
-      </div>
+    <div class="page-actions">
+      <button class="btn-secondary" type="button" data-modal-open="modal-category">Nueva categoría</button>
+      <button class="btn-primary" type="button" data-modal-open="modal-product">
+        <span aria-hidden="true">+</span> Registrar producto
+      </button>
     </div>
   </div>
 
@@ -114,6 +43,153 @@ ob_start();
   </div>
 
   <?php require dirname(__DIR__) . '/fragments/product_table.php'; ?>
+
+  <!-- Modal: Nueva categoría -->
+  <div class="modal" id="modal-category" role="dialog" aria-modal="true" aria-labelledby="modal-category-title">
+    <div class="modal-background" data-modal-close></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-category-title">Nueva categoría</p>
+        <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+      </header>
+      <form method="post" action="/categories">
+        <section class="modal-card-body">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <div class="field mb-3">
+            <label class="label is-small">Nombre <span class="has-text-danger">*</span></label>
+            <div class="control">
+              <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Descripción</label>
+            <div class="control">
+              <textarea class="textarea is-small" name="descripcion" rows="2"><?= Renderer::escape($input['descripcion'] ?? '') ?></textarea>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn-primary" type="submit">Guardar categoría</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Registrar producto -->
+  <div class="modal" id="modal-product" role="dialog" aria-modal="true" aria-labelledby="modal-product-title">
+    <div class="modal-background" data-modal-close></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-product-title">Registrar producto</p>
+        <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+      </header>
+      <form method="post" action="/products">
+        <section class="modal-card-body">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <div class="field mb-3">
+            <label class="label is-small">Nombre del producto <span class="has-text-danger">*</span></label>
+            <div class="control">
+              <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
+            </div>
+          </div>
+          <div class="columns is-mobile mb-0">
+            <div class="column is-half py-1">
+              <div class="field">
+                <label class="label is-small">Precio actual <span class="has-text-danger">*</span></label>
+                <div class="control">
+                  <input class="input is-small" type="text" name="precio_actual" placeholder="0.00" value="<?= Renderer::escape($input['precio_actual'] ?? '') ?>" required>
+                </div>
+              </div>
+            </div>
+            <div class="column is-half py-1">
+              <div class="field">
+                <label class="label is-small">Categoría</label>
+                <div class="control">
+                  <div class="select is-small is-fullwidth">
+                    <select name="id_categoria">
+                      <option value="">-- Sin categoría --</option>
+                      <?php foreach ($categories as $cat): ?>
+                        <option value="<?= Renderer::escape((string) $cat['id_categoria']) ?>">
+                          <?= Renderer::escape($cat['nombre']) ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Descripción</label>
+            <div class="control">
+              <textarea class="textarea is-small" name="descripcion" rows="2"><?= Renderer::escape($input['descripcion'] ?? '') ?></textarea>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn-primary" type="submit">Registrar producto</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Actualizar precio -->
+  <div class="modal" id="modal-price" role="dialog" aria-modal="true" aria-labelledby="modal-price-title">
+    <div class="modal-background" data-modal-close></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-price-title">Actualizar precio</p>
+        <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+      </header>
+      <form method="post" id="form-update-price" action="">
+        <section class="modal-card-body">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <div class="mb-3">
+            <span class="is-size-7 has-text-grey">Producto:</span>
+            <div class="has-text-weight-semibold" id="modal-price-product-name">—</div>
+          </div>
+          <div class="mb-3">
+            <span class="is-size-7 has-text-grey">Precio actual:</span>
+            <div class="is-size-6" id="modal-price-current-value">—</div>
+          </div>
+          <div class="field">
+            <label class="label is-small">Nuevo precio <span class="has-text-danger">*</span></label>
+            <div class="control">
+              <input class="input is-small" type="text" name="precio_actual" id="modal-price-input" placeholder="0.00" required>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn-primary" type="submit">Actualizar precio</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Desactivar producto -->
+  <div class="modal" id="modal-deactivate" role="dialog" aria-modal="true" aria-labelledby="modal-deactivate-title">
+    <div class="modal-background" data-modal-close></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-deactivate-title">Desactivar producto</p>
+        <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+      </header>
+      <form method="post" id="form-deactivate-product" action="">
+        <section class="modal-card-body">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <p class="mb-2">¿Estás seguro de que deseas desactivar el producto <strong id="modal-deactivate-product-name"></strong>?</p>
+          <p class="is-size-7 has-text-grey">El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.</p>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+          <button class="btn-danger" type="submit">Desactivar</button>
+        </footer>
+      </form>
+    </div>
+  </div>
 </section>
 <?php
 $content = (string) ob_get_clean();
