@@ -28,16 +28,4 @@ final readonly class StockCommand
             return (int) $pdo->lastInsertId();
         });
     }
-
-    public function updateQuantity(int $idStock, string $nuevaCantidad): bool
-    {
-        return $this->tx->run(function (PDO $pdo) use ($idStock, $nuevaCantidad): bool {
-            $stmt = $pdo->prepare('UPDATE inventario_stock SET cantidad = :qty, updated_at = UTC_TIMESTAMP() WHERE id_stock = :id');
-            $stmt->bindValue(':qty', $nuevaCantidad);
-            $stmt->bindValue(':id', $idStock, PDO::PARAM_INT);
-            $stmt->execute();
-
-            return $stmt->rowCount() > 0;
-        });
-    }
 }

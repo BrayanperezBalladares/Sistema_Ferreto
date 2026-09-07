@@ -89,20 +89,25 @@ final class StockTest extends TestCase
 
     public function testStockPositionCreationWithZeroAndFractionalQuantities(): void
     {
-        $pId = self::$prodCmd->register('Tornillo 2 pulg', '2.50');
-        $lId = self::$locCmd->create('ESTANTE-01');
+        $pId1 = self::$prodCmd->register('Tornillo 2 pulg', '2.50');
+        $lId1 = self::$locCmd->create('ESTANTE-01');
 
-        $sId = self::$stockCmd->createPosition($pId, $lId, '0.000');
-        self::assertGreaterThan(0, $sId);
+        $sId1 = self::$stockCmd->createPosition($pId1, $lId1, '0.000');
+        self::assertGreaterThan(0, $sId1);
 
-        $pos = self::$stockQuery->getPosition($pId, $lId);
-        self::assertIsArray($pos);
-        self::assertSame('0.000', $pos['cantidad']);
+        $pos1 = self::$stockQuery->getPosition($pId1, $lId1);
+        self::assertIsArray($pos1);
+        self::assertSame('0.000', $pos1['cantidad']);
 
-        self::assertTrue(self::$stockCmd->updateQuantity($sId, '125.750'));
-        $updated = self::$stockQuery->findById($sId);
-        self::assertIsArray($updated);
-        self::assertSame('125.750', $updated['cantidad']);
+        $pId2 = self::$prodCmd->register('Tuerca 3/8', '1.25');
+        $lId2 = self::$locCmd->create('ESTANTE-02');
+
+        $sId2 = self::$stockCmd->createPosition($pId2, $lId2, '125.750');
+        self::assertGreaterThan(0, $sId2);
+
+        $pos2 = self::$stockQuery->findById($sId2);
+        self::assertIsArray($pos2);
+        self::assertSame('125.750', $pos2['cantidad']);
     }
 
     public function testDuplicateStockPositionRejection(): void

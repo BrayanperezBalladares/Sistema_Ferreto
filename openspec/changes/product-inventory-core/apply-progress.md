@@ -69,7 +69,7 @@
   - `database/migrations/0005_create_inventario_stock.up.sql` (`inventario_stock` table: `id_stock` INT UNSIGNED AUTO_INCREMENT PK, `id_producto` INT UNSIGNED FK RESTRICT, `id_ubicacion` INT UNSIGNED FK RESTRICT, UNIQUE pair, `cantidad` DECIMAL(12,3) CHECK >= 0, timestamps UTC)
   - `database/migrations/0005_create_inventario_stock.down.sql` (reversal)
   - `src/Modules/Inventory/StockValidator.php` (exact string decimal regex `/^\d+(\.\d{1,3})?$/`, zero PHP float math, rejects negatives and >3 fractional digits)
-  - `src/Modules/Inventory/StockCommand.php` (transactional position creation with FK checks and validation, transactional quantity update)
+  - `src/Modules/Inventory/StockCommand.php` (transactional position creation with FK checks and validation)
   - `src/Modules/Inventory/StockQuery.php` (module queries with DRY `BASE_SELECT`: `getPosition`, `findById`, `listByProduct`, `listByLocation`)
   - `tests/Integration/StockTest.php` (extended with 6 stock position scenarios, zero/fractional quantities, FK integrity, negative/precision rejection, parent deletion restriction, migration rollback)
   - `tests/Integration/CatalogTest.php` (updated table cleanup to preserve schema definitions and handle downstream migration reversal ordering for 0005)
