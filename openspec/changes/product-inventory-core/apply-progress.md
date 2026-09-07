@@ -193,20 +193,44 @@
 ## Remaining Tasks
 - **Phase 5: Server-Rendered Inventory & Counts UI (Slice 4B — Tasks 5.1–5.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
-- **Phase 7: Product Reactivation (Tasks 7.2–7.5)**: Pending
+- **Phase 7: Product Reactivation (Tasks 7.1–7.5)**: Complete
 
 ---
 
-## Contract Amendment: Product Reactivation (Approved Post-4A)
-- **Status**: Specification and design formalized (Task 7.1 complete); implementation pending (Tasks 7.2–7.5).
-- **Maintainer Decision**: Following manual Catalog UI review, the maintainer approved replacing the baseline `ACTIVE -> INACTIVE` one-way lifecycle with a reversible `ACTIVE <-> INACTIVE` lifecycle.
-- **Contract Rules**:
-  - Inactive products can be reactivated using the existing database record and original `id_producto`.
-  - Reactivation preserves all existing stock positions, observational counts, and historical references.
-  - No duplicate or replacement product record is created.
-  - Physical SQL deletion (`DELETE`) remains strictly forbidden.
-- **Implementation State**:
-  - `ProductCommand::activate`: Pending.
-  - `POST /products/{id}/activate`: Pending.
-  - UI `Activar` action & confirmation modal: Pending.
-  - Regression tests: Pending.
+## Phase 7: Product Reactivation Implementation (Slices 7A & 7B)
+
+- **Phase Intent**: Complete Tasks 7.1 through 7.5 implementing domain command activation, parameterized HTTP route with CSRF, UI row actions, confirmation modal, and regression verification proving same-ID identity and reference preservation without physical deletion.
+- **Review Budget & Subdivision Strategy**:
+  - Subdivided into **Slice 7A** (Domain + HTTP Activation, 142 lines $\le$ 400) and **Slice 7B** (Activation UI & Modal Interaction, 109 lines $\le$ 400). Both slices strictly satisfied the $\le 400$ changed authored lines budget limit.
+
+### Slice 7A: Domain Command & HTTP Activation
+- **Commit**: `85929e1` (`feat(inventory): add product reactivation`)
+- **Diff Stat**: 5 files changed, 139 insertions(+), 3 deletions(-) (142 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/ProductCommand.php`: Implemented `activate(int $idProducto): bool`, running `UPDATE producto SET estado_activo = 1, updated_at = UTC_TIMESTAMP() WHERE id_producto = :id` within transaction boundaries. Symmetrical with `deactivate(...)`.
+  - `config/routes.php`: Registered `POST /products/{id}/activate` mapped to `catalog`.
+  - `src/Modules/Inventory/CatalogHandler.php`: Handled `POST /products/{id}/activate`, verifying product existence (404 on missing), calling `ProductCommand::activate($id)`, and returning mutation success.
+  - `tests/Integration/CatalogTest.php`: Added `testProductActivation` and `testActivationPreservesSameProductIdentityAndReferences` verifying activation, same `id_producto`, and preservation of `inventario_stock` reference.
+  - `tests/Integration/CatalogHttpTest.php`: Added `testInactiveProductCanBeActivated`, `testActivationCsrfFailureProduces403`, `testActivationNonexistentProductReturns404`, and `testActivationPreservesStockReferenceAndCreatesNoDuplicate`.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-7a`) at `85929e1`.
+  - Targeted tests: `CatalogTest` (15 tests, 71 assertions), `CatalogHttpTest` (37 tests, 162 assertions) — 100% green.
+  - Full suite: 141 tests, 506 assertions (100% green).
+  - PHPStan: 39/39 files, 0 errors at Level Max.
+  - Development DB: 0 test rows created, complete isolation verified.
+
+### Slice 7B: Activation UI & Modal Interaction
+- **Commit**: `7fe9ddc` (`feat(ui): add product activation interaction`)
+- **Diff Stat**: 5 files changed, 102 insertions(+), 7 deletions(-) (109 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `templates/fragments/product_table.php`: Inactive rows render `Actualizar precio` and `Activar` (`btn-secondary`, amber tone, `data-modal-open="modal-activate"`). Active rows continue to render `Actualizar precio` and `Desactivar`.
+  - `templates/pages/products.php`: Added accessible confirmation modal `modal-activate` with Spanish copy: *"¿Estás seguro de que deseas activar el producto...?"*, reassurance of reference preservation, CSRF token, and non-destructive `Activar` submit button (`btn-primary`).
+  - `public/assets/app.js`: Wired `modal-activate` in `openModal()` to populate product name and target action URL `/products/{id}/activate`.
+  - `assets/provenance.json`: Updated `app.js` SHA-256 hash (`a4bbef3bde86a16721f5fef17493a8856e773e8c12a223d1b547f80e853af55e`), verified by `composer setup`.
+  - `tests/Integration/CatalogHttpTest.php`: Added tests verifying inactive row action rendering, modal Spanish copy, CSRF token presence, after-activation status transition, and absence of forbidden terms (*Restaurar*, *Recuperar*, *Reactivar*, *Eliminar*).
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-7b`) at `7fe9ddc`.
+  - Targeted tests: `CatalogHttpTest` (39 tests, 186 assertions) — 100% green.
+  - Full suite: 143 tests, 530 assertions (100% green).
+  - PHPStan: 39/39 files, 0 errors at Level Max.
+  - Development DB: Untouched, isolation verified.
