@@ -35,6 +35,12 @@ final readonly class CatalogHandler implements Handler
             if ($request->path === '/products') {
                 return $this->createProduct($request);
             }
+            if (preg_match('#^/products/(\d+)/price$#', $request->path, $matches) === 1) {
+                return $this->updatePrice($request, (int) $matches[1]);
+            }
+            if (preg_match('#^/products/(\d+)/deactivate$#', $request->path, $matches) === 1) {
+                return $this->deactivate($request, (int) $matches[1]);
+            }
         }
 
         return new Response(405, ['Allow' => 'GET, POST']);
@@ -94,6 +100,37 @@ final readonly class CatalogHandler implements Handler
         $this->productCommand->register($validation->safeInput['nombre'], $validation->safeInput['precio_actual'], $catId, $desc);
 
         return $this->mutationSuccess($request, 'Product registered successfully.');
+    }
+
+    private function updatePrice(Request $request, int $id): Response
+    {
+        if ($this->productQuery->findById($id) === null) {
+            return new Response(404);
+        }
+
+        $price = is_string($request->body['precio_actual'] ?? null) ? $request->body['precio_actual'] : '';
+        $validation = CatalogValidator::validatePrice($price);
+        if (!$validation->valid()) {
+            return $this->renderWithErrors($request, $validation->fieldErrors, [
+                'id_producto'   => (string) $id,
+                'precio_actual' => $price,
+            ]);
+        }
+
+        $this->productCommand->updatePrice($id, $validation->safeInput['precio_actual']);
+
+        return $this->mutationSuccess($request, 'Price updated successfully.');
+    }
+
+    private function deactivate(Request $request, int $id): Response
+    {
+        if ($this->productQuery->findById($id) === null) {
+            return new Response(404);
+        }
+
+        $this->productCommand->deactivate($id);
+
+        return $this->mutationSuccess($request, 'Product deactivated successfully.');
     }
 
     private function mutationSuccess(Request $request, string $message): Response

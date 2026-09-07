@@ -44,7 +44,7 @@ final class Router
 
         $allowed = [];
         foreach ($this->routes as [$method, $path, $handler]) {
-            if ($path !== $request->path) {
+            if (!$this->matchPath($path, $request->path)) {
                 continue;
             }
             $allowed[] = $method;
@@ -63,5 +63,17 @@ final class Router
         return $allowed === []
             ? new Response(404)
             : new Response(405, ['Allow' => implode(', ', $allowed)]);
+    }
+
+    private function matchPath(string $routePath, string $requestPath): bool
+    {
+        if ($routePath === $requestPath) {
+            return true;
+        }
+        if (!str_contains($routePath, '{')) {
+            return false;
+        }
+        $pattern = '#^' . preg_replace('/\{[a-zA-Z0-9_]+\}/', '([^/]+)', $routePath) . '$#';
+        return preg_match($pattern, $requestPath) === 1;
     }
 }

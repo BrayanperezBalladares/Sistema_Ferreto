@@ -272,6 +272,129 @@ final class CatalogHttpTest extends TestCase
         self::assertStringNotContainsString('status dropdown', strtolower($response->body));
     }
 
+    public function testValidPriceUpdate(): void
+    {
+        $id = self::$prodCmd->register('Disco de Corte', '5.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => '6.50']);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $updated = self::$prodQuery->findById($id);
+        self::assertNotNull($updated);
+        self::assertSame('6.50', $updated['precio_actual']);
+    }
+
+    public function testZeroPriceUpdateAccepted(): void
+    {
+        $id = self::$prodCmd->register('Liquidacion', '10.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => '0.00']);
+        self::assertSame(303, $response->status);
+
+        $updated = self::$prodQuery->findById($id);
+        self::assertNotNull($updated);
+        self::assertSame('0.00', $updated['precio_actual']);
+    }
+
+    public function testNegativePriceRejectedOnUpdate(): void
+    {
+        $id = self::$prodCmd->register('Precio Fijo', '15.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => '-2.00']);
+        self::assertSame(422, $response->status);
+
+        $product = self::$prodQuery->findById($id);
+        self::assertNotNull($product);
+        self::assertSame('15.00', $product['precio_actual']);
+    }
+
+    public function testOverprecisionPriceRejectedOnUpdate(): void
+    {
+        $id = self::$prodCmd->register('Precio Preciso', '15.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => '15.123']);
+        self::assertSame(422, $response->status);
+
+        $product = self::$prodQuery->findById($id);
+        self::assertNotNull($product);
+        self::assertSame('15.00', $product['precio_actual']);
+    }
+
+    public function testMalformedPriceRejectedOnUpdate(): void
+    {
+        $id = self::$prodCmd->register('Precio Texto', '15.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => 'bad']);
+        self::assertSame(422, $response->status);
+
+        $product = self::$prodQuery->findById($id);
+        self::assertNotNull($product);
+        self::assertSame('15.00', $product['precio_actual']);
+    }
+
+    public function testPriceUpdateCsrfFailureProduces403(): void
+    {
+        $id = self::$prodCmd->register('Test CSRF', '10.00');
+        $response = $this->post("/products/{$id}/price", ['precio_actual' => '12.00'], withCsrf: false);
+        self::assertSame(403, $response->status);
+    }
+
+    public function testActiveProductCanBeDeactivated(): void
+    {
+        $id = self::$prodCmd->register('Sierra Circular', '120.00');
+        $response = $this->post("/products/{$id}/deactivate", []);
+        self::assertSame(303, $response->status);
+        self::assertSame('/products', $response->headers['Location']);
+
+        $deactivated = self::$prodQuery->findById($id);
+        self::assertNotNull($deactivated);
+        self::assertSame(0, $deactivated['estado_activo']);
+    }
+
+    public function testDeactivationCsrfFailureProduces403(): void
+    {
+        $id = self::$prodCmd->register('Test Deact CSRF', '10.00');
+        $response = $this->post("/products/{$id}/deactivate", [], withCsrf: false);
+        self::assertSame(403, $response->status);
+    }
+
+    public function testProductRemainsInStorageAfterDeactivation(): void
+    {
+        $id = self::$prodCmd->register('Permanente Historial', '45.00');
+        $this->post("/products/{$id}/deactivate", []);
+
+        $stored = self::$prodQuery->findById($id);
+        self::assertNotNull($stored);
+        self::assertSame('Permanente Historial', $stored['nombre']);
+        self::assertSame(0, $stored['estado_activo']);
+    }
+
+    public function testNoPhysicalDeleteRouteOrBehavior(): void
+    {
+        $id = self::$prodCmd->register('No Borrar', '25.00');
+        $router = $this->dispatch(new Request('DELETE', "/products/{$id}"));
+        self::assertContains($router->status, [404, 405]);
+
+        $exists = self::$prodQuery->findById($id);
+        self::assertNotNull($exists);
+    }
+
+    public function testNoReactivationRouteOrBehavior(): void
+    {
+        $id = self::$prodCmd->register('Sin Reactivar', '25.00');
+        self::$prodCmd->deactivate($id);
+        $response = $this->post("/products/{$id}/activate", []);
+        self::assertContains($response->status, [404, 405]);
+    }
+
+    public function testInactiveProductDoesNotRenderReactivateAction(): void
+    {
+        $id = self::$prodCmd->register('Inactivo Visible', '30.00');
+        self::$prodCmd->deactivate($id);
+
+        $response = $this->dispatch(new Request('GET', '/products'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Inactivo Visible', $response->body);
+        self::assertStringContainsString('Inactive', $response->body);
+        self::assertStringNotContainsString('activate', strtolower($response->body));
+    }
+
     /**
      * @param array<string, string> $body
      */

@@ -256,6 +256,31 @@ final class HttpTest extends TestCase
 
         return [$dispatch, $session, $csrf];
     }
+
+    public function testParameterizedRouteMatchesAndPreservesSemantics(): void
+    {
+        $router = new Router([
+            ['GET', '/items/{id}', static fn (Request $r): Response => new Response(200, [], 'item:' . $r->path)],
+            ['POST', '/items/{id}/action', static fn (Request $r): Response => new Response(200, [], 'action:' . $r->path)],
+        ]);
+
+        $r1 = $router->dispatch(new Request('GET', '/items/42'));
+        self::assertSame(200, $r1->status);
+        self::assertSame('item:/items/42', $r1->body);
+
+        $r2 = $router->dispatch(new Request('POST', '/items/42/action'));
+        self::assertSame(200, $r2->status);
+        self::assertSame('action:/items/42/action', $r2->body);
+
+        // 405 Method Not Allowed on parameterized route
+        $r3 = $router->dispatch(new Request('DELETE', '/items/42'));
+        self::assertSame(405, $r3->status);
+        self::assertSame('GET', $r3->headers['Allow']);
+
+        // 404 Not Found
+        $r4 = $router->dispatch(new Request('GET', '/items/42/unknown'));
+        self::assertSame(404, $r4->status);
+    }
 }
 
 final class MemorySession implements Session

@@ -8,4 +8,6 @@ return [
     ['GET', '/products', 'catalog'],
     ['POST', '/categories', 'catalog'],
     ['POST', '/products', 'catalog'],
+    ['POST', '/products/{id}/price', 'catalog'],
+    ['POST', '/products/{id}/deactivate', 'catalog'],
 ];

@@ -4,6 +4,7 @@ use App\Foundation\Renderer;
 
 /** @var list<array{id_producto: int, id_categoria: ?int, categoria_nombre: ?string, nombre: string, descripcion: ?string, precio_actual: string, estado_activo: int, created_at: string, updated_at: string}> $products */
 $products = $data['products'] ?? [];
+$csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
 ?>
@@ -28,7 +29,8 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
           <th>Product</th>
           <th>Category</th>
           <th>Price</th>
-          <th>Status</th>
+          <th>Update Price</th>
+          <th>Status / Action</th>
         </tr>
       </thead>
       <tbody>
@@ -44,8 +46,19 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
             </td>
             <td>$<?= Renderer::escape($p['precio_actual']) ?></td>
             <td>
+              <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/price" class="is-inline-flex">
+                <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+                <input class="input is-small mr-1" type="text" name="precio_actual" value="<?= Renderer::escape($p['precio_actual']) ?>" style="width: 80px;" required>
+                <button class="button is-small is-info is-light" type="submit">Save</button>
+              </form>
+            </td>
+            <td>
               <?php if ($p['estado_activo'] === 1): ?>
-                <span class="tag is-success">Active</span>
+                <span class="tag is-success mr-2">Active</span>
+                <form method="post" action="/products/<?= Renderer::escape((string) $p['id_producto']) ?>/deactivate" class="is-inline">
+                  <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+                  <button class="button is-small is-danger is-light" type="submit">Deactivate</button>
+                </form>
               <?php else: ?>
                 <span class="tag is-danger is-light">Inactive</span>
               <?php endif; ?>
