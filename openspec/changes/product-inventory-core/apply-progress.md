@@ -191,7 +191,7 @@
 ---
 
 ## Remaining Tasks
-- **Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — Tasks 5A.1–5A.4)**: Pending
+- **Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — Tasks 5A.1–5A.4)**: Complete
 - **Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — Tasks 5B.1–5B.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
 - **Phase 7: Product Reactivation (Tasks 7.1–7.5)**: Complete
@@ -248,3 +248,48 @@
   - Review-budget control: Separating locations from stock and count workflows prevents oversized pull requests and preserves the $\le 400$ changed authored lines budget limit.
   - Incremental verification: Enables independent browser smoke testing and verification of physical locations before introducing multi-location stock positions.
 - **Status**: Planning amendment complete. Phase 5A and 5B implementations remain pending. No domain or functional requirements were removed.
+
+---
+
+## Phase 5A: Server-Rendered Locations UI Implementation (Slices 5A-A & 5A-B)
+
+- **Phase Intent**: Complete Tasks 5A.1 through 5A.4 implementing standalone server-rendered Locations UI (`GET /locations`, `POST /locations`), `LocationHandler`, `LocationValidator`, canonical layout/template with accessible modal and Spanish validation, production composition root wiring, and HTTP regression verification.
+- **Review Budget & Subdivision Strategy**:
+  - Subdivided into **Slice 5A-A** (Locations Browsing Interface, commit `13b22e9`, 328 changed authored lines $\le$ 400) and **Slice 5A-B** (Location Creation Interaction, commit `6b94b4f`, 224 changed authored lines $\le$ 400). Both slices strictly satisfied the $\le 400$ changed authored lines budget limit.
+
+### Slice 5A-A: Locations Browsing Interface
+- **Commit**: `13b22e9` (`feat(inventory): add locations browsing interface`)
+- **Diff Stat**: 7 files changed, 325 insertions(+), 3 deletions(-) (328 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/LocationHandler.php`: Module-owned handler handling `GET /locations`, querying `LocationQuery::all()`, and rendering `page.locations` with `Vary: HX-Request` and `Cache-Control: no-store`.
+  - `src/Foundation/Renderer.php`: Registered `'page.locations' => 'pages/locations.php'` in template mapping.
+  - `config/routes.php`: Registered `['GET', '/locations', 'location']`.
+  - `public/index.php`: Wired `LocationHandler` into front controller, registering `'location'` in handler map.
+  - `templates/layout.php`: Added capability-aware `Ubicaciones` navigation under `Catálogo` with active indicator and synchronized topbar breadcrumbs (`Catálogo / Ubicaciones`).
+  - `templates/pages/locations.php`: Canonical server-rendered page matching `docs/ui/DESIGN.md`, table with `Código`, `Descripción`, `Estado` (`Activo` soft green badge), and empty state. Acciones column omitted.
+  - `tests/Integration/LocationHttpTest.php`: Integration test verifying 200 OK, canonical HTML, active navigation, empty state, row rendering, HTML escaping, absence of unsupported actions, and real production entrypoint execution.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-5a`) at `13b22e9`.
+  - `composer setup`: Passed cleanly.
+  - Targeted tests: `LocationHttpTest` (7 tests, 58 assertions), `StockTest` (10 tests, 42 assertions), `CatalogHttpTest` (39 tests, 186 assertions) — 100% green.
+  - Full suite: 150 tests, 588 assertions (100% green).
+  - PHPStan: 40/40 files, 0 errors at Level Max.
+  - Development DB: Untouched, isolation verified.
+
+### Slice 5A-B: Location Creation Interaction
+- **Commit**: `6b94b4f` (`feat(inventory): add location creation interaction`)
+- **Diff Stat**: 6 files changed, 220 insertions(+), 2 deletions(-) (224 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/LocationValidator.php`: Validates required code (non-empty trimmed string $\le$ 50 chars) and optional description.
+  - `src/Modules/Inventory/LocationHandler.php`: Handled `POST /locations` with CSRF validation, duplicate code verification against `LocationQuery::findByCode`, transactional creation via `LocationCommand::create`, and 303 redirect / HTMX notification.
+  - `config/routes.php`: Registered `['POST', '/locations', 'location']`.
+  - `public/index.php`: Passed `LocationCommand` to `LocationHandler`.
+  - `templates/pages/locations.php`: Added accessible modal dialog `modal-location` with CSRF token, inputs for `Código` and `Descripción`, inline Spanish error messages, and actions `Cancelar` / `Guardar ubicación`.
+  - `tests/Integration/LocationHttpTest.php`: Added test cases for successful creation, optional description, duplicate code rejection (422), empty code rejection (422), 50-character limit enforcement (422), CSRF token enforcement (403), and HTMX redirect/trigger.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-5b`) at `6b94b4f`.
+  - `composer setup`: Passed cleanly.
+  - Targeted tests: `LocationHttpTest` (14 tests, 79 assertions), `StockTest` (10 tests, 42 assertions), `CatalogHttpTest` (39 tests, 186 assertions) — 100% green.
+  - Full suite: 157 tests, 609 assertions (100% green).
+  - PHPStan: 41/41 files, 0 errors at Level Max.
+  - Development DB: 0 test rows created, complete isolation verified.

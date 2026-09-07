@@ -33,10 +33,10 @@
 
 ## Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — `inventory-locations`)
 
-- [ ] 5A.1 Implement a module-owned `LocationHandler` in `src/Modules/Inventory/LocationHandler.php` for location listing and creation using existing `LocationQuery` and `LocationCommand`.
-- [ ] 5A.2 Create Bulma templates `templates/pages/locations.php` with canonical locations table, empty state, and CSRF-protected location creation modal following `docs/ui/DESIGN.md`.
-- [ ] 5A.3 Register routes `GET /locations` and `POST /locations` in `config/routes.php` and wire `LocationHandler` into the production front controller `public/index.php`.
-- [ ] 5A.4 Add HTTP integration test `tests/Integration/LocationHttpTest.php` verifying 200/422 status, listing, empty state, creation, duplicate-code validation, CSRF enforcement, HTML escaping, production composition, and absence of unsupported CRUD actions.
+- [x] 5A.1 Implement a module-owned `LocationHandler` in `src/Modules/Inventory/LocationHandler.php` for location listing and creation using existing `LocationQuery` and `LocationCommand`.
+- [x] 5A.2 Create Bulma templates `templates/pages/locations.php` with canonical locations table, empty state, and CSRF-protected location creation modal following `docs/ui/DESIGN.md`.
+- [x] 5A.3 Register routes `GET /locations` and `POST /locations` in `config/routes.php` and wire `LocationHandler` into the production front controller `public/index.php`.
+- [x] 5A.4 Add HTTP integration test `tests/Integration/LocationHttpTest.php` verifying 200/422 status, listing, empty state, creation, duplicate-code validation, CSRF enforcement, HTML escaping, production composition, and absence of unsupported CRUD actions.
 
 ## Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — `inventory-stock-counts`)
 
