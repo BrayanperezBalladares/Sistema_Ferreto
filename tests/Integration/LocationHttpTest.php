@@ -132,6 +132,88 @@ final class LocationHttpTest extends TestCase
         }
     }
 
+    public function testLocationCreationSucceedsAndRedirects(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo'      => 'BODEGA-01',
+            'descripcion' => 'Bodega central de almacenamiento',
+        ]);
+        self::assertSame(303, $response->status);
+        self::assertSame('/locations', $response->headers['Location']);
+
+        $loc = self::$locQuery->findByCode('BODEGA-01');
+        self::assertIsArray($loc);
+        self::assertSame('BODEGA-01', $loc['codigo']);
+        self::assertSame('Bodega central de almacenamiento', $loc['descripcion']);
+        self::assertSame(1, (int) $loc['estado_activo']);
+    }
+
+    public function testLocationCreationWithoutOptionalDescriptionWorks(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo'      => 'ZONA-CARGA',
+            'descripcion' => '',
+        ]);
+        self::assertSame(303, $response->status);
+
+        $loc = self::$locQuery->findByCode('ZONA-CARGA');
+        self::assertIsArray($loc);
+        self::assertNull($loc['descripcion']);
+    }
+
+    public function testLocationCreationDuplicateCodeRejectedWith422(): void
+    {
+        self::$locCmd->create('PASILLO-01');
+
+        $response = $this->post('/locations', [
+            'codigo'      => 'PASILLO-01',
+            'descripcion' => 'Intento duplicado',
+        ]);
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('Ya existe una ubicación con ese código.', $response->body);
+        self::assertStringContainsString('is-active', $response->body);
+    }
+
+    public function testLocationCreationEmptyCodeRejectedWith422(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo' => '   ',
+        ]);
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('El código de la ubicación es obligatorio.', $response->body);
+    }
+
+    public function testLocationCreationCodeExceedingFiftyCharsRejectedWith422(): void
+    {
+        $longCode = str_repeat('A', 51);
+        $response = $this->post('/locations', [
+            'codigo' => $longCode,
+        ]);
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('El código de la ubicación no debe exceder los 50 caracteres.', $response->body);
+    }
+
+    public function testLocationCreationRequiresCsrfToken(): void
+    {
+        $response = $this->dispatch(new Request('POST', '/locations', body: [
+            'codigo' => 'UNAUTHORIZED',
+            '_csrf'  => 'invalid-token-12345',
+        ]));
+        self::assertSame(403, $response->status);
+        self::assertNull(self::$locQuery->findByCode('UNAUTHORIZED'));
+    }
+
+    public function testHtmxLocationCreationReturnsHxRedirectAndTrigger(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo' => 'HTMX-LOC',
+        ], headers: ['hx-request' => 'true']);
+
+        self::assertSame(200, $response->status);
+        self::assertSame('/locations', $response->headers['HX-Redirect']);
+        self::assertStringContainsString('Ubicación registrada correctamente.', $response->headers['HX-Trigger']);
+    }
+
     public function testProductionEntrypointServesLocations(): void
     {
         $root = dirname(__DIR__, 2);
@@ -150,11 +232,22 @@ final class LocationHttpTest extends TestCase
         self::assertStringContainsString('id="location-table-container"', $stdout);
     }
 
+    /** @param array<string, mixed> $body */
+    private function post(string $path, array $body, ?Csrf $csrf = null, array $headers = []): Response
+    {
+        $session = new LocationMemorySession();
+        $actualCsrf = $csrf ?? new Csrf($session);
+        if (!isset($body['_csrf'])) {
+            $body['_csrf'] = $actualCsrf->token();
+        }
+        return $this->dispatch(new Request('POST', $path, headers: $headers, body: $body), $actualCsrf);
+    }
+
     private function dispatch(Request $request, ?Csrf $csrf = null): Response
     {
         $session = new LocationMemorySession();
         $actualCsrf = $csrf ?? new Csrf($session);
-        $handler = new LocationHandler(self::$renderer, self::$locQuery, $actualCsrf);
+        $handler = new LocationHandler(self::$renderer, self::$locQuery, self::$locCmd, $actualCsrf);
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
         $routes = [];

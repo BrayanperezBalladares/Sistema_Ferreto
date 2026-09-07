@@ -15,6 +15,7 @@ final readonly class LocationHandler implements Handler
     public function __construct(
         private Renderer $renderer,
         private LocationQuery $locationQuery,
+        private LocationCommand $locationCommand,
         private Csrf $csrf,
     ) {
     }
@@ -25,7 +26,11 @@ final readonly class LocationHandler implements Handler
             return $this->browse();
         }
 
-        return new Response(405, ['Allow' => 'GET']);
+        if ($request->method === 'POST' && $request->path === '/locations') {
+            return $this->createLocation($request);
+        }
+
+        return new Response(405, ['Allow' => 'GET, POST']);
     }
 
     private function browse(): Response
@@ -39,6 +44,53 @@ final readonly class LocationHandler implements Handler
         ], $this->renderer->render('page.locations', [
             'locations' => $locations,
             'csrf'      => $this->csrf->token(),
+        ]));
+    }
+
+    private function createLocation(Request $request): Response
+    {
+        $validation = LocationValidator::validateLocation($request->body);
+        if (!$validation->valid()) {
+            return $this->renderWithErrors($validation->fieldErrors, $validation->safeInput);
+        }
+
+        $code = $validation->safeInput['codigo'];
+        if ($this->locationQuery->findByCode($code) !== null) {
+            return $this->renderWithErrors(
+                ['codigo' => 'Ya existe una ubicación con ese código.'],
+                $validation->safeInput
+            );
+        }
+
+        $desc = ($validation->safeInput['descripcion'] ?? '') !== '' ? $validation->safeInput['descripcion'] : null;
+        $this->locationCommand->create($code, $desc);
+
+        return $this->mutationSuccess($request, 'Ubicación registrada correctamente.');
+    }
+
+    private function mutationSuccess(Request $request, string $message): Response
+    {
+        $trigger = (string) json_encode(['notification' => ['message' => $message, 'level' => 'success']], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return $request->isHtmx()
+            ? new Response(200, ['HX-Redirect' => '/locations', 'HX-Trigger' => $trigger])
+            : Response::redirect('/locations');
+    }
+
+    /**
+     * @param array<string, string> $errors
+     * @param array<string, string> $input
+     */
+    private function renderWithErrors(array $errors, array $input): Response
+    {
+        return new Response(422, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Vary'          => 'HX-Request',
+            'Cache-Control' => 'no-store',
+        ], $this->renderer->render('page.locations', [
+            'locations' => $this->locationQuery->all(),
+            'csrf'      => $this->csrf->token(),
+            'errors'    => $errors,
+            'input'     => $input,
         ]));
     }
 }

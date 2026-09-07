@@ -41,6 +41,7 @@ $catalog = new CatalogHandler(
 $location = new LocationHandler(
     $renderer,
     new LocationQuery($database),
+    new LocationCommand($tx),
     $csrf
 );
 
