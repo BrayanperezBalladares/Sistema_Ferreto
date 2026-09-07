@@ -6,7 +6,7 @@
 - [ ] 1.2 Create migration `database/migrations/0003_create_producto.up.sql` (`producto` table: `id_producto` PK, nullable `id_categoria` FK with SET NULL, `nombre`, `descripcion`, `precio_actual` DECIMAL(12,2) with CHECK >= 0, `estado_activo`, timestamps) and reversal `0003_create_producto.down.sql`.
 - [ ] 1.3 Implement `src/Modules/Inventory/CategoryQuery.php` and `CategoryCommand.php` for unique category registration and listing via PDO prepared statements.
 - [ ] 1.4 Implement `src/Modules/Inventory/ProductQuery.php` and `ProductCommand.php` for product registration, price update, and soft deactivation (`estado_activo = 0`).
-- [ ] 1.5 Implement `src/Modules/Inventory/CatalogValidator.php` for exact string decimal price validation without PHP float arithmetic.
+- [ ] 1.5 Implement `src/Modules/Inventory/CatalogValidator.php` for exact string decimal price validation (accepting at most 2 fractional digits via `/^\d+(\.\d{1,2})?$/`, rejecting negative values, without PHP float arithmetic).
 - [ ] 1.6 Add integration test `tests/Integration/CatalogTest.php` verifying category uniqueness, product CRUD, price non-negativity, nullable category assignment, and deactivation.
 
 ## Phase 2: Storage Locations & Associative Stock (Slice 2 — `inventory-locations-stock`)
@@ -14,14 +14,14 @@
 - [ ] 2.1 Create migration `database/migrations/0004_create_ubicacion.up.sql` (`ubicacion` table: `id_ubicacion` PK, `codigo` UNIQUE, `descripcion`, `estado_activo`, timestamps) and reversal `0004_create_ubicacion.down.sql`.
 - [ ] 2.2 Create migration `database/migrations/0005_create_inventario_stock.up.sql` (`inventario_stock` table: `id_stock` PK, FK `producto` RESTRICT, FK `ubicacion` RESTRICT, UNIQUE pair, `cantidad` DECIMAL(12,3) CHECK >= 0, timestamps) and reversal `0005_create_inventario_stock.down.sql`.
 - [ ] 2.3 Implement `src/Modules/Inventory/LocationQuery.php` and `LocationCommand.php` for registering and querying physical storage locations.
-- [ ] 2.4 Implement `src/Modules/Inventory/StockQuery.php` and `StockCommand.php` for establishing associative stock positions with exact decimal string validation.
+- [ ] 2.4 Implement `src/Modules/Inventory/StockQuery.php` and `StockCommand.php` for establishing associative stock positions with exact decimal string validation (accepting at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic).
 - [ ] 2.5 Add integration test `tests/Integration/StockTest.php` verifying location code uniqueness, stock position creation, duplicate pair rejection, and decimal constraints.
 
 ## Phase 3: Observational Inventory Counts (Slice 3 — `inventory-locations-stock`)
 
 - [ ] 3.1 Create migration `database/migrations/0006_create_conteo_inventario.up.sql` (`conteo_inventario` table: `id_conteo` PK, FK `id_stock` RESTRICT, `cantidad_sistema`, `cantidad_contada`, `diferencia`, `notas`, `created_at`) and reversal `0006_create_conteo_inventario.down.sql`.
 - [ ] 3.2 Implement `src/Modules/Inventory/CountQuery.php` for read-only retrieval of count records by stock position.
-- [ ] 3.3 Implement `src/Modules/Inventory/CountCommand.php` executing atomic `INSERT ... SELECT` from `inventario_stock` to capture snapshot and MariaDB decimal variance without mutating stock.
+- [ ] 3.3 Implement `src/Modules/Inventory/CountCommand.php` executing atomic `INSERT ... SELECT` from `inventario_stock` with exact decimal string validation for counted quantity (at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic) to capture snapshot and MariaDB decimal variance without mutating stock.
 - [ ] 3.4 Add integration test `tests/Integration/CountTest.php` verifying count recording, atomic variance math, append-only immutability, and stock non-mutation.
 
 ## Phase 4: Server-Rendered Catalog UI (Slice 4A — `product-catalog`)
