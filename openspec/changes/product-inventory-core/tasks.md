@@ -11,11 +11,11 @@
 
 ## Phase 2: Storage Locations & Associative Stock (Slice 2 — `inventory-locations-stock`)
 
-- [ ] 2.1 Create migration `database/migrations/0004_create_ubicacion.up.sql` (`ubicacion` table: `id_ubicacion` PK, `codigo` UNIQUE, `descripcion`, `estado_activo`, timestamps) and reversal `0004_create_ubicacion.down.sql`.
-- [ ] 2.2 Create migration `database/migrations/0005_create_inventario_stock.up.sql` (`inventario_stock` table: `id_stock` PK, FK `producto` RESTRICT, FK `ubicacion` RESTRICT, UNIQUE pair, `cantidad` DECIMAL(12,3) CHECK >= 0, timestamps) and reversal `0005_create_inventario_stock.down.sql`.
-- [ ] 2.3 Implement `src/Modules/Inventory/LocationQuery.php` and `LocationCommand.php` for registering and querying physical storage locations.
-- [ ] 2.4 Implement `src/Modules/Inventory/StockQuery.php` and `StockCommand.php` for establishing associative stock positions with exact decimal string validation (accepting at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic).
-- [ ] 2.5 Add integration test `tests/Integration/StockTest.php` verifying location code uniqueness, stock position creation, duplicate pair rejection, and decimal constraints.
+- [x] 2.1 Create migration `database/migrations/0004_create_ubicacion.up.sql` (`ubicacion` table: `id_ubicacion` PK, `codigo` UNIQUE, `descripcion`, `estado_activo`, timestamps) and reversal `0004_create_ubicacion.down.sql`.
+- [x] 2.2 Create migration `database/migrations/0005_create_inventario_stock.up.sql` (`inventario_stock` table: `id_stock` PK, FK `producto` RESTRICT, FK `ubicacion` RESTRICT, UNIQUE pair, `cantidad` DECIMAL(12,3) CHECK >= 0, timestamps) and reversal `0005_create_inventario_stock.down.sql`.
+- [x] 2.3 Implement `src/Modules/Inventory/LocationQuery.php` and `LocationCommand.php` for registering and querying physical storage locations.
+- [x] 2.4 Implement `src/Modules/Inventory/StockQuery.php` and `StockCommand.php` for establishing associative stock positions with exact decimal string validation (accepting at most 3 fractional digits via `/^\d+(\.\d{1,3})?$/`, rejecting negative values, without PHP float arithmetic).
+- [x] 2.5 Add integration test `tests/Integration/StockTest.php` verifying location code uniqueness, stock position creation, duplicate pair rejection, and decimal constraints.
 
 ## Phase 3: Observational Inventory Counts (Slice 3 — `inventory-locations-stock`)
 
