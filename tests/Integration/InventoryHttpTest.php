@@ -6,7 +6,6 @@ namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
 use App\Modules\Inventory\{InventoryHandler, LocationCommand, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
-use PDO;
 use PHPUnit\Framework\TestCase;
 
 final class InventoryHttpTest extends TestCase
@@ -167,12 +166,207 @@ final class InventoryHttpTest extends TestCase
         self::assertStringContainsString('id="stock-table-container"', $stdout);
     }
 
+    public function testStockPositionCreationSucceedsWithValidDataAndRedirects(): void
+    {
+        $pId = self::$prodCmd->register('Taladro Percutor 750W', '85.00');
+        $lId = self::$locCmd->create('BOD-A1', 'Bodega A Estante 1');
+
+        $response = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $pId,
+            'id_ubicacion' => (string) $lId,
+            'cantidad'     => '12.500',
+        ]);
+
+        self::assertSame(303, $response->status);
+        self::assertSame('/inventory', $response->headers['Location']);
+
+        $pos = self::$stockQuery->getPosition($pId, $lId);
+        self::assertNotNull($pos);
+        self::assertSame('12.500', $pos['cantidad']);
+        self::assertSame('Taladro Percutor 750W', $pos['producto_nombre']);
+        self::assertSame('BOD-A1', $pos['ubicacion_codigo']);
+    }
+
+    public function testStockPositionCreationWithZeroAndFractionalQuantities(): void
+    {
+        $p1 = self::$prodCmd->register('Producto Zero', '10.00');
+        $l1 = self::$locCmd->create('LOC-Z1');
+        $p2 = self::$prodCmd->register('Producto Frac', '20.00');
+        $l2 = self::$locCmd->create('LOC-F1');
+
+        $r1 = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $p1,
+            'id_ubicacion' => (string) $l1,
+            'cantidad'     => '0',
+        ]);
+        self::assertSame(303, $r1->status);
+        $pos1 = self::$stockQuery->getPosition($p1, $l1);
+        self::assertNotNull($pos1);
+        self::assertSame('0.000', $pos1['cantidad']);
+
+        $r2 = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $p2,
+            'id_ubicacion' => (string) $l2,
+            'cantidad'     => '0.001',
+        ]);
+        self::assertSame(303, $r2->status);
+        $pos2 = self::$stockQuery->getPosition($p2, $l2);
+        self::assertNotNull($pos2);
+        self::assertSame('0.001', $pos2['cantidad']);
+    }
+
+    public function testStockPositionCreationRejectsNegativeMalformedAndOverprecisionQuantities(): void
+    {
+        $pId = self::$prodCmd->register('Clavos 2 Pulgadas', '5.00');
+        $lId = self::$locCmd->create('LOC-C1');
+
+        foreach (['-1', '-0.5', '10.1234', 'abc'] as $badQty) {
+            $r = $this->post('/inventory/stock', [
+                'id_producto'  => (string) $pId,
+                'id_ubicacion' => (string) $lId,
+                'cantidad'     => $badQty,
+            ]);
+            self::assertSame(422, $r->status);
+            self::assertStringContainsString('La cantidad debe ser mayor o igual a 0 y puede tener hasta 3 decimales.', $r->body);
+        }
+
+        $rEmpty = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $pId,
+            'id_ubicacion' => (string) $lId,
+            'cantidad'     => '',
+        ]);
+        self::assertSame(422, $rEmpty->status);
+        self::assertStringContainsString('La cantidad es obligatoria.', $rEmpty->body);
+    }
+
+    public function testStockPositionCreationRejectsNonexistentOrInvalidProductAndLocation(): void
+    {
+        $pId = self::$prodCmd->register('Lija al Agua 240', '1.50');
+        $lId = self::$locCmd->create('LOC-L1');
+
+        // Invalid product ID
+        $r1 = $this->post('/inventory/stock', [
+            'id_producto' => '0', 'id_ubicacion' => (string) $lId, 'cantidad' => '5.000',
+        ]);
+        self::assertSame(422, $r1->status);
+        self::assertStringContainsString('Debe seleccionar un producto válido.', $r1->body);
+
+        // Nonexistent product ID
+        $r2 = $this->post('/inventory/stock', [
+            'id_producto' => '999999', 'id_ubicacion' => (string) $lId, 'cantidad' => '5.000',
+        ]);
+        self::assertSame(422, $r2->status);
+        self::assertStringContainsString('El producto seleccionado no existe.', $r2->body);
+
+        // Invalid location ID
+        $r3 = $this->post('/inventory/stock', [
+            'id_producto' => (string) $pId, 'id_ubicacion' => '', 'cantidad' => '5.000',
+        ]);
+        self::assertSame(422, $r3->status);
+        self::assertStringContainsString('Debe seleccionar una ubicación válida.', $r3->body);
+
+        // Nonexistent location ID
+        $r4 = $this->post('/inventory/stock', [
+            'id_producto' => (string) $pId, 'id_ubicacion' => '888888', 'cantidad' => '5.000',
+        ]);
+        self::assertSame(422, $r4->status);
+        self::assertStringContainsString('La ubicación seleccionada no existe.', $r4->body);
+    }
+
+    public function testStockPositionCreationRejectsDuplicateProductLocationPair(): void
+    {
+        $pId = self::$prodCmd->register('Disco de Corte 4.5', '3.50');
+        $lId = self::$locCmd->create('LOC-D1');
+        self::$stockCmd->createPosition($pId, $lId, '10.000');
+
+        $r = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $pId,
+            'id_ubicacion' => (string) $lId,
+            'cantidad'     => '20.000',
+        ]);
+
+        self::assertSame(422, $r->status);
+        self::assertStringContainsString('Ya existe una posición de stock para este producto en esta ubicación.', $r->body);
+        self::assertStringContainsString('is-active', $r->body);
+
+        // Confirm existing position is untouched
+        $pos = self::$stockQuery->getPosition($pId, $lId);
+        self::assertNotNull($pos);
+        self::assertSame('10.000', $pos['cantidad']);
+    }
+
+    public function testStockPositionCreationRequiresCsrf(): void
+    {
+        $pId = self::$prodCmd->register('Cinta Aislante', '1.20');
+        $lId = self::$locCmd->create('LOC-CA');
+
+        $response = $this->dispatch(new Request('POST', '/inventory/stock', body: [
+            'id_producto'  => (string) $pId,
+            'id_ubicacion' => (string) $lId,
+            'cantidad'     => '10.000',
+        ]));
+
+        self::assertSame(403, $response->status);
+    }
+
+    public function testStockPositionCreationSupportsHtmx(): void
+    {
+        $pId = self::$prodCmd->register('Destornillador Phillips', '6.00');
+        $lId = self::$locCmd->create('LOC-DP');
+
+        $response = $this->post('/inventory/stock', [
+            'id_producto'  => (string) $pId,
+            'id_ubicacion' => (string) $lId,
+            'cantidad'     => '8.000',
+        ], headers: ['hx-request' => 'true']);
+
+        self::assertSame(200, $response->status);
+        self::assertSame('/inventory', $response->headers['HX-Redirect']);
+        self::assertStringContainsString('Existencia registrada correctamente.', $response->headers['HX-Trigger']);
+    }
+
+    public function testModalStockRendersAllExistingProductsAndLocationsIncludingInactiveWithBadge(): void
+    {
+        $activePId = self::$prodCmd->register('Producto Activo', '10.00');
+        $inactivePId = self::$prodCmd->register('Producto Inactivo', '12.00');
+        self::$prodCmd->deactivate($inactivePId);
+
+        $activeLId = self::$locCmd->create('LOC-ACTIVA');
+        $inactiveLId = self::$locCmd->create('LOC-INACT');
+        self::$testDb->pdo()->exec("UPDATE ubicacion SET estado_activo = 0 WHERE id_ubicacion = {$inactiveLId}");
+
+        $response = $this->dispatch(new Request('GET', '/inventory'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="modal-stock"', $response->body);
+        self::assertStringContainsString('name="id_producto"', $response->body);
+        self::assertStringContainsString('name="id_ubicacion"', $response->body);
+        self::assertStringContainsString('name="cantidad"', $response->body);
+
+        self::assertStringContainsString('Producto Activo', $response->body);
+        self::assertStringContainsString('Producto Inactivo [Inactivo]', $response->body);
+        self::assertStringContainsString('LOC-ACTIVA', $response->body);
+        self::assertStringContainsString('LOC-INACT [Inactiva]', $response->body);
+    }
+
+    /**
+     * @param array<string, string> $body
+     * @param array<string, string> $headers
+     */
+    private function post(string $path, array $body, array $headers = []): Response
+    {
+        $session = new InventoryMemorySession();
+        $csrf = new Csrf($session);
+        $body['_csrf'] = $csrf->token();
+
+        return $this->dispatch(new Request('POST', $path, body: $body, headers: $headers), $csrf);
+    }
+
     private function dispatch(Request $request, ?Csrf $csrf = null): Response
     {
         $session = new InventoryMemorySession();
         $actualCsrf = $csrf ?? new Csrf($session);
         $handler = new InventoryHandler(
-            self::$renderer, self::$stockQuery, self::$prodQuery, self::$locQuery, $actualCsrf
+            self::$renderer, self::$stockQuery, self::$stockCmd, self::$prodQuery, self::$locQuery, $actualCsrf
         );
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
