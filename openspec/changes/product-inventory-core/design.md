@@ -134,8 +134,9 @@ All mutating requests require valid CSRF tokens (`Csrf::validateToken()`). All o
 | `GET` | `/locations` | Physical locations listing & empty state | `page.locations` |
 | `POST` | `/locations` | Register new physical storage location | Redirect `/locations` or modal response |
 | `GET` | `/inventory` | Multi-location stock overview (Phase 5B.1) | `page.inventory` |
-| `POST` | `/inventory/stock` | Establish stock position (Phase 5B.1) | `fragment.stock_row` |
-| `POST` | `/inventory/counts` | Record observational count (Phase 5B.2) | `fragment.count_row` |
+| `POST` | `/inventory/stock` | Establish stock position (Phase 5B.1) | `page.inventory` (re-render) or redirect |
+| `GET` | `/inventory/counts` | Observational inventory counts page & history (Phase 5B.2) | `page.counts` |
+| `POST` | `/inventory/counts` | Record observational count (Phase 5B.2) | Redirect `/inventory/counts?stock={id}` or modal response |
 
 ### Locations UI Decomposition (Approved Phase 5A)
 To decouple physical storage location management from inventory stock and counts:
@@ -159,9 +160,18 @@ To ensure strict domain separation and maintain small, reviewable increments:
   - **Selection Scope**: Dropdowns select from all existing products (`ProductQuery::search()`) and all existing locations (`LocationQuery::all()`). The binding domain contract (`inventory-locations-stock/spec.md`) requires only an existing product and location without imposing or restricting to active-only status (`estado_activo = 1`).
   - **Navigation**: Sidebar exposes `INVENTARIO` → `Existencias por ubicación`.
 - **Phase 5B.2 — Observational Inventory Counts UI**:
-  - **Scope**: Handles recording observational physical inventory counts via `POST /inventory/counts`.
-  - **Observational Invariant**: Records snapshot `cantidad_sistema`, entered `cantidad_contada`, calculated `diferencia` (`cantidad_contada - cantidad_sistema`), and optional notes into `conteo_inventario`. **Recording a count MUST NOT mutate `inventario_stock.cantidad`**. No automatic stock reconciliation, correction, or count modification/deletion workflows are permitted.
-  - **Authorized Route**: `POST /inventory/counts`.
+  - **`InventoryHandler`**: Extended to handle `GET /inventory/counts` (rendering `page.counts` with stock position selector, selected position context, current system quantity, and immutable count history) and `POST /inventory/counts` (recording observational physical count via `CountCommand::record()`).
+  - **Page & Query Model**:
+    - `GET /inventory/counts`: Displays stock position selector with all existing stock positions (`StockQuery::listOverview()`). When no position is selected (`stock` query parameter omitted or empty), renders a guidance state prompting the operator to select a position.
+    - `GET /inventory/counts?stock={id}`: Validates that the stock position exists (`StockQuery::findById()`). Displays the selected product, location, and current system quantity (`inventario_stock.cantidad`), renders the immutable historical count log (`CountQuery::listByStock($idStock)`), and provides the primary CTA *Registrar conteo*.
+  - **Critical Non-Mutation Invariant**: Recording a physical count is strictly **OBSERVATIONAL ONLY**. It records a snapshot of `cantidad_sistema`, the entered `cantidad_contada`, the server-calculated `diferencia` (`cantidad_contada - cantidad_sistema`), and optional notes into `conteo_inventario`. **Recording a count MUST NOT mutate `inventario_stock.cantidad`**. No automatic stock reconciliation, adjustment, correction, quantity overwrite, or count modification/deletion workflows are permitted.
+  - **Server-Authoritative Calculation**: `CountCommand` performs an atomic `INSERT ... SELECT` from `inventario_stock`. The database snapshot and variance math (`:qty_calc - s.cantidad`) are server-authoritative; client-submitted system quantities or variances are rejected.
+  - **Decimal Precision & Variance**: Physically counted quantity is an exact non-negative decimal string (`/^\d+(\.\d{1,3})?$/`) with at most 3 fractional digits. Variance (`diferencia`) can be positive, zero, or negative without constraint.
+  - **Immutability**: Once recorded, counts are append-only observations. No `update`, `delete`, `reconcile`, or `adjust` endpoints or UI actions are supported.
+  - **Selection Scope**: Any existing stock position is eligible for observational counting. The domain contract (`inventory-locations-stock/spec.md`) requires only an existing stock position without restricting to active-only products or locations.
+  - **Authorized Routes**: `GET /inventory/counts` and `POST /inventory/counts`. Mutating routes like `PUT/PATCH/DELETE /inventory/counts/{id}` or `/reconcile` remain strictly unsupported.
+  - **Navigation**: Sidebar exposes `INVENTARIO` → `Existencias por ubicación` (`/inventory`) and `Conteos físicos` (`/inventory/counts`).
+  - **Templates**: `templates/pages/counts.php` and `templates/fragments/count_history.php`.
 
 ### Product Reactivation Extension (Approved Post-4A)
 To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:

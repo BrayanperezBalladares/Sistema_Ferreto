@@ -358,3 +358,20 @@
   - Full suite: 173 tests, 717 assertions (100% green).
   - PHPStan: 42/42 files, 0 errors at Level Max.
   - Development DB: 0 test rows created, complete isolation verified.
+
+---
+
+## Planning Amendment: Phase 5B.2 Formalization (2026-09-08)
+
+- **Context**: Following completion and integration of Phase 5B.1 (Stock by Location UI) into `feature/product-inventory-core`, the maintainer approved formalizing the SDD and UX contract for **Phase 5B.2 — Observational Inventory Counts UI**.
+- **Key Architecture & UX Decisions**:
+  - **Dedicated GET Page Route (`GET /inventory/counts`)**: Resolves the planning gap where the navigation destination `Conteos físicos` previously lacked a canonical GET route. The counts interface is delivered on its own server-rendered page `page.counts` (`templates/pages/counts.php`).
+  - **Page Query & Scoping Model**:
+    - `GET /inventory/counts`: Displays stock position selector with all existing stock positions (`StockQuery::listOverview()`). Prompts the operator to select a position.
+    - `GET /inventory/counts?stock={id}`: Displays selected position context (product name, location code, and current system quantity), renders historical counts for that position (`CountQuery::listByStock($idStock)`), and provides the modal CTA *Registrar conteo*.
+  - **Critical Non-Mutation Invariant**: Physical counting is strictly **OBSERVATIONAL ONLY**. Recording a count captures `cantidad_sistema` snapshot, entered `cantidad_contada`, and server-calculated `diferencia` (`cantidad_contada - cantidad_sistema`) into `conteo_inventario`. **Recording a count MUST NOT mutate `inventario_stock.cantidad`**. No automatic reconciliation, stock adjustment, or count modification/deletion actions are authorized in R1.
+  - **Server-Authoritative Calculation**: `CountCommand::record()` executes an atomic `INSERT ... SELECT` from `inventario_stock`. System quantity snapshot and variance math (`:qty_calc - s.cantidad`) are server-authoritative; client-submitted system quantities or variances are rejected.
+  - **Append-Only Immutability**: Counts are immutable audit records. No `update`, `delete`, `reconcile`, or `adjust` endpoints or buttons are provided.
+  - **Selection Scope**: Any existing stock position is eligible for physical counting. The domain contract requires only an existing stock position without restricting to active-only products or locations.
+  - **Validation & Copy**: 100% natural Spanish validation feedback. Exact decimal strings with at most 3 fractional digits (`/^\d+(\.\d{1,3})?$/`) without PHP float arithmetic.
+- **Status**: Planning amendment formalized. Implementation tasks 5B.2.1 through 5B.2.4 remain pending.
