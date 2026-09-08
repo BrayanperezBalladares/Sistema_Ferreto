@@ -417,3 +417,10 @@
   - Full suite: 186 tests, 830 assertions (100% green).
   - PHPStan: 42/42 files, 0 errors at Level Max.
   - Development DB: 0 test rows created, complete isolation verified.
+
+### Implementation Adjustments & Integration Finalization
+- **Task-History Consistency Audit (Task 5B.2.4)**:
+  - In commit `339ab54`, Task 5B.2.4 was initially worded generally as *"Add HTTP integration tests verifying observational count submission, atomic variance calculation, CSRF enforcement, append-only immutability, and non-mutation of stock quantities."*.
+  - In commit `2508dde` (`docs(sdd): define observational counts ui`), the task was explicitly formalized with the dedicated suite `tests/Integration/CountHttpTest.php` to maintain strict test cohesion, prevent file inflation in `InventoryHttpTest.php`, and respect the $\le 400$ changed authored lines review budget.
+- **Empty Query Parameter Normalization**:
+  - In `InventoryHandler::browseCounts()`, requests with empty query parameter (`/inventory/counts?stock=`) are normalized via HTTP 303 redirect to `/inventory/counts`. This eliminates unwanted `?stock=` query strings from browser address bars cleanly on the server without introducing client-side JavaScript complexity.

@@ -48,12 +48,16 @@ final readonly class InventoryHandler implements Handler
 
     private function browseCounts(Request $request): Response
     {
-        $positions = $this->stockQuery->listOverview();
         $stockParam = $request->query['stock'] ?? null;
+        if ($stockParam === '') {
+            return Response::redirect('/inventory/counts');
+        }
+
+        $positions = $this->stockQuery->listOverview();
         $selectedStock = null;
         $counts = [];
 
-        if (is_string($stockParam) && $stockParam !== '') {
+        if (is_string($stockParam)) {
             $stockId = filter_var($stockParam, FILTER_VALIDATE_INT);
             if ($stockId !== false && $stockId > 0) {
                 $selectedStock = $this->stockQuery->findById((int) $stockId);

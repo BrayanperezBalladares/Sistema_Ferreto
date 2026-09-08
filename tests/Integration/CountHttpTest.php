@@ -137,6 +137,13 @@ final class CountHttpTest extends TestCase
         self::assertStringNotContainsString('id="selected-stock-summary"', $response->body);
     }
 
+    public function testEmptyStockQueryParamNormalizesToCanonicalCountsRoute(): void
+    {
+        $response = $this->dispatch(new Request('GET', '/inventory/counts', query: ['stock' => '']));
+        self::assertSame(303, $response->status);
+        self::assertSame('/inventory/counts', $response->headers['Location'] ?? '');
+    }
+
     public function testHtmlEscapingInCountsView(): void
     {
         $sId = $this->createStock('<script>alert("prod")</script>', '<img src=x onerror=alert(1)>', '5.000');
