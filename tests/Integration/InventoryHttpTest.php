@@ -189,30 +189,30 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationWithZeroAndFractionalQuantities(): void
     {
-        $p1 = self::$prodCmd->register('Producto Zero', '10.00');
-        $l1 = self::$locCmd->create('LOC-Z1');
-        $p2 = self::$prodCmd->register('Producto Frac', '20.00');
-        $l2 = self::$locCmd->create('LOC-F1');
+        $cases = [
+            ['0', '0.000'],
+            ['0.000', '0.000'],
+            ['0.001', '0.001'],
+            ['10', '10.000'],
+            ['10.5', '10.500'],
+            ['10.500', '10.500'],
+            ['125.750', '125.750'],
+        ];
 
-        $r1 = $this->post('/inventory/stock', [
-            'id_producto'  => (string) $p1,
-            'id_ubicacion' => (string) $l1,
-            'cantidad'     => '0',
-        ]);
-        self::assertSame(303, $r1->status);
-        $pos1 = self::$stockQuery->getPosition($p1, $l1);
-        self::assertNotNull($pos1);
-        self::assertSame('0.000', $pos1['cantidad']);
+        foreach ($cases as $idx => [$inputQty, $expectedQty]) {
+            $p = self::$prodCmd->register("Prod Dec {$idx}", '10.00');
+            $l = self::$locCmd->create("LOC-D{$idx}");
 
-        $r2 = $this->post('/inventory/stock', [
-            'id_producto'  => (string) $p2,
-            'id_ubicacion' => (string) $l2,
-            'cantidad'     => '0.001',
-        ]);
-        self::assertSame(303, $r2->status);
-        $pos2 = self::$stockQuery->getPosition($p2, $l2);
-        self::assertNotNull($pos2);
-        self::assertSame('0.001', $pos2['cantidad']);
+            $r = $this->post('/inventory/stock', [
+                'id_producto'  => (string) $p,
+                'id_ubicacion' => (string) $l,
+                'cantidad'     => $inputQty,
+            ]);
+            self::assertSame(303, $r->status);
+            $pos = self::$stockQuery->getPosition($p, $l);
+            self::assertNotNull($pos);
+            self::assertSame($expectedQty, $pos['cantidad']);
+        }
     }
 
     public function testStockPositionCreationRejectsNegativeMalformedAndOverprecisionQuantities(): void
@@ -282,17 +282,18 @@ final class InventoryHttpTest extends TestCase
         $r = $this->post('/inventory/stock', [
             'id_producto'  => (string) $pId,
             'id_ubicacion' => (string) $lId,
-            'cantidad'     => '20.000',
+            'cantidad'     => '99.000',
         ]);
 
         self::assertSame(422, $r->status);
         self::assertStringContainsString('Ya existe una posición de stock para este producto en esta ubicación.', $r->body);
         self::assertStringContainsString('is-active', $r->body);
 
-        // Confirm existing position is untouched
+        // Confirm existing position is untouched: no overwrite, no UPDATE, no second row
         $pos = self::$stockQuery->getPosition($pId, $lId);
         self::assertNotNull($pos);
         self::assertSame('10.000', $pos['cantidad']);
+        self::assertCount(1, self::$stockQuery->listOverview());
     }
 
     public function testStockPositionCreationRequiresCsrf(): void

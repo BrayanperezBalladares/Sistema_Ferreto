@@ -105,7 +105,8 @@ final readonly class InventoryHandler implements Handler
         try {
             $this->stockCommand->createPosition($prodId, $locId, $cantidad);
         } catch (PDOException $e) {
-            if ($e->getCode() === '23000' || (isset($e->errorInfo[1]) && $e->errorInfo[1] === 1062)) {
+            $driverCode = isset($e->errorInfo[1]) && is_numeric($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+            if ($driverCode === 1062 && str_contains($e->getMessage(), 'uq_stock_producto_ubicacion')) {
                 return $this->renderWithErrors([
                     'general' => 'Ya existe una posición de stock para este producto en esta ubicación.',
                 ], $input);
