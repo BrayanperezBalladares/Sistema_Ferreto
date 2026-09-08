@@ -40,10 +40,10 @@
 
 ## Phase 5B.1: Server-Rendered Stock by Location UI (Slice 4B.2 — `inventory-stock-by-location`)
 
-- [ ] 5B.1.1 Implement module-owned `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` handling stock position overview and new position registration using `StockQuery`, `StockCommand`, `ProductQuery`, `LocationQuery`, and `StockValidator`.
-- [ ] 5B.1.2 Create Bulma template `templates/pages/inventory.php` with canonical stock table (`Producto`, `Ubicación`, `Cantidad`), empty state, and CSRF-protected position creation modal following `docs/ui/DESIGN.md`.
-- [ ] 5B.1.3 Register routes `GET /inventory` and `POST /inventory/stock` in `config/routes.php` and wire `InventoryHandler` into the production front controller `public/index.php`.
-- [ ] 5B.1.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying 200/422 status, listing, empty state, position creation, decimal validation, duplicate pair rejection, CSRF enforcement, HTML escaping, production composition, and absence of unsupported quantity-edit/adjustment actions.
+- [x] 5B.1.1 Implement module-owned `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` handling stock position overview and new position registration using `StockQuery`, `StockCommand`, `ProductQuery`, `LocationQuery`, and `StockValidator`.
+- [x] 5B.1.2 Create Bulma template `templates/pages/inventory.php` with canonical stock table (`Producto`, `Ubicación`, `Cantidad`), empty state, and CSRF-protected position creation modal following `docs/ui/DESIGN.md`.
+- [x] 5B.1.3 Register routes `GET /inventory` and `POST /inventory/stock` in `config/routes.php` and wire `InventoryHandler` into the production front controller `public/index.php`.
+- [x] 5B.1.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying 200/422 status, listing, empty state, position creation, decimal validation, duplicate pair rejection, CSRF enforcement, HTML escaping, production composition, and absence of unsupported quantity-edit/adjustment actions.
 
 ## Phase 5B.2: Observational Inventory Counts UI (Slice 4B.3 — `inventory-counts`)
 

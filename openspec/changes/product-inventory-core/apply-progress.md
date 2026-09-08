@@ -192,7 +192,8 @@
 
 ## Remaining Tasks
 - **Phase 5A: Server-Rendered Locations UI (Slice 4B.1 — Tasks 5A.1–5A.4)**: Complete
-- **Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — Tasks 5B.1–5B.4)**: Pending
+- **Phase 5B.1: Server-Rendered Stock by Location UI (Slice 4B.2 — Tasks 5B.1.1–5B.1.4)**: Complete
+- **Phase 5B.2: Observational Inventory Counts UI (Slice 4B.3 — Tasks 5B.2.1–5B.2.4)**: Pending
 - **Phase 6: Development Seeds & Regression Verification (Tasks 6.1–6.2)**: Pending
 - **Phase 7: Product Reactivation (Tasks 7.1–7.5)**: Complete
 
@@ -311,4 +312,49 @@
   - **Domain Clarity**: Preserves the explicit distinction between establishing associative stock positions and recording observational audit counts.
   - **Reviewability**: Each subphase strictly conforms to the $\le 400$ changed authored lines review budget.
   - **Incremental Verification**: Allows standalone verification of multi-location stock browsing before adding observational count recording.
-- **Status**: Planning amendment formalized. Both Phase 5B.1 and Phase 5B.2 implementation tasks remain pending.
+- **Status**: Planning amendment formalized. Phase 5B.1 implementation complete; Phase 5B.2 implementation tasks remain pending.
+
+---
+
+## Phase 5B.1: Server-Rendered Stock by Location UI Implementation (Slices 5B.1-A & 5B.1-B)
+
+- **Phase Intent**: Complete Tasks 5B.1.1 through 5B.1.4 implementing multi-location stock overview (`GET /inventory`) and associative stock position creation (`POST /inventory/stock`) with CSRF protection, decimal quantity validation, friendly duplicate pair handling, clean Bulma templates, and HTTP regression verification.
+- **Review Budget & Subdivision Strategy**:
+  - Subdivided into **Slice 5B.1-A** (Stock Overview & Browsing, commit `bc69ebc`, 390 changed authored lines $\le$ 400) and **Slice 5B.1-B** (Stock Position Creation, commit `dac5954`, 380 changed authored lines $\le$ 400). Both slices strictly satisfied the $\le 400$ changed authored lines budget limit.
+
+### Slice 5B.1-A: Stock Overview & Browsing
+- **Commit**: `bc69ebc` (`feat(inventory): add stock by location overview`)
+- **Diff Stat**: 9 files changed, 382 insertions(+), 8 deletions(-) (390 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/StockQuery.php`: Added `listOverview(): array` with DRY `BASE_SELECT`, returning all positions ordered by `producto_nombre ASC, ubicacion_codigo ASC`.
+  - `src/Foundation/Renderer.php`: Registered `'page.inventory' => 'pages/inventory.php'` in template mapping.
+  - `config/routes.php`: Registered `['GET', '/inventory', 'inventory']`.
+  - `public/index.php`: Instantiated `InventoryHandler` and wired `'inventory'` in front-controller handler map.
+  - `templates/layout.php`: Added `Existencias por ubicación` navigation under `INVENTARIO` with active indicator and synchronized topbar breadcrumbs (`Inventario / Existencias por ubicación`).
+  - `templates/pages/inventory.php`: Bulma page layout with header, primary CTA `Registrar existencia`, empty state, and 3-column table (`Producto`, `Ubicación`, `Cantidad` right-aligned monospace 3 decimals). Acciones column omitted.
+  - `tests/Integration/InventoryHttpTest.php`: 7 HTTP tests verifying 200 OK, canonical HTML, navigation active state, empty state, data listing, HTML escaping, and production entrypoint composition.
+  - `tests/Integration/LocationHttpTest.php`: Updated to recognize `/inventory` as an active navigation link.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-5b1a`) at `bc69ebc`.
+  - `composer setup`: Passed cleanly.
+  - Targeted tests: `InventoryHttpTest` (7 tests, 55 assertions), `StockTest` (10 tests, 42 assertions), `CatalogHttpTest` (39 tests, 186 assertions), `LocationHttpTest` (14 tests, 79 assertions) — 100% green.
+  - Full suite: 165 tests, 669 assertions (100% green).
+  - PHPStan: 42/42 files, 0 errors at Level Max.
+  - Development DB: Untouched, isolation verified.
+
+### Slice 5B.1-B: Stock Position Creation
+- **Commit**: `dac5954` (`feat(inventory): add stock position registration`)
+- **Diff Stat**: 5 files changed, 376 insertions(+), 4 deletions(-) (380 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/InventoryHandler.php`: Handled `POST /inventory/stock` with CSRF validation, product and location existence verification, decimal string quantity validation via `StockValidator::validateQuantity` (`/^\d+(\.\d{1,3})?$/`), early duplicate-pair pre-check via `StockQuery::getPosition()`, and defense-in-depth duplicate key exception handling converting `PDOException` (SQLSTATE 23000 / MySQL error 1062) to user-friendly Spanish error: *"Ya existe una posición de stock para este producto en esta ubicación."*. Supported standard 303 redirect and HTMX notification.
+  - `config/routes.php`: Registered `['POST', '/inventory/stock', 'inventory']`.
+  - `public/index.php`: Wired `StockCommand` into `InventoryHandler`.
+  - `templates/pages/inventory.php`: Added accessible modal `#modal-stock` with `Producto *` select, `Ubicación *` select (both displaying `[Inactivo]` / `[Inactiva]` badges for inactive entities), `Cantidad inicial *` input, inline error messages, and actions `Cancelar` / `Guardar existencia`.
+  - `tests/Integration/InventoryHttpTest.php`: Extended with 8 tests covering successful creation, zero and fractional decimal quantities, rejection of negative/overprecision/malformed quantities, nonexistent product/location validation, duplicate pair rejection, CSRF 403 enforcement, HTMX redirect and trigger headers, and modal option rendering.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.worktree-5b1b`) at `dac5954`.
+  - `composer setup`: Passed cleanly.
+  - Targeted tests: `InventoryHttpTest` (15 tests, 103 assertions) — 100% green.
+  - Full suite: 173 tests, 717 assertions (100% green).
+  - PHPStan: 42/42 files, 0 errors at Level Max.
+  - Development DB: 0 test rows created, complete isolation verified.
