@@ -38,12 +38,19 @@
 - [x] 5A.3 Register routes `GET /locations` and `POST /locations` in `config/routes.php` and wire `LocationHandler` into the production front controller `public/index.php`.
 - [x] 5A.4 Add HTTP integration test `tests/Integration/LocationHttpTest.php` verifying 200/422 status, listing, empty state, creation, duplicate-code validation, CSRF enforcement, HTML escaping, production composition, and absence of unsupported CRUD actions.
 
-## Phase 5B: Server-Rendered Stock & Counts UI (Slice 4B.2 — `inventory-stock-counts`)
+## Phase 5B.1: Server-Rendered Stock by Location UI (Slice 4B.2 — `inventory-stock-by-location`)
 
-- [ ] 5B.1 Implement `src/Modules/Inventory/InventoryHandler.php` handling multi-location stock overview, stock position setup, and observational count entry.
-- [ ] 5B.2 Create Bulma templates `templates/pages/inventory.php` and `templates/fragments/count_history.php` with CSRF-protected count entry form.
-- [ ] 5B.3 Register inventory routes in `config/routes.php` (`GET /inventory`, `POST /inventory/stock`, `POST /inventory/counts`).
-- [ ] 5B.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying stock overview, observational count submission, variance display, and CSRF enforcement.
+- [ ] 5B.1.1 Implement module-owned `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` handling stock position overview and new position registration using `StockQuery`, `StockCommand`, `ProductQuery`, `LocationQuery`, and `StockValidator`.
+- [ ] 5B.1.2 Create Bulma template `templates/pages/inventory.php` with canonical stock table (`Producto`, `Ubicación`, `Cantidad`), empty state, and CSRF-protected position creation modal following `docs/ui/DESIGN.md`.
+- [ ] 5B.1.3 Register routes `GET /inventory` and `POST /inventory/stock` in `config/routes.php` and wire `InventoryHandler` into the production front controller `public/index.php`.
+- [ ] 5B.1.4 Add HTTP integration test `tests/Integration/InventoryHttpTest.php` verifying 200/422 status, listing, empty state, position creation, decimal validation, duplicate pair rejection, CSRF enforcement, HTML escaping, production composition, and absence of unsupported quantity-edit/adjustment actions.
+
+## Phase 5B.2: Observational Inventory Counts UI (Slice 4B.3 — `inventory-counts`)
+
+- [ ] 5B.2.1 Extend `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` to handle observational count submission using `CountCommand` and `CountQuery`.
+- [ ] 5B.2.2 Create count entry modal and count history fragment `templates/fragments/count_history.php` rendering recorded system quantity snapshot, physical count input, and calculated variance.
+- [ ] 5B.2.3 Register route `POST /inventory/counts` in `config/routes.php`.
+- [ ] 5B.2.4 Add HTTP integration tests verifying observational count submission, atomic variance calculation, CSRF enforcement, append-only immutability, and non-mutation of stock quantities.
 
 ## Phase 6: Development Seeds & Regression Verification
 

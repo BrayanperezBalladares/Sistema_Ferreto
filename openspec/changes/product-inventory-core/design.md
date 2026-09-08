@@ -133,9 +133,9 @@ All mutating requests require valid CSRF tokens (`Csrf::validateToken()`). All o
 | `POST` | `/categories` | Create product category | Redirect `/products` or modal swap |
 | `GET` | `/locations` | Physical locations listing & empty state | `page.locations` |
 | `POST` | `/locations` | Register new physical storage location | Redirect `/locations` or modal response |
-| `GET` | `/inventory` | Multi-location stock overview (Phase 5B) | `page.inventory` |
-| `POST` | `/inventory/stock` | Establish stock position (Phase 5B) | `fragment.stock_row` |
-| `POST` | `/inventory/counts` | Record observational count (Phase 5B) | `fragment.count_row` |
+| `GET` | `/inventory` | Multi-location stock overview (Phase 5B.1) | `page.inventory` |
+| `POST` | `/inventory/stock` | Establish stock position (Phase 5B.1) | `fragment.stock_row` |
+| `POST` | `/inventory/counts` | Record observational count (Phase 5B.2) | `fragment.count_row` |
 
 ### Locations UI Decomposition (Approved Phase 5A)
 To decouple physical storage location management from inventory stock and counts:
@@ -147,7 +147,20 @@ To decouple physical storage location management from inventory stock and counts
 - **Table Contract**: Server-rendered table with columns `Código`, `Descripción`, and `Estado` (`Activo` soft green badge). Acciones column is omitted because no row actions are supported.
 - **Modal Contract**: Focused modal `Nueva ubicación` with fields for `Código` (mandatory) and `Descripción` (optional). Default active status remains implicit. Actions: `Cancelar` and `Guardar ubicación`.
 - **Navigation**: Sidebar under `Catálogo` exposes `Productos` and `Ubicaciones`. Stock and Counts navigation links remain omitted until Phase 5B.
-- **Phase 5B Scope**: `GET /inventory`, `POST /inventory/stock`, and `POST /inventory/counts` remain reserved for Phase 5B. Phase 5B will utilize existing locations created via `/locations` without duplicating location-management responsibilities.
+
+### Stock & Counts UI Decomposition (Approved Phase 5B Decomposition)
+To ensure strict domain separation and maintain small, reviewable increments:
+- **Phase 5B.1 — Server-Rendered Stock by Location UI**:
+  - **`InventoryHandler`**: Module-owned handler (`src/Modules/Inventory/InventoryHandler.php`) consuming `StockQuery`, `StockCommand`, `ProductQuery`, `LocationQuery`, and `StockValidator`. Handles `GET /inventory` (stock position listing with empty state) and `POST /inventory/stock` (establishing new stock position with CSRF and duplicate-pair validation).
+  - **Critical Stock Semantics**: Position creation establishes an associative link between an existing product and existing physical location with a non-negative initial quantity. **It is NOT inventory adjustment**. Unsupported operations: editing existing quantities, updating stock, increments, decrements, adjustments, corrections, transfers, and position deletion. No `updateQuantity()` command is authorized.
+  - **Authorized Routes**: `GET /inventory` and `POST /inventory/stock`. Mutating routes like `PUT/PATCH/DELETE /inventory/stock/{id}` or `/adjust` remain strictly unsupported.
+  - **Template & Table Contract**: `templates/pages/inventory.php` rendering table with columns `Producto`, `Ubicación`, and `Cantidad` (exact 3-decimal alignment, without speculative unit-of-measure suffixes). Omit `Acciones` column.
+  - **Modal Contract**: Focused modal `Nueva posición de stock` (or `Registrar existencia`) with dropdowns for `Producto *`, `Ubicación *`, and decimal input `Cantidad inicial *` (non-negative, max 3 decimals). Duplicate pair returns safe Spanish error *"Ya existe una posición de stock para este producto en esta ubicación."*
+  - **Navigation**: Sidebar exposes `INVENTARIO` → `Existencias por ubicación`.
+- **Phase 5B.2 — Observational Inventory Counts UI**:
+  - **Scope**: Handles recording observational physical inventory counts via `POST /inventory/counts`.
+  - **Observational Invariant**: Records snapshot `cantidad_sistema`, entered `cantidad_contada`, calculated `diferencia` (`cantidad_contada - cantidad_sistema`), and optional notes into `conteo_inventario`. **Recording a count MUST NOT mutate `inventario_stock.cantidad`**. No automatic stock reconciliation, correction, or count modification/deletion workflows are permitted.
+  - **Authorized Route**: `POST /inventory/counts`.
 
 ### Product Reactivation Extension (Approved Post-4A)
 To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:
@@ -166,7 +179,8 @@ To implement the reversible `ACTIVE <-> INACTIVE` lifecycle:
 | **3. Observational Counts** | Migration 0006, `Count` query/atomic command, variance math, and immutability tests. | ~260 lines |
 | **4. Server-Rendered Catalog UI** | Route wiring, Bulma templates (`pages/`, `fragments/`), and full-page/HTMX integration tests. | ~350 lines |
 | **5A. Server-Rendered Locations UI** | Standalone `LocationHandler`, `locations.php` template, `GET/POST /locations` routes, production wiring, and HTTP tests. | ~300 lines |
-| **5B. Server-Rendered Stock & Counts UI** | `InventoryHandler`, `inventory.php` template, `GET /inventory`, `POST /inventory/stock`, `POST /inventory/counts`, and HTTP tests. | ~350 lines |
+| **5B.1. Stock by Location UI** | Standalone stock overview, `inventory.php` template, `GET /inventory`, `POST /inventory/stock`, and HTTP tests. | ~300 lines |
+| **5B.2. Observational Counts UI** | Count entry modal, `POST /inventory/counts`, variance display, and non-mutation HTTP tests. | ~280 lines |
 
 ---
 

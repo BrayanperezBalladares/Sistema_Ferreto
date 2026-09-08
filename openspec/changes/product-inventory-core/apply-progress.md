@@ -293,3 +293,22 @@
   - Full suite: 157 tests, 609 assertions (100% green).
   - PHPStan: 41/41 files, 0 errors at Level Max.
   - Development DB: 0 test rows created, complete isolation verified.
+
+---
+
+## Planning Amendment: Phase 5B Decomposition (Approved 2026-09-07)
+
+- **Context**: Following completion and integration of Phase 5A (Locations UI) into `feature/product-inventory-core`, the maintainer approved formally splitting the remaining Phase 5B scope into two sequential, focused capabilities.
+- **Decomposition**:
+  - **Phase 5B.1: Server-Rendered Stock by Location UI** (`inventory-stock-by-location`):
+    - Multi-location stock overview (`GET /inventory`)
+    - Associative stock position creation (`POST /inventory/stock`)
+    - Invariant: Position creation establishes an associative link between an existing product and existing location with an initial non-negative quantity. **It is NOT inventory adjustment**. Updating existing quantities, increments, decrements, adjustments, transfers, and position deletion remain strictly unsupported.
+  - **Phase 5B.2: Observational Inventory Counts UI** (`inventory-counts`):
+    - Count submission (`POST /inventory/counts`)
+    - Invariant: Observational count recording captures system snapshot, physical count, calculated variance, and optional notes immutably. **Recording a count MUST NOT mutate `inventario_stock.cantidad`**. No automatic reconciliation or count deletion workflows are permitted.
+- **Rationale**:
+  - **Domain Clarity**: Preserves the explicit distinction between establishing associative stock positions and recording observational audit counts.
+  - **Reviewability**: Each subphase strictly conforms to the $\le 400$ changed authored lines review budget.
+  - **Incremental Verification**: Allows standalone verification of multi-location stock browsing before adding observational count recording.
+- **Status**: Planning amendment formalized. Both Phase 5B.1 and Phase 5B.2 implementation tasks remain pending.
