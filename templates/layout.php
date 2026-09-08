@@ -37,12 +37,18 @@ $activeNav = $activeNav ?? 'products';
           <span class="nav-icon" aria-hidden="true">📊</span>
           <span class="nav-label">Existencias por ubicación</span>
         </a>
+        <a href="/inventory/counts" class="nav-item <?= $activeNav === 'counts' ? 'is-active' : '' ?>">
+          <span class="nav-icon" aria-hidden="true">📋</span>
+          <span class="nav-label">Conteos físicos</span>
+        </a>
       </nav>
     </aside>
     <div class="app-main">
       <header class="app-topbar">
         <div class="topbar-context">
-          <?php if ($activeNav === 'inventory'): ?>
+          <?php if ($activeNav === 'counts'): ?>
+            <span class="topbar-crumb">Inventario</span> <span class="topbar-sep" aria-hidden="true">/</span> <span class="topbar-current">Conteos físicos</span>
+          <?php elseif ($activeNav === 'inventory'): ?>
             <span class="topbar-crumb">Inventario</span>
             <span class="topbar-sep" aria-hidden="true">/</span>
             <span class="topbar-current">Existencias por ubicación</span>

@@ -14,6 +14,8 @@ final readonly class Renderer
         'fragment.product_table' => 'fragments/product_table.php',
         'page.locations' => 'pages/locations.php',
         'page.inventory' => 'pages/inventory.php',
+        'page.counts' => 'pages/counts.php',
+        'fragment.count_history' => 'fragments/count_history.php',
         'error' => 'error.php',
     ];
 

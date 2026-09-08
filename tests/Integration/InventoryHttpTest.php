@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
-use App\Modules\Inventory\{InventoryHandler, LocationCommand, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
+use App\Modules\Inventory\{CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
 use PHPUnit\Framework\TestCase;
 
 final class InventoryHttpTest extends TestCase
@@ -85,10 +85,11 @@ final class InventoryHttpTest extends TestCase
         self::assertMatchesRegularExpression('/href="\/products"[^>]*class="nav-item\s*"/i', $response->body);
         self::assertMatchesRegularExpression('/href="\/locations"[^>]*class="nav-item\s*"/i', $response->body);
         self::assertMatchesRegularExpression('/href="\/inventory"[^>]*class="nav-item\s+is-active"/i', $response->body);
+        self::assertMatchesRegularExpression('/href="\/inventory\/counts"[^>]*class="nav-item\s*"/i', $response->body);
         self::assertStringContainsString('<span class="topbar-crumb">Inventario</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Existencias por ubicación</span>', $response->body);
 
-        foreach (['Conteos', 'Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }
@@ -140,11 +141,12 @@ final class InventoryHttpTest extends TestCase
 
         $response = $this->dispatch(new Request('GET', '/inventory'));
         self::assertSame(200, $response->status);
-        self::assertStringNotContainsString('<th scope="col">Acciones</th>', $response->body);
-        self::assertStringNotContainsString('>Acciones<', $response->body);
+        $tableHtml = explode('id="stock-table-container"', $response->body)[1] ?? '';
+        self::assertStringNotContainsString('<th scope="col">Acciones</th>', $tableHtml);
+        self::assertStringNotContainsString('>Acciones<', $tableHtml);
 
         foreach (['Editar', 'Ajustar', 'Eliminar', 'Conteos', 'Ver movimientos', 'Transferir', 'Desactivar', 'Activar'] as $unsupported) {
-            self::assertStringNotContainsString($unsupported, $response->body);
+            self::assertStringNotContainsString($unsupported, $tableHtml);
         }
     }
 
@@ -366,8 +368,10 @@ final class InventoryHttpTest extends TestCase
     {
         $session = new InventoryMemorySession();
         $actualCsrf = $csrf ?? new Csrf($session);
+        $tx = new Transaction(self::$testDb);
         $handler = new InventoryHandler(
-            self::$renderer, self::$stockQuery, self::$stockCmd, self::$prodQuery, self::$locQuery, $actualCsrf
+            self::$renderer, self::$stockQuery, self::$stockCmd, self::$prodQuery, self::$locQuery, $actualCsrf,
+            new CountQuery(self::$testDb)
         );
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';

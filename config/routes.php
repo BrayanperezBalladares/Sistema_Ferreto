@@ -15,4 +15,5 @@ return [
     ['POST', '/locations', 'location'],
     ['GET', '/inventory', 'inventory'],
     ['POST', '/inventory/stock', 'inventory'],
+    ['GET', '/inventory/counts', 'inventory'],
 ];

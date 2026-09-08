@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
-use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
+use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -55,7 +55,8 @@ $inventory = new InventoryHandler(
     new StockCommand($tx),
     $productQuery,
     $locationQuery,
-    $csrf
+    $csrf,
+    new CountQuery($database)
 );
 
 $handlers = [

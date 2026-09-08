@@ -20,6 +20,7 @@ final readonly class InventoryHandler implements Handler
         private ProductQuery $productQuery,
         private LocationQuery $locationQuery,
         private Csrf $csrf,
+        private ?CountQuery $countQuery = null,
     ) {
     }
 
@@ -33,7 +34,40 @@ final readonly class InventoryHandler implements Handler
             return $this->createStockPosition($request);
         }
 
+        if ($request->method === 'GET' && $request->path === '/inventory/counts') {
+            return $this->browseCounts($request);
+        }
+
         return new Response(405, ['Allow' => 'GET, POST']);
+    }
+
+    private function browseCounts(Request $request): Response
+    {
+        $positions = $this->stockQuery->listOverview();
+        $stockParam = $request->query['stock'] ?? null;
+        $selectedStock = null;
+        $counts = [];
+
+        if (is_string($stockParam) && $stockParam !== '') {
+            $stockId = filter_var($stockParam, FILTER_VALIDATE_INT);
+            if ($stockId !== false && $stockId > 0) {
+                $selectedStock = $this->stockQuery->findById((int) $stockId);
+                if ($selectedStock !== null && $this->countQuery !== null) {
+                    $counts = $this->countQuery->listByStock((int) $selectedStock['id_stock']);
+                }
+            }
+        }
+
+        return new Response(200, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Vary'          => 'HX-Request',
+            'Cache-Control' => 'no-store',
+        ], $this->renderer->render('page.counts', [
+            'positions'     => $positions,
+            'selectedStock' => $selectedStock,
+            'counts'        => $counts,
+            'csrf'          => $this->csrf->token(),
+        ]));
     }
 
     private function browse(): Response
