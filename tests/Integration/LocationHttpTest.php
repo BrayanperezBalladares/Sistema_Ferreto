@@ -214,6 +214,22 @@ final class LocationHttpTest extends TestCase
         self::assertStringContainsString('Ubicación registrada correctamente.', $response->headers['HX-Trigger']);
     }
 
+    public function testLocationCreationAcceptsLowercaseAndMixedCaseCode(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo'      => 'pasillo-norte-01',
+            'descripcion' => 'Ubicación con código en minúsculas',
+        ]);
+        self::assertSame(303, $response->status);
+        self::assertSame('/locations', $response->headers['Location']);
+
+        $loc = self::$locQuery->findByCode('pasillo-norte-01');
+        self::assertIsArray($loc);
+        self::assertSame('pasillo-norte-01', $loc['codigo']);
+        self::assertSame('Ubicación con código en minúsculas', $loc['descripcion']);
+        self::assertSame(1, (int) $loc['estado_activo']);
+    }
+
     public function testProductionEntrypointServesLocations(): void
     {
         $root = dirname(__DIR__, 2);
