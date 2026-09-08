@@ -47,10 +47,10 @@
 
 ## Phase 5B.2: Observational Inventory Counts UI (Slice 4B.3 — `inventory-counts`)
 
-- [ ] 5B.2.1 Extend `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` to handle count page browsing (`GET /inventory/counts`) and observational count submission (`POST /inventory/counts`) using `CountCommand`, `CountQuery`, `StockQuery`, and `StockValidator`.
-- [ ] 5B.2.2 Create Bulma templates `templates/pages/counts.php` and `templates/fragments/count_history.php` with stock position selector, system quantity reference, count registration modal `#modal-count`, non-mutation notice, and immutable count history following `docs/ui/DESIGN.md`.
-- [ ] 5B.2.3 Register routes `GET /inventory/counts` and `POST /inventory/counts` in `config/routes.php` and wire `CountCommand` and `CountQuery` into `InventoryHandler` in `public/index.php`.
-- [ ] 5B.2.4 Add HTTP integration tests `tests/Integration/CountHttpTest.php` verifying 200/422 status, stock position selection, count submission, server-authoritative snapshot/variance, negative variance support, append-only immutability, stock non-mutation, CSRF enforcement, HTML escaping, production composition, and absence of edit/reconciliation actions.
+- [x] 5B.2.1 Extend `InventoryHandler` in `src/Modules/Inventory/InventoryHandler.php` to handle count page browsing (`GET /inventory/counts`) and observational count submission (`POST /inventory/counts`) using `CountCommand`, `CountQuery`, `StockQuery`, and `StockValidator`.
+- [x] 5B.2.2 Create Bulma templates `templates/pages/counts.php` and `templates/fragments/count_history.php` with stock position selector, system quantity reference, count registration modal `#modal-count`, non-mutation notice, and immutable count history following `docs/ui/DESIGN.md`.
+- [x] 5B.2.3 Register routes `GET /inventory/counts` and `POST /inventory/counts` in `config/routes.php` and wire `CountCommand` and `CountQuery` into `InventoryHandler` in `public/index.php`.
+- [x] 5B.2.4 Add HTTP integration tests `tests/Integration/CountHttpTest.php` verifying 200/422 status, stock position selection, count submission, server-authoritative snapshot/variance, negative variance support, append-only immutability, stock non-mutation, CSRF enforcement, HTML escaping, production composition, and absence of edit/reconciliation actions.
 
 ## Phase 6: Development Seeds & Regression Verification
 

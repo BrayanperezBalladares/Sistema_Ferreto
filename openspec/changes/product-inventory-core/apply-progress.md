@@ -374,4 +374,46 @@
   - **Append-Only Immutability**: Counts are immutable audit records. No `update`, `delete`, `reconcile`, or `adjust` endpoints or buttons are provided.
   - **Selection Scope**: Any existing stock position is eligible for physical counting. The domain contract requires only an existing stock position without restricting to active-only products or locations.
   - **Validation & Copy**: 100% natural Spanish validation feedback. Exact decimal strings with at most 3 fractional digits (`/^\d+(\.\d{1,3})?$/`) without PHP float arithmetic.
-- **Status**: Planning amendment formalized. Implementation tasks 5B.2.1 through 5B.2.4 remain pending.
+- **Status**: Implementation completed across Slice 5B.2-A and Slice 5B.2-B. Tasks 5B.2.1 through 5B.2.4 complete.
+
+---
+
+## Phase 5B.2 Implementation: Observational Inventory Counts UI (2026-09-08)
+
+- **Phase Intent**: Complete Tasks 5B.2.1 through 5B.2.4 implementing physical inventory count page (`GET /inventory/counts`), observational count registration (`POST /inventory/counts`) with CSRF protection, decimal quantity validation, stock non-mutation invariant enforcement, append-only history with signed variance formatting, clean Bulma templates, and HTTP regression verification.
+- **Review Budget & Subdivision Strategy**:
+  - Subdivided into **Slice 5B.2-A** (Counts Browsing, commit `246e04b`, 398 changed authored lines $\le$ 400) and **Slice 5B.2-B** (Count Registration, commit `e03e72b`, 304 changed authored lines $\le$ 400). Both slices strictly satisfied the $\le 400$ changed authored lines budget limit.
+
+### Slice 5B.2-A: Observational Counts Browsing
+- **Commit**: `246e04b` (`feat(inventory): add observational counts browsing`)
+- **Diff Stat**: 10 files changed, 388 insertions(+), 10 deletions(-) (398 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `templates/fragments/count_history.php`: Clean Bulma table rendering historical counts (`Fecha`, `Sistema`, `Físico`, `Diferencia`, `Notas`) with signed monospace variance formatting (`+X.XXX` green, `-X.XXX` red, `0.000` neutral grey). No edit/delete/adjust actions.
+  - `templates/pages/counts.php`: Bulma page layout with header, stock position selector (`[Producto] — [Ubicación]`), empty state when unselected, selected position summary, and count history container.
+  - `templates/layout.php`: Added `Conteos físicos` navigation link under `INVENTARIO` with active state and synchronized topbar breadcrumbs (`Inventario / Conteos físicos`).
+  - `src/Foundation/Renderer.php`: Registered `'page.counts' => 'pages/counts.php'` and `'fragment.count_history' => 'fragments/count_history.php'`.
+  - `src/Modules/Inventory/InventoryHandler.php`: Implemented `browseCounts(Request $request): Response` with position selection and count query integration.
+  - `config/routes.php`: Registered `['GET', '/inventory/counts', 'inventory']`.
+  - `public/index.php`: Wired `CountQuery` into `InventoryHandler`.
+  - `tests/Integration/CountHttpTest.php`: 5 HTTP tests covering 200 OK, canonical HTML, navigation active state, position selection, signed variance formatting, fallback on nonexistent stock ID, HTML escaping, and production entrypoint composition.
+  - `tests/Integration/InventoryHttpTest.php` & `LocationHttpTest.php`: Updated navigation assertions to recognize `/inventory/counts`.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.temp-worktree`) at `246e04b`.
+  - Full suite: 178 tests, 786 assertions (100% green).
+  - PHPStan: 42/42 files, 0 errors at Level Max.
+  - Development DB: Invariant, 0 test rows leaked.
+
+### Slice 5B.2-B: Count Registration
+- **Commit**: `e03e72b` (`feat(inventory): add observational count registration`)
+- **Diff Stat**: 5 files changed, 298 insertions(+), 6 deletions(-) (304 changed authored lines $\le$ 400)
+- **Deliverables**:
+  - `src/Modules/Inventory/InventoryHandler.php`: Implemented `recordCount(Request $request): Response` handling `POST /inventory/counts`. Validates CSRF token, verifies stock existence, validates `cantidad_contada` with `StockValidator::validateQuantity()` (`/^\d+(\.\d{1,3})?$/`), ignores client attempts to supply fake `cantidad_sistema` or `diferencia`, invokes `CountCommand::record()`, handles errors with inline 422 re-renders, and supports standard 303 redirect and HTMX notifications.
+  - `config/routes.php`: Registered `['POST', '/inventory/counts', 'inventory']`.
+  - `public/index.php`: Wired `CountCommand` into `InventoryHandler`.
+  - `templates/pages/counts.php`: Added `#modal-count` with read-only product/location/system quantity summary, non-mutation informational notice, validated `cantidad_contada` input, optional `notas` textarea, and top-level error notification.
+  - `tests/Integration/CountHttpTest.php`: Extended with 8 tests verifying successful count registration, stock non-mutation invariant (`inventario_stock.cantidad` remains completely unchanged), append-only multiple count history, rejection of negative/overprecision/malformed quantities, rejection of nonexistent/missing stock ID, CSRF 403 enforcement, client override immunity, and HTMX redirect/trigger headers.
+- **Independent Verification**:
+  - Verified in isolated detached Git worktree (`.temp-worktree`) at `e03e72b`.
+  - Full suite: 186 tests, 830 assertions (100% green).
+  - PHPStan: 42/42 files, 0 errors at Level Max.
+  - Development DB: 0 test rows created, complete isolation verified.
