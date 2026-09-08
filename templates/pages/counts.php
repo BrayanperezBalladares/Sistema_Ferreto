@@ -9,6 +9,10 @@ $selectedStock = isset($data['selectedStock']) && is_array($data['selectedStock'
 /** @var list<array{id_conteo: int, id_stock: int, cantidad_sistema: string, cantidad_contada: string, diferencia: string, notas: ?string, created_at: string}> $counts */
 $counts = isset($data['counts']) && is_array($data['counts']) ? $data['counts'] : [];
 $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
+/** @var array<string, string> $input */
+$input = isset($data['input']) && is_array($data['input']) ? $data['input'] : [];
+/** @var array<string, string> $errors */
+$errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
 $activeNav = 'counts';
 
 ob_start();
@@ -25,6 +29,12 @@ ob_start();
       </div>
     <?php endif; ?>
   </div>
+
+  <?php if (!empty($errors['id_stock']) || !empty($errors['general'])): ?>
+    <div class="notification is-danger is-light mb-4" role="alert">
+      <?= Renderer::escape($errors['id_stock'] ?? $errors['general'] ?? '') ?>
+    </div>
+  <?php endif; ?>
 
   <div class="card-surface p-4 mb-4" id="stock-selector-container">
     <form method="get" action="/inventory/counts" id="stock-selector-form">
@@ -65,6 +75,66 @@ ob_start();
     <div class="mb-4">
       <h2 class="is-size-6 has-text-weight-bold mb-2">Historial de observaciones</h2>
       <?php require dirname(__DIR__) . '/fragments/count_history.php'; ?>
+    </div>
+
+    <div class="modal <?= !empty($errors) ? 'is-active' : '' ?>" id="modal-count" role="dialog" aria-modal="true" aria-labelledby="modal-count-title">
+      <div class="modal-background" data-modal-close></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-6 has-text-weight-bold" id="modal-count-title">Registrar conteo</p>
+          <button class="delete" type="button" aria-label="Cerrar" data-modal-close></button>
+        </header>
+        <form method="post" action="/inventory/counts">
+          <section class="modal-card-body">
+            <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+            <input type="hidden" name="id_stock" value="<?= (int) $selectedStock['id_stock'] ?>">
+
+            <div class="notification is-info is-light py-2 px-3 mb-3 is-size-7">
+              Registrar un conteo no modifica la cantidad registrada en existencias.
+            </div>
+
+            <?php if (isset($errors['general'])): ?>
+              <div class="notification is-danger is-light py-2 px-3 mb-3 is-size-7"><?= Renderer::escape($errors['general']) ?></div>
+            <?php endif; ?>
+
+            <div class="field mb-3">
+              <label class="label is-small">Producto</label>
+              <div class="control"><input class="input is-small is-static has-text-weight-bold" type="text" value="<?= Renderer::escape($selectedStock['producto_nombre']) ?>" readonly></div>
+            </div>
+
+            <div class="field mb-3">
+              <label class="label is-small">Ubicación</label>
+              <div class="control"><input class="input is-small is-static has-text-weight-semibold" type="text" value="<?= Renderer::escape($selectedStock['ubicacion_codigo']) ?>" readonly></div>
+            </div>
+
+            <div class="field mb-3">
+              <label class="label is-small">Cantidad del sistema</label>
+              <div class="control"><input class="input is-small is-static is-family-monospace" type="text" value="<?= Renderer::escape($selectedStock['cantidad']) ?>" readonly></div>
+            </div>
+
+            <div class="field mb-3">
+              <label class="label is-small" for="cantidad_contada">Cantidad contada <span class="has-text-danger">*</span></label>
+              <div class="control">
+                <input class="input is-small <?= isset($errors['cantidad_contada']) ? 'is-danger' : '' ?>" type="number" step="0.001" min="0" id="cantidad_contada" name="cantidad_contada" value="<?= Renderer::escape($input['cantidad_contada'] ?? '') ?>" required autofocus>
+              </div>
+              <?php if (isset($errors['cantidad_contada'])): ?>
+                <p class="help is-danger"><?= Renderer::escape($errors['cantidad_contada']) ?></p>
+              <?php endif; ?>
+            </div>
+
+            <div class="field">
+              <label class="label is-small" for="notas">Notas</label>
+              <div class="control">
+                <textarea class="textarea is-small" id="notas" name="notas" rows="2" placeholder="Observaciones opcionales sobre el conteo"><?= Renderer::escape($input['notas'] ?? '') ?></textarea>
+              </div>
+            </div>
+          </section>
+          <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+            <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
+            <button class="btn-primary" type="submit">Registrar conteo</button>
+          </footer>
+        </form>
+      </div>
     </div>
   <?php endif; ?>
 </section>

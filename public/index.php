@@ -56,7 +56,8 @@ $inventory = new InventoryHandler(
     $productQuery,
     $locationQuery,
     $csrf,
-    new CountQuery($database)
+    new CountQuery($database),
+    new CountCommand($tx)
 );
 
 $handlers = [

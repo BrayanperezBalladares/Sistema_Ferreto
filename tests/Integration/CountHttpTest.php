@@ -49,7 +49,6 @@ final class CountHttpTest extends TestCase
 
     public static function tearDownAfterClass(): void { self::assertDevDatabaseUntouched(self::$devDb, self::$config); }
 
-
     protected function setUp(): void
     {
         $pdo = self::$testDb->pdo();
@@ -171,15 +170,148 @@ final class CountHttpTest extends TestCase
         self::assertStringContainsString('id="stock-selector-container"', $stdout);
     }
 
-    private function dispatch(Request $request): Response
+    public function testCountRegistrationSucceedsAndEnforcesStockNonMutationInvariant(): void
+    {
+        $sId = $this->createStock('Bombilo LED 9W', 'CENTRAL', '2000.000');
+
+        $response = $this->post('/inventory/counts', [
+            'id_stock'         => (string) $sId,
+            'cantidad_contada' => '1996.000',
+            'notas'            => 'Conteo físico verificado por auditoría',
+        ]);
+
+        self::assertSame(303, $response->status);
+        self::assertSame('/inventory/counts?stock=' . $sId, $response->headers['Location'] ?? '');
+
+        // Persisted count verification
+        $counts = self::$countQuery->listByStock($sId);
+        self::assertCount(1, $counts);
+        self::assertSame('2000.000', $counts[0]['cantidad_sistema']);
+        self::assertSame('1996.000', $counts[0]['cantidad_contada']);
+        self::assertSame('-4.000', $counts[0]['diferencia']);
+        self::assertSame('Conteo físico verificado por auditoría', $counts[0]['notas']);
+
+        // CRITICAL INVARIANT: inventario_stock.cantidad MUST REMAIN 2000.000!
+        $stockRow = self::$stockQuery->findById($sId);
+        self::assertNotNull($stockRow);
+        self::assertSame('2000.000', $stockRow['cantidad']);
+    }
+
+    public function testSecondCountAppendsRowAndLeavesFirstCountAndStockUntouched(): void
+    {
+        $sId = $this->createStock('Tornillo Hexagonal', 'ESTANTE-1', '500.000');
+
+        $this->post('/inventory/counts', ['id_stock' => (string) $sId, 'cantidad_contada' => '490.000']);
+        $this->post('/inventory/counts', ['id_stock' => (string) $sId, 'cantidad_contada' => '505.500']);
+
+        $counts = self::$countQuery->listByStock($sId);
+        self::assertCount(2, $counts);
+
+        // Most recent first
+        self::assertSame('505.500', $counts[0]['cantidad_contada']);
+        self::assertSame('5.500', $counts[0]['diferencia']);
+
+        // First count untouched
+        self::assertSame('490.000', $counts[1]['cantidad_contada']);
+        self::assertSame('-10.000', $counts[1]['diferencia']);
+
+        // Stock quantity untouched
+        $stock = self::$stockQuery->findById($sId);
+        self::assertNotNull($stock);
+        self::assertSame('500.000', $stock['cantidad']);
+    }
+
+    public function testCountRegistrationRejectsNegativeMalformedAndOverprecisionQuantities(): void
+    {
+        $sId = $this->createStock();
+
+        foreach (['-1', '-0.001', '10.1234', 'abc', ''] as $invalidQty) {
+            $response = $this->post('/inventory/counts', [
+                'id_stock'         => (string) $sId,
+                'cantidad_contada' => $invalidQty,
+            ]);
+            self::assertSame(422, $response->status);
+            self::assertStringContainsString('La cantidad contada debe ser mayor o igual a 0 y puede tener hasta 3 decimales.', $response->body);
+        }
+
+        self::assertCount(0, self::$countQuery->listByStock($sId));
+    }
+
+    public function testCountRegistrationRejectsMissingOrNonexistentStock(): void
+    {
+        $resMissing = $this->post('/inventory/counts', ['id_stock' => '', 'cantidad_contada' => '10.000']);
+        self::assertSame(422, $resMissing->status);
+        self::assertStringContainsString('Debe seleccionar una existencia válida.', $resMissing->body);
+
+        $resNonexistent = $this->post('/inventory/counts', ['id_stock' => '999999', 'cantidad_contada' => '10.000']);
+        self::assertSame(422, $resNonexistent->status);
+        self::assertStringContainsString('La existencia seleccionada no existe.', $resNonexistent->body);
+    }
+
+    public function testCountRegistrationRequiresCsrf(): void
+    {
+        $sId = $this->createStock();
+        $response = $this->dispatch(new Request('POST', '/inventory/counts', body: ['id_stock' => (string) $sId, 'cantidad_contada' => '10.000']));
+        self::assertSame(403, $response->status);
+    }
+
+    public function testClientSuppliedSystemQuantityAndDifferenceCannotOverrideCalculations(): void
+    {
+        $sId = $this->createStock('Candado Bronce', 'VITRINA-1', '100.000');
+
+        $this->post('/inventory/counts', [
+            'id_stock'         => (string) $sId,
+            'cantidad_contada' => '95.000',
+            'cantidad_sistema' => '999999.000', // Malicious fake value
+            'diferencia'       => '888888.000', // Malicious fake value
+        ]);
+
+        $counts = self::$countQuery->listByStock($sId);
+        self::assertCount(1, $counts);
+        self::assertSame('100.000', $counts[0]['cantidad_sistema']);
+        self::assertSame('-5.000', $counts[0]['diferencia']);
+    }
+
+    public function testCountRegistrationSupportsHtmx(): void
+    {
+        $sId = $this->createStock();
+        $response = $this->post('/inventory/counts', [
+            'id_stock'         => (string) $sId,
+            'cantidad_contada' => '2000.000',
+        ], ['hx-request' => 'true']);
+
+        self::assertSame(200, $response->status);
+        self::assertSame('/inventory/counts?stock=' . $sId, $response->headers['HX-Redirect'] ?? '');
+        self::assertStringContainsString('Conteo registrado correctamente.', $response->headers['HX-Trigger'] ?? '');
+    }
+
+    /**
+     * @param array<string, string> $body
+     * @param array<string, string> $headers
+     */
+    private function post(string $path, array $body, array $headers = []): Response
     {
         $session = new CountMemorySession();
         $csrf = new Csrf($session);
+        $body['_csrf'] = $csrf->token();
+
+        return $this->dispatchWithCsrf(new Request('POST', $path, body: $body, headers: $headers), $csrf);
+    }
+
+    private function dispatch(Request $request): Response
+    {
+        return $this->dispatchWithCsrf($request, null);
+    }
+
+    private function dispatchWithCsrf(Request $request, ?Csrf $csrf): Response
+    {
+        $session = new CountMemorySession();
+        $actualCsrf = $csrf ?? new Csrf($session);
         $handler = new InventoryHandler(
             self::$renderer, self::$stockQuery, self::$stockCmd,
             new \App\Modules\Inventory\ProductQuery(self::$testDb),
             new \App\Modules\Inventory\LocationQuery(self::$testDb),
-            $csrf, self::$countQuery
+            $actualCsrf, self::$countQuery, self::$countCmd
         );
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
@@ -191,8 +323,8 @@ final class CountHttpTest extends TestCase
         }
         $router = new Router($routes);
 
-        return $router->dispatch($request, static function (Request $matched) use ($csrf): ?Response {
-            if (!in_array($matched->method, ['GET', 'HEAD', 'OPTIONS'], true) && !$csrf->valid($matched)) {
+        return $router->dispatch($request, static function (Request $matched) use ($actualCsrf): ?Response {
+            if (!in_array($matched->method, ['GET', 'HEAD', 'OPTIONS'], true) && !$actualCsrf->valid($matched)) {
                 return new Response(403, [], 'Forbidden');
             }
             return null;
