@@ -156,6 +156,7 @@ To ensure strict domain separation and maintain small, reviewable increments:
   - **Authorized Routes**: `GET /inventory` and `POST /inventory/stock`. Mutating routes like `PUT/PATCH/DELETE /inventory/stock/{id}` or `/adjust` remain strictly unsupported.
   - **Template & Table Contract**: `templates/pages/inventory.php` rendering table with columns `Producto`, `Ubicación`, and `Cantidad` (exact 3-decimal alignment, without speculative unit-of-measure suffixes). Omit `Acciones` column.
   - **Modal Contract**: Focused modal `Nueva posición de stock` (or `Registrar existencia`) with dropdowns for `Producto *`, `Ubicación *`, and decimal input `Cantidad inicial *` (non-negative, max 3 decimals). Duplicate pair returns safe Spanish error *"Ya existe una posición de stock para este producto en esta ubicación."*
+  - **Selection Scope**: Dropdowns select from all existing products (`ProductQuery::search()`) and all existing locations (`LocationQuery::all()`). The binding domain contract (`inventory-locations-stock/spec.md`) requires only an existing product and location without imposing or restricting to active-only status (`estado_activo = 1`).
   - **Navigation**: Sidebar exposes `INVENTARIO` → `Existencias por ubicación`.
 - **Phase 5B.2 — Observational Inventory Counts UI**:
   - **Scope**: Handles recording observational physical inventory counts via `POST /inventory/counts`.
