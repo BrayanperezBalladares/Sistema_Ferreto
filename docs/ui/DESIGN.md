@@ -322,6 +322,28 @@ The approved catalog screen (`/products`) unites the shell, controls, and data g
 > Do **NOT** render unapproved actions such as "Editar todo", "Eliminar", "Restaurar", "Recuperar", or "Ver historial".
 > Only the approved domain operations (`Actualizar precio`, `Desactivar`, `Activar`) may appear.
 
+### 4. Canonical Physical Counts Screen Specifications (`/inventory/counts`)
+- **Page Header:**
+  - **Title:** `Conteos físicos`
+  - **Subtitle:** `Registra observaciones físicas del inventario sin modificar las existencias registradas en el sistema.`
+  - **Stock Position Selector:** Dropdown or selector displaying `[Producto] — [Ubicación]` and current system quantity.
+  - **Primary CTA:** Button `[ + Registrar conteo ]` (triggers modal for selected position).
+- **Count History Table Columns:**
+  1. **Fecha:** Formatted timestamp (`Y-m-d H:i:s` or standard localized datetime).
+  2. **Cantidad sistema:** Exact 3-decimal string (`DECIMAL(12,3)`), right-aligned, monospace.
+  3. **Cantidad contada:** Exact 3-decimal string, right-aligned, monospace.
+  4. **Diferencia:** Exact 3-decimal signed value (`+X.XXX`, `-X.XXX`, `0.000`), right-aligned, monospace:
+     - `0.000`: Neutral text styling.
+     - Positive (`+X.XXX`): Restrained informational/success text styling (`--color-success-text`).
+     - Negative (`-X.XXX`): Restrained warning/danger text styling (`--color-danger-text`).
+     - Must never rely on color alone; always display explicit sign (`+`, `-`).
+  5. **Notas:** Muted secondary text or dash (`—`) when empty.
+- **Table Invariants:**
+  - Strictly read-only count history.
+  - **NO Acciones column** (no edit, delete, reconcile, or apply buttons).
+  - Empty state: clean panel with *"No hay conteos registrados para esta existencia."*
+
+
 ---
 
 ## 12. Modal & Interaction Workflows
@@ -377,7 +399,27 @@ The approved catalog screen (`/products`) unites the shell, controls, and data g
   - Operates strictly on the existing product record (`id_producto`).
   - Canonical term is strictly `Activar` (never use "Restaurar", "Recuperar", or "Reactivar" in user copy).
 
+### 6. Observational Count Registration Modal
+- **Trigger:** Action button `Registrar conteo` on the selected stock position.
+- **Read-Only Context:**
+  - `Producto` (read-only reference text).
+  - `Ubicación` (read-only reference text).
+  - `Cantidad del sistema` (read-only decimal reference).
+- **Editable Inputs:**
+  - `Cantidad contada` (obligatorio, decimal input, non-negative, up to 3 decimal places).
+  - `Notas` (opcional, textarea).
+- **Non-Mutation Notice:**
+  - Informational alert banner inside modal:
+    > *Registrar un conteo no modifica la cantidad registrada en existencias.*
+- **Strict Operational Boundaries:**
+  - `Cantidad del sistema` is **strictly read-only**.
+  - `Diferencia` is **derived server-side/database-side**; never exposed as a client input.
+  - Count registration is strictly **observational**; no stock adjustments, reconciliations, or overwrites occur.
+  - Append-only immutability: counts cannot be edited, deleted, or reconciled.
+- **Actions:** `[ Registrar conteo ]` (Primary Amber) | `[ Cancelar ]` (Secondary Light).
+
 ---
+
 
 ## 13. Status Badges & Chips
 
@@ -462,8 +504,19 @@ All user-facing interface copy is strictly in **Spanish**:
 | No products found | **No se encontraron productos** | Empty state title |
 | Price required | **El precio es obligatorio.** | Validation error |
 | Invalid price format | **El precio debe tener hasta 2 decimales.** | Validation error |
+| Register Count | **Registrar conteo** | Primary button & modal title |
+| System Quantity | **Cantidad sistema** | Table column & modal reference |
+| Counted Quantity | **Cantidad contada** | Table column & modal input |
+| Variance / Difference | **Diferencia** | Table column |
+| Count Notes | **Notas** | Table column & modal input |
+| Non-Mutation Notice | **Registrar un conteo no modifica la cantidad registrada en existencias.** | Modal informational banner |
+| No Counts Recorded | **No hay conteos registrados para esta existencia.** | Empty state message |
+| Select Stock Position | **Debe seleccionar una existencia válida.** | Validation error |
+| Invalid Counted Quantity | **La cantidad contada debe ser mayor o igual a 0 y puede tener hasta 3 decimales.** | Validation error |
+| Nonexistent Stock Position | **La existencia seleccionada no existe.** | Validation error |
 
 ---
+
 
 ## 17. Accessibility (WCAG 2.1 AA)
 
