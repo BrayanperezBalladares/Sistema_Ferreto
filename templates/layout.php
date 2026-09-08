@@ -32,14 +32,29 @@ $activeNav = $activeNav ?? 'products';
           <span class="nav-icon" aria-hidden="true">📍</span>
           <span class="nav-label">Ubicaciones</span>
         </a>
+        <div class="nav-section-label">Inventario</div>
+        <a href="/inventory" class="nav-item <?= $activeNav === 'inventory' ? 'is-active' : '' ?>">
+          <span class="nav-icon" aria-hidden="true">📊</span>
+          <span class="nav-label">Existencias por ubicación</span>
+        </a>
       </nav>
     </aside>
     <div class="app-main">
       <header class="app-topbar">
         <div class="topbar-context">
-          <span class="topbar-crumb">Catálogo</span>
-          <span class="topbar-sep" aria-hidden="true">/</span>
-          <span class="topbar-current"><?= $activeNav === 'locations' ? 'Ubicaciones' : 'Productos' ?></span>
+          <?php if ($activeNav === 'inventory'): ?>
+            <span class="topbar-crumb">Inventario</span>
+            <span class="topbar-sep" aria-hidden="true">/</span>
+            <span class="topbar-current">Existencias por ubicación</span>
+          <?php elseif ($activeNav === 'locations'): ?>
+            <span class="topbar-crumb">Catálogo</span>
+            <span class="topbar-sep" aria-hidden="true">/</span>
+            <span class="topbar-current">Ubicaciones</span>
+          <?php else: ?>
+            <span class="topbar-crumb">Catálogo</span>
+            <span class="topbar-sep" aria-hidden="true">/</span>
+            <span class="topbar-current">Productos</span>
+          <?php endif; ?>
         </div>
       </header>
       <main class="app-workspace">

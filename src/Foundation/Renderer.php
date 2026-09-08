@@ -13,6 +13,7 @@ final readonly class Renderer
         'page.products' => 'pages/products.php',
         'fragment.product_table' => 'fragments/product_table.php',
         'page.locations' => 'pages/locations.php',
+        'page.inventory' => 'pages/inventory.php',
         'error' => 'error.php',
     ];
 

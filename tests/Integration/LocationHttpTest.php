@@ -77,7 +77,9 @@ final class LocationHttpTest extends TestCase
         self::assertStringContainsString('<span class="topbar-crumb">Catálogo</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Ubicaciones</span>', $response->body);
 
-        foreach (['Existencias', 'Stock', 'Conteos', 'Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        self::assertMatchesRegularExpression('/href="\/inventory"[^>]*class="nav-item\s*"/i', $response->body);
+
+        foreach (['Conteos', 'Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }

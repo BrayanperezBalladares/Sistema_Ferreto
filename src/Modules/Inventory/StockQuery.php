@@ -20,6 +20,22 @@ final readonly class StockQuery
     }
 
     /**
+     * @return list<array{id_stock: int, id_producto: int, producto_nombre: string, id_ubicacion: int, ubicacion_codigo: string, cantidad: string, created_at: string, updated_at: string}>
+     */
+    public function listOverview(): array
+    {
+        $stmt = $this->db->pdo()->query(self::BASE_SELECT . ' ORDER BY p.nombre ASC, u.codigo ASC');
+        $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $result = [];
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                $result[] = self::map($row);
+            }
+        }
+        return $result;
+    }
+
+    /**
      * @return array{id_stock: int, id_producto: int, producto_nombre: string, id_ubicacion: int, ubicacion_codigo: string, cantidad: string, created_at: string, updated_at: string}|null
      */
     public function getPosition(int $idProducto, int $idUbicacion): ?array

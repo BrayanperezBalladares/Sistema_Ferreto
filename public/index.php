@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
-use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery};
+use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockQuery};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -29,19 +29,31 @@ $config = Config::fromEnvironment(require $root . '/config/defaults.php');
 $database = new Database($config, $config->get('APP_ENV') === 'test');
 $tx = new Transaction($database);
 
+$productQuery = new ProductQuery($database);
+$categoryQuery = new CategoryQuery($database);
+$locationQuery = new LocationQuery($database);
+$stockQuery = new StockQuery($database);
+
 $health = new HealthHandler($renderer, $csrf, $session);
 $catalog = new CatalogHandler(
     $renderer,
-    new ProductQuery($database),
-    new CategoryQuery($database),
+    $productQuery,
+    $categoryQuery,
     new CategoryCommand($tx),
     new ProductCommand($tx),
     $csrf
 );
 $location = new LocationHandler(
     $renderer,
-    new LocationQuery($database),
+    $locationQuery,
     new LocationCommand($tx),
+    $csrf
+);
+$inventory = new InventoryHandler(
+    $renderer,
+    $stockQuery,
+    $productQuery,
+    $locationQuery,
     $csrf
 );
 
@@ -49,6 +61,7 @@ $handlers = [
     'health' => $health->handle(...),
     'catalog' => $catalog->handle(...),
     'location' => $location->handle(...),
+    'inventory' => $inventory->handle(...),
 ];
 
 /** @var list<array{string, string, string}> $routeConfig */
