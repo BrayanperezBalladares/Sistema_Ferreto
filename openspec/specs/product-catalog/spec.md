@@ -1,11 +1,8 @@
-# Product Catalog Specification
+# product-catalog Specification
 
 ## Purpose
-
 Define the centralized product catalog, optional category classification, current selling price, product deactivation, and server-rendered catalog search under R1.
-
 ## Requirements
-
 ### Requirement: Product Registration and Category Association
 
 The system MUST allow registering a product with a name, optional description, current selling price, and an optional category reference. The category association MUST be optional (`id_categoria` nullable). The system MUST NOT require SKU or barcode identifiers.
@@ -118,3 +115,4 @@ The system MUST provide a server-rendered catalog interface that supports asynch
 - GIVEN no products match the search term "Desconocido"
 - WHEN a search request is submitted for "Desconocido"
 - THEN the system MUST return an HTML fragment indicating no matching products were found
+

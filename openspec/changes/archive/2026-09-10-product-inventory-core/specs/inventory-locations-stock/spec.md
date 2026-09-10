@@ -4,7 +4,7 @@
 
 Define generic physical storage locations, associative multi-location decimal stock, and observational inventory count logging under R1.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Physical Storage Locations
 
