@@ -424,3 +424,22 @@
   - In commit `2508dde` (`docs(sdd): define observational counts ui`), the task was explicitly formalized with the dedicated suite `tests/Integration/CountHttpTest.php` to maintain strict test cohesion, prevent file inflation in `InventoryHttpTest.php`, and respect the $\le 400$ changed authored lines review budget.
 - **Empty Query Parameter Normalization**:
   - In `InventoryHandler::browseCounts()`, requests with empty query parameter (`/inventory/counts?stock=`) are normalized via HTTP 303 redirect to `/inventory/counts`. This eliminates unwanted `?stock=` query strings from browser address bars cleanly on the server without introducing client-side JavaScript complexity.
+
+---
+
+## Phase 6.1 Engineering Decision: Omission of Domain Development Fixtures (2026-09-10)
+
+- **Context**: Phase 6.1 originally proposed adding idempotent development fixtures for categories, products, locations, and initial stock quantities into `database/seeds/development.php`.
+- **Architectural & Domain Audit**:
+  - **Technical Convenience vs Functional Requirement**: Development fixtures are strictly an onboarding convenience, not an end-user domain requirement in `specs/product-catalog` or `specs/inventory-locations-stock`.
+  - **Natural Business Key Asymmetry**:
+    - `categoria` (`nombre` UNIQUE) and `ubicacion` (`codigo` UNIQUE) possess verified natural unique keys.
+    - `producto` has NO natural unique constraint in schema (`0003_create_producto.up.sql`) or domain specification.
+  - **Rejection of Invented Identity Semantics**: Matching products by `nombre` would fabricate an unapproved domain uniqueness invariant. Blind inserts without matching would violate idempotency on successive seed executions.
+  - **Transitive Stock Ambiguity**: Stock positions (`inventario_stock`) depend on resolving product identity. Blindly seeding initial stock quantities risks creating orphan or duplicate positions, and mutating existing quantities violates stock non-mutation invariants.
+  - **Observational Integrity**: Observational counts (`conteo_inventario`) represent immutable, point-in-time physical audit records. Fabricating artificial count history directly contradicts the observational domain contract.
+  - **Pre-existing Development State**: The local development database (`sistema_ferreto`) already holds genuine, maintainer-verified validation records created during manual review.
+- **Maintainer Decision**:
+  - The maintainer formally approved **Option C: Omit / Defer Domain Development Seeds**.
+  - `database/seeds/development.php` remains unchanged for domain data, preserving only the existing `infrastructure_probe` verification logic.
+  - Task 6.1 is closed as an intentional architectural decision, preserving repository integrity and preventing domain corruption.
