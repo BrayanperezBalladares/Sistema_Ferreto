@@ -211,4 +211,14 @@ body.ferreto-app {
   .app-workspace { padding: 12px; }
   .topbar-crumb, .topbar-sep { display: none; }
   .topbar-current { font-size: 14px; }
+  .page-header {
+    flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px;
+  }
+  .page-actions {
+    display: flex; flex-wrap: wrap; gap: 8px; width: 100%;
+  }
+  .page-actions .btn-primary,
+  .page-actions .btn-secondary {
+    flex: 1 1 auto; justify-content: center; text-align: center;
+  }
 }

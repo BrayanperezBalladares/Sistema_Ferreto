@@ -66,10 +66,10 @@ ob_start();
     </div>
   <?php else: ?>
     <div class="card-surface p-4 mb-4" id="selected-stock-summary">
-      <div class="columns is-mobile is-multiline mb-0">
-        <div class="column is-4"><p class="has-text-grey is-size-7 mb-1">Producto</p><p class="has-text-weight-bold is-size-6"><?= Renderer::escape($selectedStock['producto_nombre']) ?></p></div>
-        <div class="column is-4"><p class="has-text-grey is-size-7 mb-1">Ubicación</p><p class="has-text-weight-semibold is-size-6"><?= Renderer::escape($selectedStock['ubicacion_codigo']) ?></p></div>
-        <div class="column is-4 has-text-right-tablet"><p class="has-text-grey is-size-7 mb-1">Cantidad del sistema</p><p class="is-family-monospace has-text-weight-bold is-size-5"><?= Renderer::escape($selectedStock['cantidad']) ?></p></div>
+      <div class="columns is-multiline mb-0">
+        <div class="column is-12-mobile is-4-tablet"><p class="has-text-grey is-size-7 mb-1">Producto</p><p class="has-text-weight-bold is-size-6"><?= Renderer::escape($selectedStock['producto_nombre']) ?></p></div>
+        <div class="column is-12-mobile is-4-tablet"><p class="has-text-grey is-size-7 mb-1">Ubicación</p><p class="has-text-weight-semibold is-size-6"><?= Renderer::escape($selectedStock['ubicacion_codigo']) ?></p></div>
+        <div class="column is-12-mobile is-4-tablet has-text-right-tablet"><p class="has-text-grey is-size-7 mb-1">Cantidad del sistema</p><p class="is-family-monospace has-text-weight-bold is-size-5"><?= Renderer::escape($selectedStock['cantidad']) ?></p></div>
       </div>
     </div>
     <div class="mb-4">

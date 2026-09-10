@@ -27,7 +27,8 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
   </div>
 <?php else: ?>
   <div class="ferreto-card">
-    <table class="ferreto-table">
+    <div class="table-container mb-0">
+      <table class="ferreto-table">
       <thead>
         <tr>
           <th>Producto</th>
@@ -103,7 +104,8 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
           </tr>
         <?php endforeach; ?>
       </tbody>
-    </table>
+      </table>
+    </div>
   </div>
 <?php endif; ?>
 </div>
