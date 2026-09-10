@@ -443,3 +443,35 @@
   - The maintainer formally approved **Option C: Omit / Defer Domain Development Seeds**.
   - `database/seeds/development.php` remains unchanged for domain data, preserving only the existing `infrastructure_probe` verification logic.
   - Task 6.1 is closed as an intentional architectural decision, preserving repository integrity and preventing domain corruption.
+
+---
+
+## Phase 6.2 Canonical Regression & Change Verification (2026-09-10)
+
+- **Verification Scope**: Execution of full automated regression suite, targeted domain and HTTP suites, PHPStan static analysis at Level Max, route validation on live development server, and development database state invariance.
+- **Confirmation on Task 6.1**: Confirmed that domain development fixtures were intentionally omitted per maintainer approval; `database/seeds/development.php` was not modified and holds zero synthetic domain fixtures.
+- **Targeted Integration Test Results**:
+  - `CatalogTest.php`: 15 tests, 71 assertions (100% OK)
+  - `CatalogHttpTest.php`: 39 tests, 186 assertions (100% OK)
+  - `LocationHttpTest.php`: 15 tests, 84 assertions (100% OK)
+  - `StockTest.php`: 10 tests, 42 assertions (100% OK)
+  - `InventoryHttpTest.php`: 15 tests, 119 assertions (100% OK)
+  - `CountTest.php`: 11 tests, 52 assertions (100% OK)
+  - `CountHttpTest.php`: 14 tests, 99 assertions (100% OK)
+- **Full Suite Regression (`composer test`)**:
+  - 187 tests, 832 assertions (100% green, 0 failures, 0 errors, 0 warnings).
+- **Static Analysis (`composer analyse`)**:
+  - PHPStan Level 10 (`max`) across all 42 project files: 0 errors (`[OK] No errors`).
+- **OpenSpec Validation**:
+  - Repository canonical specifications (`openspec validate --specs`): 3/3 passed (`reproducible-project-runtime`, `server-rendered-http-delivery`, `transactional-data-foundation`).
+  - Active change specifications (`product-catalog`, `inventory-locations-stock`): all requirements and scenarios validated against automated test suite.
+- **Real Route Verification (Local Dev Server `127.0.0.1:8000`)**:
+  - `GET http://127.0.0.1:8000/products` ➔ HTTP/1.1 200 OK (15,618 bytes)
+  - `GET http://127.0.0.1:8000/locations` ➔ HTTP/1.1 200 OK (5,743 bytes)
+  - `GET http://127.0.0.1:8000/inventory` ➔ HTTP/1.1 200 OK (6,951 bytes)
+  - `GET http://127.0.0.1:8000/inventory/counts` ➔ HTTP/1.1 200 OK (3,780 bytes)
+- **Development Database State Invariance (`sistema_ferreto`)**:
+  - Counts BEFORE verification: `categoria`: 1, `producto`: 2, `ubicacion`: 2, `inventario_stock`: 2, `conteo_inventario`: 1
+  - Counts AFTER verification: `categoria`: 1, `producto`: 2, `ubicacion`: 2, `inventario_stock`: 2, `conteo_inventario`: 1
+  - Invariance confirmed: Zero test artifacts or synthetic records leaked into development.
+- **Conclusion**: Task 6.2 is complete. All tasks across all phases of `product-inventory-core` are 100% verified and closed.

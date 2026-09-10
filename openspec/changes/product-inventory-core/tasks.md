@@ -55,7 +55,7 @@
 ## Phase 6: Development Seeds & Regression Verification
 
 - [x] 6.1 Review development fixture strategy and intentionally omit domain fixtures because product identity lacks an approved natural unique key and development already contains maintainer-created validation data.
-- [ ] 6.2 Execute canonical regression suite (`composer setup`, `composer test`, `composer analyse`) verifying zero regressions and full spec compliance.
+- [x] 6.2 Execute canonical regression suite (`composer setup`, `composer test`, `composer analyse`) verifying zero regressions and full spec compliance.
 
 ## Phase 7: Product Reactivation
 
