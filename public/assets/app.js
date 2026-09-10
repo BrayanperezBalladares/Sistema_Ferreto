@@ -72,13 +72,75 @@ document.addEventListener('click', (e) => {
     closeModal(modal);
     return;
   }
+
+  const navToggle = e.target.closest('#nav-toggle');
+  if (navToggle) {
+    e.preventDefault();
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar && sidebar.classList.contains('is-open')) {
+      closeDrawer();
+    } else {
+      openDrawer();
+    }
+    return;
+  }
+
+  const drawerClose = e.target.closest('[data-drawer-close]');
+  if (drawerClose) {
+    e.preventDefault();
+    closeDrawer();
+    return;
+  }
 });
+
+function openDrawer() {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const navToggle = document.getElementById('nav-toggle');
+  if (!sidebar) return;
+  sidebar.classList.add('is-open');
+  if (backdrop) backdrop.classList.add('is-active');
+  if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
+  document.body.classList.add('drawer-open');
+  const firstItem = sidebar.querySelector('a.nav-item, [data-drawer-close]');
+  if (firstItem && typeof firstItem.focus === 'function') {
+    firstItem.focus();
+  }
+}
+
+function closeDrawer() {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const navToggle = document.getElementById('nav-toggle');
+  if (!sidebar) return;
+  sidebar.classList.remove('is-open');
+  if (backdrop) backdrop.classList.remove('is-active');
+  if (navToggle) {
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.focus();
+  }
+  document.body.classList.remove('drawer-open');
+}
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' || e.key === 'Esc') {
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar && sidebar.classList.contains('is-open')) {
+      closeDrawer();
+      return;
+    }
     const activeModal = document.querySelector('.modal.is-active');
     if (activeModal) {
       closeModal(activeModal);
+    }
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 1024) {
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar && sidebar.classList.contains('is-open')) {
+      closeDrawer();
     }
   }
 });

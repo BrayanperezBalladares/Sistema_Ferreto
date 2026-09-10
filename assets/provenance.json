@@ -22,7 +22,7 @@
       "package": "project-authored",
       "version": "1",
       "source": "repository",
-      "sha256": "a4bbef3bde86a16721f5fef17493a8856e773e8c12a223d1b547f80e853af55e",
+      "sha256": "aca2cd1fd47aa573ac06273749dd8f132c66ddea419302617a618703deb6bc82",
       "license": "proprietary"
     },
     {
@@ -30,7 +30,7 @@
       "package": "project-authored",
       "version": "1",
       "source": "repository",
-      "sha256": "17e2b63ac0f68dbe9162a83c70e3e1b4705287a78f379a5f0cfd8341c4f072f8",
+      "sha256": "4390862402abe78ee68b5fae54a2b1c8a1fe47c8a61c32adff2248a1d7e94e40",
       "license": "proprietary"
     }
   ]
