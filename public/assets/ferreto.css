@@ -208,6 +208,12 @@ body.ferreto-app {
 }
 
 @media (max-width: 767px) {
+  .nav-toggle {
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  }
+  .drawer-close {
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  }
   .app-workspace { padding: 12px; }
   .topbar-crumb, .topbar-sep { display: none; }
   .topbar-current { font-size: 14px; }
@@ -220,13 +226,35 @@ body.ferreto-app {
   .page-actions .btn-primary,
   .page-actions .btn-secondary {
     flex: 1 1 auto; justify-content: center; text-align: center;
-    min-height: 40px;
+    min-height: 44px;
   }
   .modal-card-head .delete {
-    min-width: 36px; min-height: 36px;
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+    max-width: 44px; max-height: 44px;
   }
   .modal-card-foot .btn-primary,
   .modal-card-foot .btn-secondary {
-    min-height: 40px;
+    min-height: 44px;
+  }
+  .count-history-table {
+    min-width: 620px;
+  }
+  .count-history-table th:first-child,
+  .count-history-table td:first-child {
+    white-space: nowrap; min-width: 155px;
+  }
+  .count-history-table th:nth-child(2),
+  .count-history-table td:nth-child(2),
+  .count-history-table th:nth-child(3),
+  .count-history-table td:nth-child(3) {
+    min-width: 105px;
+  }
+  .count-history-table th:nth-child(4),
+  .count-history-table td:nth-child(4) {
+    min-width: 85px;
+  }
+  .count-history-table th:last-child,
+  .count-history-table td:last-child {
+    min-width: 170px;
   }
 }

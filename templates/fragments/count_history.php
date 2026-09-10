@@ -13,7 +13,7 @@ $counts = isset($data['counts']) && is_array($data['counts']) ? $data['counts'] 
     </div>
   <?php else: ?>
     <div class="table-container mb-0">
-      <table class="table is-fullwidth is-hoverable is-narrow operational-table mb-0">
+      <table class="table is-fullwidth is-hoverable is-narrow operational-table count-history-table mb-0">
         <thead>
           <tr>
             <th scope="col" style="width: 25%;">Fecha</th>

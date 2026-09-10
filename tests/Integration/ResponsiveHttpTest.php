@@ -140,8 +140,9 @@ final class ResponsiveHttpTest extends TestCase
         // Summary columns responsive stacking
         self::assertStringContainsString('class="column is-12-mobile is-4-tablet"', $response->body);
 
-        // Count history table container
+        // Count history table container and responsive table class
         self::assertStringContainsString('<div class="table-container mb-0">', $response->body);
+        self::assertStringContainsString('count-history-table', $response->body);
 
         // Count quantity inputmode
         self::assertMatchesRegularExpression('/<input[^>]*inputmode="decimal"[^>]*id="cantidad_contada"|<input[^>]*id="cantidad_contada"[^>]*inputmode="decimal"/i', $response->body);
