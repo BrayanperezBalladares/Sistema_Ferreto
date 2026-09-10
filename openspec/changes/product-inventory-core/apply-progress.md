@@ -518,6 +518,48 @@
 4. **Slice R.4: Automated Responsive Contract Tests** (commit `bf5f72c`):
    - File: `tests/Integration/ResponsiveHttpTest.php`
    - Added 5 integration tests (23 assertions) verifying drawer DOM and ARIA attributes, table horizontal scrolling container, modal price decimal inputmode, inventory quantity inputmode, and physical counts summary stacking.
-   - Full regression suite passing: 192 tests, 855 assertions (100% green).
-   - Static analysis: PHPStan Level 10 (`max`), 0 errors across 43 files.
-   - Development DB state verified invariant: `categoria: 1`, `producto: 2`, `ubicacion: 2`, `inventario_stock: 2`, `conteo_inventario: 1`.
+
+5. **Slice R.5: Mobile Count History Readability & Touch Targets Refinement** (commit `a003762`):
+   - Files: `templates/fragments/count_history.php`, `public/assets/ferreto.css`, `assets/provenance.json`, `tests/Integration/ResponsiveHttpTest.php`
+   - Established `.count-history-table` with 620px min-width and column width constraints to keep single-line timestamps and multi-line wrapping notes readable at 360px without body overflow.
+   - Polished mobile interactive touch targets for `#nav-toggle`, `.drawer-close`, and modal `.delete` close buttons to 44px × 44px.
+   - Updated asset provenance and added responsive test assertions for the count-history table.
+
+---
+
+## Post-Responsive Final Verification Record (2026-09-10)
+
+- **Context & History Integrity**:
+  - Phase 6.2 canonical regression was originally completed and recorded before Phase 5C began.
+  - Phase 5C was subsequently introduced following a comprehensive pre-archive mobile usability audit across 360px–1440px viewports.
+  - The responsive refinement was implemented across 5 autonomous slices on `feature/product-inventory-responsive-ui`, reviewed and visually approved by the maintainer, and integrated into `feature/product-inventory-core` via fast-forward merge (`git merge --ff-only`).
+- **Post-Integration HEAD**: Commit `a003762` (`fix(ui): refine mobile count history readability`).
+- **Targeted Integration Test Results**:
+  - `CatalogTest.php`: 15 tests, 71 assertions (100% OK)
+  - `CatalogHttpTest.php`: 39 tests, 186 assertions (100% OK)
+  - `LocationHttpTest.php`: 15 tests, 84 assertions (100% OK)
+  - `StockTest.php`: 10 tests, 42 assertions (100% OK)
+  - `InventoryHttpTest.php`: 15 tests, 119 assertions (100% OK)
+  - `CountTest.php`: 11 tests, 52 assertions (100% OK)
+  - `CountHttpTest.php`: 14 tests, 99 assertions (100% OK)
+  - `ResponsiveHttpTest.php`: 5 tests, 24 assertions (100% OK)
+- **Full Automated Regression Suite (`composer test`)**:
+  - 192 tests, 856 assertions (100% green, 0 failures, 0 errors, 0 warnings).
+- **Static Analysis (`composer analyse`)**:
+  - PHPStan Level 10 (`max`) across all 42 project files: 0 errors (`[OK] No errors`).
+- **OpenSpec Canonical Validation**:
+  - Canonical repository specifications (`openspec validate --specs`): 3/3 passed (`reproducible-project-runtime`, `server-rendered-http-delivery`, `transactional-data-foundation`).
+  - Active change specifications (`product-catalog`, `inventory-locations-stock`): all requirements and scenarios validated against automated test suite.
+- **Real Route HTTP Verification (Local Dev Server `127.0.0.1:8000`)**:
+  - `GET http://127.0.0.1:8000/products` ➔ HTTP/1.1 200 OK (16,434 bytes)
+  - `GET http://127.0.0.1:8000/locations` ➔ HTTP/1.1 200 OK (6,420 bytes)
+  - `GET http://127.0.0.1:8000/inventory` ➔ HTTP/1.1 200 OK (7,648 bytes)
+  - `GET http://127.0.0.1:8000/inventory/counts` ➔ HTTP/1.1 200 OK (4,457 bytes)
+- **Development Database State Invariance (`sistema_ferreto`)**:
+  - Counts BEFORE post-integration verification: `categoria: 1`, `producto: 2`, `ubicacion: 2`, `inventario_stock: 2`, `conteo_inventario: 1`.
+  - Counts AFTER post-integration verification: `categoria: 1`, `producto: 2`, `ubicacion: 2`, `inventario_stock: 2`, `conteo_inventario: 1`.
+  - Zero test leakage or data mutations into development.
+- **Desktop Non-Regression & Mobile Review Confirmation**:
+  - 1440px desktop viewports retain persistent 240px sidebar, expanded navigation, normal topbar/breadcrumbs, multi-column counts summary, and zero hamburger toggle display.
+  - 360px/390px mobile viewports retain off-canvas navigation drawer, 44px touch targets, virtual decimal keypad trigger, and horizontally scrollable tables without body overflow.
+- **Archive Readiness**: The change `product-inventory-core` is complete, fully tested, and ready for canonical archival.
