@@ -64,3 +64,10 @@
 - [x] 7.3 Register CSRF-protected `POST /products/{id}/activate` and `CatalogHandler::activate` support.
 - [x] 7.4 Render `Activar` only for inactive products and preserve `Desactivar` only for active products.
 - [x] 7.5 Add domain and HTTP regression tests proving same-id reactivation, CSRF enforcement, reference preservation, and absence of physical deletion.
+
+## Phase 5C: Responsive UI Refinement (Pre-Archive Refinement)
+
+- [ ] 5C.1 Implement responsive application shell and navigation in `templates/layout.php`, `public/assets/ferreto.css`, and `public/assets/app.js` with off-canvas drawer and topbar menu trigger for `< 1024px`, ARIA state, and keyboard/backdrop dismissal.
+- [ ] 5C.2 Make operational pages and tables responsive by wrapping `product_table.php` in `.table-container`, wrapping page headers, stacking count summary on mobile, and standardizing card surfaces.
+- [ ] 5C.3 Improve mobile form ergonomics and touch targets by stacking modal fields on mobile, adding `inputmode="decimal"` on operational decimal inputs, and expanding touch targets to approximately 44px.
+- [ ] 5C.4 Add automated responsive contract tests and verify 360px–1440px viewports with clean worktree builds.

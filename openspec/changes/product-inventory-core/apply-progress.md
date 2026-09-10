@@ -475,3 +475,22 @@
   - Counts AFTER verification: `categoria`: 1, `producto`: 2, `ubicacion`: 2, `inventario_stock`: 2, `conteo_inventario`: 1
   - Invariance confirmed: Zero test artifacts or synthetic records leaked into development.
 - **Conclusion**: Task 6.2 is complete. All tasks across all phases of `product-inventory-core` are 100% verified and closed.
+
+---
+
+## Planning Amendment: Phase 5C — Responsive / Mobile UI Refinement (2026-09-10)
+
+- **Context**: Prior to archiving `product-inventory-core`, a comprehensive responsive usability audit across 360px–1440px viewports was conducted against `docs/ui/DESIGN.md` Section 18.
+- **Audit Findings**:
+  - The application layout hardcoded a 240px persistent sidebar without media queries, consuming 55%–67% of mobile screens ($< 768\text{px}$) and cramping tablet screens ($< 1024\text{px}$).
+  - The product catalog table lacked `.table-container` inside `.ferreto-card`, clipping the actions column on viewports $< 700\text{px}$.
+  - The physical counts summary card forced 3 columns side-by-side (`is-4` on `is-mobile`), cramping product details on narrow phones.
+  - Operational decimal inputs lacked `inputmode="decimal"`, degrading mobile virtual keyboard ergonomics.
+  - Interactive touch targets in table actions ($\approx 28\text{px}$) were below the recommended 44px threshold.
+- **Maintainer Approval**: The maintainer formally approved Phase 5C as a pre-archive visual refinement.
+- **Scope & Constraints**:
+  - Breakpoint policy: Persistent sidebar at $\ge 1024\text{px}$; off-canvas drawer with topbar trigger at $< 1024\text{px}$; mobile adaptations at $< 768\text{px}$.
+  - Preserve all approved desktop layouts and styling.
+  - Zero business logic, schema, or route changes.
+  - Delivered across reviewable slices $\le 400$ changed authored lines on dedicated branch `feature/product-inventory-responsive-ui`.
+  - Canonical final regression will be rerun after responsive integration prior to archive.
