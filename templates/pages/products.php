@@ -93,16 +93,16 @@ ob_start();
               <input class="input is-small" type="text" name="nombre" value="<?= Renderer::escape($input['nombre'] ?? '') ?>" required>
             </div>
           </div>
-          <div class="columns is-mobile mb-0">
-            <div class="column is-half py-1">
+          <div class="columns is-multiline mb-0">
+            <div class="column is-12-mobile is-half-tablet py-1">
               <div class="field">
                 <label class="label is-small">Precio actual <span class="has-text-danger">*</span></label>
                 <div class="control">
-                  <input class="input is-small" type="text" name="precio_actual" placeholder="0.00" value="<?= Renderer::escape($input['precio_actual'] ?? '') ?>" required>
+                  <input class="input is-small" type="text" inputmode="decimal" name="precio_actual" placeholder="0.00" value="<?= Renderer::escape($input['precio_actual'] ?? '') ?>" required>
                 </div>
               </div>
             </div>
-            <div class="column is-half py-1">
+            <div class="column is-12-mobile is-half-tablet py-1">
               <div class="field">
                 <label class="label is-small">Categoría</label>
                 <div class="control">
@@ -157,7 +157,7 @@ ob_start();
           <div class="field">
             <label class="label is-small">Nuevo precio <span class="has-text-danger">*</span></label>
             <div class="control">
-              <input class="input is-small" type="text" name="precio_actual" id="modal-price-input" placeholder="0.00" required>
+              <input class="input is-small" type="text" inputmode="decimal" name="precio_actual" id="modal-price-input" placeholder="0.00" required>
             </div>
           </div>
         </section>

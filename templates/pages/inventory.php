@@ -126,7 +126,7 @@ ob_start();
           <div class="field">
             <label class="label is-small">Cantidad inicial <span class="has-text-danger">*</span></label>
             <div class="control">
-              <input class="input is-small <?= isset($errors['cantidad']) ? 'is-danger' : '' ?>" type="number" step="0.001" min="0" name="cantidad" value="<?= Renderer::escape($input['cantidad'] ?? '') ?>" required>
+              <input class="input is-small <?= isset($errors['cantidad']) ? 'is-danger' : '' ?>" type="number" step="0.001" min="0" inputmode="decimal" name="cantidad" value="<?= Renderer::escape($input['cantidad'] ?? '') ?>" required>
             </div>
             <?php if (isset($errors['cantidad'])): ?>
               <p class="help is-danger"><?= Renderer::escape($errors['cantidad']) ?></p>

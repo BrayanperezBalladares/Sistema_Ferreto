@@ -115,7 +115,7 @@ ob_start();
             <div class="field mb-3">
               <label class="label is-small" for="cantidad_contada">Cantidad contada <span class="has-text-danger">*</span></label>
               <div class="control">
-                <input class="input is-small <?= isset($errors['cantidad_contada']) ? 'is-danger' : '' ?>" type="number" step="0.001" min="0" id="cantidad_contada" name="cantidad_contada" value="<?= Renderer::escape($input['cantidad_contada'] ?? '') ?>" required autofocus>
+                <input class="input is-small <?= isset($errors['cantidad_contada']) ? 'is-danger' : '' ?>" type="number" step="0.001" min="0" inputmode="decimal" id="cantidad_contada" name="cantidad_contada" value="<?= Renderer::escape($input['cantidad_contada'] ?? '') ?>" required autofocus>
               </div>
               <?php if (isset($errors['cantidad_contada'])): ?>
                 <p class="help is-danger"><?= Renderer::escape($errors['cantidad_contada']) ?></p>
