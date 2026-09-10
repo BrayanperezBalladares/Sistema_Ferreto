@@ -494,3 +494,30 @@
   - Zero business logic, schema, or route changes.
   - Delivered across reviewable slices $\le 400$ changed authored lines on dedicated branch `feature/product-inventory-responsive-ui`.
   - Canonical final regression will be rerun after responsive integration prior to archive.
+
+### Phase 5C Slices Delivered
+
+1. **Slice R.1: Responsive Application Shell & Navigation** (commit `3240fd1`):
+   - Files: `templates/layout.php`, `public/assets/ferreto.css`, `public/assets/app.js`, `assets/provenance.json`
+   - Added off-canvas drawer (`#app-sidebar`), topbar trigger (`#nav-toggle`), backdrop (`#sidebar-backdrop`), and close button (`.drawer-close`).
+   - Added vanilla JavaScript drawer controller with ARIA state (`aria-expanded`), Escape key listener, backdrop dismissal, and auto-close on resize to $\ge 1024\text{px}$.
+   - Verified SHA-256 asset provenance.
+
+2. **Slice R.2: Operational Pages & Tables Responsiveness** (commit `4dcbd77`):
+   - Files: `templates/fragments/product_table.php`, `templates/pages/counts.php`, `public/assets/ferreto.css`, `assets/provenance.json`
+   - Wrapped `product_table.php` inside `.table-container mb-0` to allow horizontal scroll on mobile.
+   - Converted `#selected-stock-summary` columns in `counts.php` from `column is-4` under `is-mobile` to `column is-12-mobile is-4-tablet` for legible stacking.
+   - Added responsive CSS for `.page-header` and `.page-actions` at $< 768\text{px}$ to stack buttons vertically with full width.
+
+3. **Slice R.3: Mobile Form Ergonomics & Touch Targets** (commit `f51c3d2`):
+   - Files: `templates/pages/products.php`, `templates/pages/inventory.php`, `templates/pages/counts.php`, `public/assets/ferreto.css`, `assets/provenance.json`
+   - Stacked columns in `#modal-product` (`is-12-mobile is-half-tablet`).
+   - Added `inputmode="decimal"` to all operational decimal inputs (`precio_actual`, `#modal-price-input`, `cantidad`, `#cantidad_contada`).
+   - Enhanced touch targets ($\ge 40\text{px}$) for modal buttons, drawer controls, and delete buttons on mobile.
+
+4. **Slice R.4: Automated Responsive Contract Tests** (commit `bf5f72c`):
+   - File: `tests/Integration/ResponsiveHttpTest.php`
+   - Added 5 integration tests (23 assertions) verifying drawer DOM and ARIA attributes, table horizontal scrolling container, modal price decimal inputmode, inventory quantity inputmode, and physical counts summary stacking.
+   - Full regression suite passing: 192 tests, 855 assertions (100% green).
+   - Static analysis: PHPStan Level 10 (`max`), 0 errors across 43 files.
+   - Development DB state verified invariant: `categoria: 1`, `producto: 2`, `ubicacion: 2`, `inventario_stock: 2`, `conteo_inventario: 1`.

@@ -67,7 +67,7 @@
 
 ## Phase 5C: Responsive UI Refinement (Pre-Archive Refinement)
 
-- [ ] 5C.1 Implement responsive application shell and navigation in `templates/layout.php`, `public/assets/ferreto.css`, and `public/assets/app.js` with off-canvas drawer and topbar menu trigger for `< 1024px`, ARIA state, and keyboard/backdrop dismissal.
-- [ ] 5C.2 Make operational pages and tables responsive by wrapping `product_table.php` in `.table-container`, wrapping page headers, stacking count summary on mobile, and standardizing card surfaces.
-- [ ] 5C.3 Improve mobile form ergonomics and touch targets by stacking modal fields on mobile, adding `inputmode="decimal"` on operational decimal inputs, and expanding touch targets to approximately 44px.
-- [ ] 5C.4 Add automated responsive contract tests and verify 360px–1440px viewports with clean worktree builds.
+- [x] 5C.1 Implement responsive application shell and navigation in `templates/layout.php`, `public/assets/ferreto.css`, and `public/assets/app.js` with off-canvas drawer and topbar menu trigger for `< 1024px`, ARIA state, and keyboard/backdrop dismissal.
+- [x] 5C.2 Make operational pages and tables responsive by wrapping `product_table.php` in `.table-container`, wrapping page headers, stacking count summary on mobile, and standardizing card surfaces.
+- [x] 5C.3 Improve mobile form ergonomics and touch targets by stacking modal fields on mobile, adding `inputmode="decimal"` on operational decimal inputs, and expanding touch targets to approximately 44px.
+- [x] 5C.4 Add automated responsive contract tests and verify 360px–1440px viewports with clean worktree builds.
