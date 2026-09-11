@@ -15,6 +15,7 @@ Establish the minimal, robust security foundation for **Ferreterías El Construc
 | **Account State** | `VARCHAR(20)` + `CHECK` constraint (`creado`, `activo`, `bloqueado`, `inactivo`). Schema default `'creado'`. | Binary `estado_activo` boolean; MySQL `ENUM`; default `'activo'` | Preserves distinct business semantics between administrative deactivation and temporary security lockout without database engine lock-in. Default `'creado'` ensures unconfigured DB inserts cannot authenticate accidentally. |
 | **Role Column** | `VARCHAR(30)` + `CHECK` constraint (`administrador`, `cajero`, `bodeguero`, `compras`) | `VARCHAR(20)`; multi-table RBAC; JSON roles | Strictly preserves authoritative schema dimensions from `mod_cuentas_accesos.md` §5 (`rol VARCHAR(30)`). |
 | **Password Hashing** | Native PHP `password_hash(..., PASSWORD_BCRYPT, ['cost' => 10])` | Argon2id; custom hashing; reversible encryption | Strictly mandated by `mod_cuentas_accesos.md` §3 RNF-01 ("factor de costo predeterminado de 10"). |
+| **Password Policy** | Minimum length = 15 chars, maximum supported $\ge 64$ chars (up to 72 bytes for bcrypt); no mandatory composition rules (no required uppercase, lowercase, numbers, symbols); no periodic rotation | Arbitrary composition complexity (e.g. 1 uppercase + 1 symbol); minimum 8 chars; periodic password expiration | Classified as **PROJECT DESIGN SECURITY BASELINE** (not SRS-derived). Informed by contemporary password security guidance for single-factor authentication (e.g. NIST SP 800-63B) emphasizing length over composition complexity. MFA remains deferred. |
 | **Session Model** | Server-side PHP session + secure cookie (`HttpOnly`, `SameSite=Lax`, `Secure`) | JWT; database-backed session table | SSR + HTMX application relies on browser cookie mechanics; avoids JWT revocation complexity and localStorage XSS hazards. |
 | **Lockout Window** | First-Failure Fixed Window (10 minutes) | True rolling window; sliding attempt log table | Authoritative text ("más de 5 intentos fallidos en 10 minutos") does not specify sliding mechanics. Fixed window initiated at first failure fulfills domain intent using an economical 2-column model without an attempt-log table. |
 | **Lockout Concurrency** | Single atomic conditional SQL `UPDATE` | `SELECT ... FOR UPDATE`; distributed Redis locks | Guarantees atomic counter increments and state transitions without concurrency race conditions or lost increments. MariaDB-specific syntax encapsulated in `UserCommand`. |
@@ -302,7 +303,12 @@ php scripts/console.php create-user <username> <rol>
 - **Arguments**: Username (`VARCHAR(50)`), Role (`administrador`, `cajero`, `bodeguero`, `compras`).
 - **Initial State**: Explicitly created as `'activo'`. Controlled administrative provisioning creates usable operational principals directly, reconciling with the database schema default (`'creado'`).
 - **Password Contract**:
-  - Minimum length $\ge 8$ characters (enforced as a PROJECT DESIGN baseline convention).
+  - **Policy**:
+    - Minimum length: 15 characters.
+    - Supported maximum: at least 64 characters (up to 72 bytes for bcrypt).
+    - Composition requirements: None (no mandatory uppercase, lowercase, numbers, or symbols).
+    - Expiration: No periodic password rotation.
+  - **Classification**: **PROJECT DESIGN SECURITY BASELINE** (informed by contemporary password security guidance such as NIST SP 800-63B emphasizing length over composition complexity for single-factor authentication). Not an SRS-derived requirement.
   - Prompts interactively on console without terminal echo.
   - Windows: Invokes PowerShell `Read-Host -AsSecureString` wrapper via pipe without exposing plaintext.
   - POSIX: Invokes `stty -echo`, reads input from `STDIN`, restores `stty echo`.
@@ -354,7 +360,7 @@ src/
 4. **Inactivity Expiration**: Cashier session expires at 20 min; admin at 30 min.
 5. **Route Authorization**: Matrix testing across all 14 R1 routes and all 4 roles.
 6. **HTMX Integration**: Unauthenticated HTMX request emits HTTP 200 with `HX-Redirect: /login`.
-7. **CLI Tools**: Unit/integration tests for `create-user` (validates no-echo fail-closed and `activo` creation) and `unlock-user`.
+7. **CLI Tools**: Unit/integration tests for `create-user` (validating length $\ge 15$, no composition requirement, no-echo fail-closed, and `activo` creation) and `unlock-user`.
 
 ---
 
@@ -362,7 +368,7 @@ src/
 
 | Threat | Mitigation in Design | Residual Risk |
 |---|---|---|
-| **Brute-Force / Credential Stuffing** | Automatic lockout after 6 failures in 10 minutes; bcrypt cost 10 slows offline cracking. | Distributed multi-account low-rate stuffing requires future IP-level rate limiting (R6/Infrastructure). |
+| **Brute-Force / Credential Stuffing** | Automatic lockout after 6 failures in 10 minutes; bcrypt cost 10 slows offline cracking. Minimum password length $\ge 15$ characters. | Distributed multi-account low-rate stuffing requires future IP-level rate limiting (R6/Infrastructure). |
 | **Account Enumeration (Timing & Copy)** | Generic login failure copy ("Credenciales incorrectas o cuenta no autorizada"). Nonexistent usernames execute dummy bcrypt `password_verify` to equalize response time. | Micro-timing variations at database query level; negligible in internal retail application. |
 | **Session Fixation** | Mandatory `session_regenerate_id(true)` upon successful authentication before setting identity keys. | None within application boundary. |
 | **Session Hijacking / Theft** | `HttpOnly`, `SameSite=Lax`, and `Secure` cookie attributes. Inactivity timeouts. | Client machine physical theft mitigated by 20-minute cashier timeout. |
@@ -377,7 +383,7 @@ src/
 ## Implementation Slicing Guidance (Review Budget <= 400 Lines/Commit)
 
 1. **Slice A (Schema & Persistence)**: Migration `0007_create_usuario`, `UserQuery`, `UserCommand`.
-2. **Slice B (CLI Provisioning & Recovery)**: `create-user` and `unlock-user` CLI commands in `Console.php`.
+2. **Slice B (CLI Provisioning & Recovery)**: `create-user` (enforcing $\ge 15$ chars) and `unlock-user` CLI commands in `Console.php`.
 3. **Slice C (Authentication & Session Foundation)**: Extended `NativeSession`, `Authenticator`, `AccessHandler` (`/login`, `/logout`), login view.
 4. **Slice D (Guards & Route Protection)**: `AuthGuard`, `RoleGuard`, `Kernel` interceptor integration, R1 route protection.
 5. **Slice E (UI Context & Polish)**: `templates/layout.php` topbar user context, conditional action rendering, responsive styling.
