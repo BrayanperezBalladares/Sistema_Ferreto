@@ -14,8 +14,8 @@ Establish the minimal, robust security foundation for **Ferreterías El Construc
 |---|---|---|---|
 | **Account State** | `VARCHAR(20)` + `CHECK` constraint (`creado`, `activo`, `bloqueado`, `inactivo`). Schema default `'creado'`. | Binary `estado_activo` boolean; MySQL `ENUM`; default `'activo'` | Preserves distinct business semantics between administrative deactivation and temporary security lockout without database engine lock-in. Default `'creado'` ensures unconfigured DB inserts cannot authenticate accidentally. |
 | **Role Column** | `VARCHAR(30)` + `CHECK` constraint (`administrador`, `cajero`, `bodeguero`, `compras`) | `VARCHAR(20)`; multi-table RBAC; JSON roles | Strictly preserves authoritative schema dimensions from `mod_cuentas_accesos.md` §5 (`rol VARCHAR(30)`). |
-| **Password Hashing** | Native PHP `password_hash(..., PASSWORD_BCRYPT, ['cost' => 10])` | Argon2id; custom hashing; reversible encryption | Strictly mandated by `mod_cuentas_accesos.md` §3 RNF-01 ("factor de costo predeterminado de 10"). |
-| **Password Policy** | Minimum length = 15 chars, maximum supported $\ge 64$ chars (up to 72 bytes for bcrypt); no mandatory composition rules (no required uppercase, lowercase, numbers, symbols); no periodic rotation | Arbitrary composition complexity (e.g. 1 uppercase + 1 symbol); minimum 8 chars; periodic password expiration | Classified as **PROJECT DESIGN SECURITY BASELINE** (not SRS-derived). Informed by contemporary password security guidance for single-factor authentication (e.g. NIST SP 800-63B) emphasizing length over composition complexity. MFA remains deferred. |
+| **Password Hashing** | Native PHP `password_hash(..., PASSWORD_BCRYPT, ['cost' => 10])` with explicit cost 10 | Argon2id; custom hashing; reversible encryption; runtime default cost | Mandated by `mod_cuentas_accesos.md` §3 RNF-01 ("factor de costo predeterminado de 10"). Specifying `['cost' => 10]` explicitly prevents silent drift if PHP runtime defaults change. |
+| **Password Policy** | Minimum length = 15 Unicode characters; maximum encoded length = 72 UTF-8 bytes (strict bcrypt input boundary); no mandatory composition rules (no required uppercase, lowercase, numbers, symbols); no periodic rotation | Unconditional "64-character" claims; arbitrary composition complexity (e.g. 1 uppercase + 1 symbol); minimum 8 chars; periodic password expiration | Distinguishes character count ($\ge 15$) from byte count ($\le 72$ bytes). Passwords exceeding 72 bytes are rejected with a validation error and never silently truncated. Classified as **PROJECT DESIGN SECURITY BASELINE** (not SRS-derived). |
 | **Session Model** | Server-side PHP session + secure cookie (`HttpOnly`, `SameSite=Lax`, `Secure`) | JWT; database-backed session table | SSR + HTMX application relies on browser cookie mechanics; avoids JWT revocation complexity and localStorage XSS hazards. |
 | **Lockout Window** | First-Failure Fixed Window (10 minutes) | True rolling window; sliding attempt log table | Authoritative text ("más de 5 intentos fallidos en 10 minutos") does not specify sliding mechanics. Fixed window initiated at first failure fulfills domain intent using an economical 2-column model without an attempt-log table. |
 | **Lockout Concurrency** | Single atomic conditional SQL `UPDATE` | `SELECT ... FOR UPDATE`; distributed Redis locks | Guarantees atomic counter increments and state transitions without concurrency race conditions or lost increments. MariaDB-specific syntax encapsulated in `UserCommand`. |
@@ -184,16 +184,17 @@ On every protected HTTP request:
   - HTMX request: HTTP 200 with `HX-Redirect: /login`.
   - Anonymous `GET /health` and static asset requests do not update `auth_last_activity`.
 
-### Session Fixation Mitigation Ordering
+### Password Verification & Session Fixation Mitigation Ordering
 During `POST /login`:
-1. Validate CSRF token and non-empty inputs.
-2. Query user record by `username`.
-3. If user exists: execute `password_verify($password, $user['password_hash'])`.
+1. Validate CSRF token and input non-emptiness.
+2. **Byte Length Validation**: If the UTF-8 encoded password exceeds 72 bytes (`strlen($password) > 72`), authentication MUST immediately fail closed with HTTP 422 and generic error copy. It is NEVER truncated or passed to bcrypt.
+3. Query user record by `username`.
+4. If user exists: execute `password_verify($password, $user['password_hash'])`.
    If user does NOT exist: execute `password_verify($password, '$2y$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012')` (precomputed dummy bcrypt hash to mitigate timing discrepancies; failed attempts are never incremented for nonexistent users).
-4. If authentication fails or `estado !== 'activo'`:
+5. If authentication fails or `estado !== 'activo'`:
    - If user exists and is active: execute atomic failed-attempt update.
    - Return HTTP 422 with generic copy: *"Credenciales incorrectas o cuenta no autorizada."*
-5. If authentication succeeds:
+6. If authentication succeeds:
    a. Reset failed attempt counters in database.
    b. Execute `session_regenerate_id(true)` to destroy the old session token and issue a new cryptographic ID.
    c. Write authentication payload (`auth_user_id`, `auth_username`, `auth_last_activity`).
@@ -304,16 +305,21 @@ php scripts/console.php create-user <username> <rol>
 - **Initial State**: Explicitly created as `'activo'`. Controlled administrative provisioning creates usable operational principals directly, reconciling with the database schema default (`'creado'`).
 - **Password Contract**:
   - **Policy**:
-    - Minimum length: 15 characters.
-    - Supported maximum: at least 64 characters (up to 72 bytes for bcrypt).
-    - Composition requirements: None (no mandatory uppercase, lowercase, numbers, or symbols).
-    - Expiration: No periodic password rotation.
-  - **Classification**: **PROJECT DESIGN SECURITY BASELINE** (informed by contemporary password security guidance such as NIST SP 800-63B emphasizing length over composition complexity for single-factor authentication). Not an SRS-derived requirement.
+    - **Minimum Length**: 15 Unicode characters (`character_count(password) >= 15`). Byte length is never used for the minimum character check.
+    - **Maximum Length**: The UTF-8 encoded password must be no more than 72 bytes (`strlen(password) <= 72`).
+    - **Character vs. Byte Distinction**: The minimum rule evaluates characters (Unicode codepoints) to guarantee phrase entropy. The maximum rule evaluates raw UTF-8 bytes to respect bcrypt's hard 72-byte input ceiling.
+    - **Over-Limit Behavior**: If the UTF-8 encoded password exceeds 72 bytes, the command fails closed with an explicit validation error. The password is NEVER silently truncated, and truncated prefixes are never passed to bcrypt.
+    - **Composition Requirements**: None (no mandatory uppercase, lowercase, numbers, or symbols).
+    - **Expiration**: No periodic password rotation.
+    - **Hashing**: `password_hash($password, PASSWORD_BCRYPT, ['cost' => 10])` with explicit cost 10 (never relying on runtime defaults).
+  - **Classification**:
+    - Bcrypt cost 10 is **SOURCE-BACKED** (`mod_cuentas_accesos.md` §3 RNF-01).
+    - Minimum 15 Unicode characters, absence of composition rules, and strict 72-byte ceiling validation are **PROJECT DESIGN SECURITY BASELINE** decisions (informed by modern guidelines like NIST SP 800-63B). Not an SRS-derived requirement.
   - Prompts interactively on console without terminal echo.
   - Windows: Invokes PowerShell `Read-Host -AsSecureString` wrapper via pipe without exposing plaintext.
   - POSIX: Invokes `stty -echo`, reads input from `STDIN`, restores `stty echo`.
   - **Fail-Closed**: If secure no-echo terminal input cannot be established, the command fails closed with an error. It NEVER falls back to echoed plaintext.
-- **Security**: Hashes password using bcrypt (cost 10); never passes passwords via command arguments or logs.
+- **Security**: Hashes password using bcrypt with explicit cost 10 (`['cost' => 10]`); never passes passwords via command arguments or logs.
 
 ### Security Unlock Command: `unlock-user`
 ```bash
@@ -355,12 +361,13 @@ src/
 
 ### Planned Test Matrix
 1. **Credential Verification**: Valid login, bad password, non-existent user (constant time dummy hash verification).
-2. **Lockout Enforcement**: Consecutive failures 1–5 maintain `activo`; 6th locks account; 11th minute resets window.
-3. **Session Security**: Session regeneration on login, complete cookie clearing on logout.
-4. **Inactivity Expiration**: Cashier session expires at 20 min; admin at 30 min.
-5. **Route Authorization**: Matrix testing across all 14 R1 routes and all 4 roles.
-6. **HTMX Integration**: Unauthenticated HTMX request emits HTTP 200 with `HX-Redirect: /login`.
-7. **CLI Tools**: Unit/integration tests for `create-user` (validating length $\ge 15$, no composition requirement, no-echo fail-closed, and `activo` creation) and `unlock-user`.
+2. **Password Length Contract**: Passwords with $< 15$ characters rejected; passwords with $\ge 15$ characters and $\le 72$ UTF-8 bytes accepted; passwords with $> 72$ UTF-8 bytes rejected without truncation.
+3. **Lockout Enforcement**: Consecutive failures 1–5 maintain `activo`; 6th locks account; 11th minute resets window.
+4. **Session Security**: Session regeneration on login, complete cookie clearing on logout.
+5. **Inactivity Expiration**: Cashier session expires at 20 min; admin at 30 min.
+6. **Route Authorization**: Matrix testing across all 14 R1 routes and all 4 roles.
+7. **HTMX Integration**: Unauthenticated HTMX request emits HTTP 200 with `HX-Redirect: /login`.
+8. **CLI Tools**: Unit/integration tests for `create-user` (validating minimum 15 characters, maximum 72 UTF-8 bytes rejection without truncation, no composition restriction, no-echo fail-closed, and `activo` creation) and `unlock-user`.
 
 ---
 
@@ -368,7 +375,7 @@ src/
 
 | Threat | Mitigation in Design | Residual Risk |
 |---|---|---|
-| **Brute-Force / Credential Stuffing** | Automatic lockout after 6 failures in 10 minutes; bcrypt cost 10 slows offline cracking. Minimum password length $\ge 15$ characters. | Distributed multi-account low-rate stuffing requires future IP-level rate limiting (R6/Infrastructure). |
+| **Brute-Force / Credential Stuffing** | Automatic lockout after 6 failures in 10 minutes; bcrypt cost 10 slows offline cracking. Minimum password length $\ge 15$ characters with strict 72-byte ceiling (fails closed without silent truncation). | Distributed multi-account low-rate stuffing requires future IP-level rate limiting (R6/Infrastructure). |
 | **Account Enumeration (Timing & Copy)** | Generic login failure copy ("Credenciales incorrectas o cuenta no autorizada"). Nonexistent usernames execute dummy bcrypt `password_verify` to equalize response time. | Micro-timing variations at database query level; negligible in internal retail application. |
 | **Session Fixation** | Mandatory `session_regenerate_id(true)` upon successful authentication before setting identity keys. | None within application boundary. |
 | **Session Hijacking / Theft** | `HttpOnly`, `SameSite=Lax`, and `Secure` cookie attributes. Inactivity timeouts. | Client machine physical theft mitigated by 20-minute cashier timeout. |
@@ -383,8 +390,8 @@ src/
 ## Implementation Slicing Guidance (Review Budget <= 400 Lines/Commit)
 
 1. **Slice A (Schema & Persistence)**: Migration `0007_create_usuario`, `UserQuery`, `UserCommand`.
-2. **Slice B (CLI Provisioning & Recovery)**: `create-user` (enforcing $\ge 15$ chars) and `unlock-user` CLI commands in `Console.php`.
-3. **Slice C (Authentication & Session Foundation)**: Extended `NativeSession`, `Authenticator`, `AccessHandler` (`/login`, `/logout`), login view.
+2. **Slice B (CLI Provisioning & Recovery)**: `create-user` (enforcing $\ge 15$ characters and $\le 72$ UTF-8 bytes without truncation) and `unlock-user` CLI commands in `Console.php`.
+3. **Slice C (Authentication & Session Foundation)**: Extended `NativeSession`, `Authenticator` (enforcing $\le 72$ bytes validation), `AccessHandler` (`/login`, `/logout`), login view.
 4. **Slice D (Guards & Route Protection)**: `AuthGuard`, `RoleGuard`, `Kernel` interceptor integration, R1 route protection.
 5. **Slice E (UI Context & Polish)**: `templates/layout.php` topbar user context, conditional action rendering, responsive styling.
 6. **Slice F (Test Migration & Quality Gate)**: Test authentication helper, R1 test suite migration, full regression suite.
