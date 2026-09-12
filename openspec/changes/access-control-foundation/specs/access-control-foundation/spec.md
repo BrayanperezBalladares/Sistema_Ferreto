@@ -8,7 +8,7 @@ Define user identity, credential verification, server-side session lifecycle, ac
 
 ### Requirement: User Account Identity and Role Persistence
 
-The system SHALL persist application user accounts identified by a unique `username`. Each account SHALL be associated with exactly one supported operational role (`administrador`, `cajero`, `bodeguero`, `compras`) and an explicit lifecycle state (`creado`, `activo`, `bloqueado`, `inactivo`). The system SHALL represent passwords only through secure hashes and SHALL NOT store passwords in plaintext or reversible formats.
+The system SHALL persist application user accounts identified by a unique `username`. Each account SHALL be associated with exactly one supported operational role (`administrador`, `cajero`, `bodeguero`, `compras`) and an explicit lifecycle state (`creado`, `activo`, `bloqueado`, `inactivo`). Generic account creation SHALL result in state `creado` unless an explicitly authorized provisioning operation deliberately activates the account. The administrative create-user CLI SHALL provision its account as `activo`. The system SHALL persist passwords only as secure hashes and SHALL NOT store passwords in plaintext or reversible formats.
 
 #### Scenario: Persist account with supported role and state
 - GIVEN valid account details with username, supported role, and state
@@ -68,13 +68,13 @@ The system SHALL authenticate users using `username` as the sole login identifie
 
 ### Requirement: Password Contract and Hashing Standards
 
-The system SHALL enforce a canonical password policy requiring a minimum length of 15 Unicode characters and a maximum encoded length of no greater than 72 UTF-8 bytes. If a submitted password exceeds 72 UTF-8 bytes, the system MUST reject validation with an error and MUST NOT silently truncate the password or pass a truncated prefix to the hashing algorithm. The system SHALL NOT enforce arbitrary composition requirements (mandatory uppercase, lowercase, numbers, or symbols) and SHALL NOT require periodic password rotation. Passwords SHALL be hashed using bcrypt with an explicit cost factor of 10.
+The system SHALL enforce a canonical password policy requiring a minimum length of 15 Unicode characters and a maximum encoded length of no greater than 72 UTF-8 bytes. If a submitted password exceeds 72 UTF-8 bytes, the system MUST reject validation with an error and MUST NOT silently truncate the password or pass a truncated prefix to the hashing algorithm. The system SHALL NOT enforce arbitrary composition requirements (mandatory uppercase, lowercase, numbers, or symbols) and SHALL NOT require periodic password rotation. The system SHALL hash persisted passwords using bcrypt with cost 10.
 
 #### Scenario: Accept passphrase meeting length and byte constraints
 - GIVEN a password with at least 15 Unicode characters whose UTF-8 byte length is less than or equal to 72 bytes
 - WHEN the password is submitted during account provisioning
 - THEN the system MUST accept the password
-- AND the system MUST compute a bcrypt hash using cost factor 10
+- AND the system MUST compute a bcrypt hash using cost 10
 
 #### Scenario: Reject password shorter than 15 Unicode characters
 - GIVEN a password with fewer than 15 Unicode characters
@@ -99,7 +99,7 @@ The system SHALL enforce a canonical password policy requiring a minimum length 
 
 ### Requirement: First-Failure Fixed Window Account Lockout
 
-The system SHALL automatically transition an `activo` account to `bloqueado` when more than 5 failed password attempts occur within a 10-minute window starting from the first failure. The first failed attempt SHALL initialize a 10-minute counting window and set the failure count to 1. Failures 1 through 5 within the active window SHALL NOT block the account. The 6th failure occurring within that same 10-minute window SHALL immediately change the account state to `bloqueado` and record the lock timestamp. If the 10-minute window expires without reaching the 6th failure, the subsequent failure SHALL discard the expired window and start a new 10-minute window with count 1. Successful authentication of an `activo` account SHALL reset failure counters and window metadata. A blocked account SHALL remain blocked and SHALL NOT be unlocked by submitting valid credentials.
+The system SHALL automatically transition an `activo` account to `bloqueado` when more than 5 failed password attempts occur within a 10-minute window starting from the first failure. The first failed attempt SHALL initialize a 10-minute counting window and set the failure count to 1. Failures 1 through 5 within the active window SHALL NOT block the account. The 6th failure occurring within that same 10-minute window SHALL immediately change the account state to `bloqueado`. If the 10-minute window expires without reaching the 6th failure, the subsequent failure SHALL discard the expired window and start a new 10-minute window with count 1. Successful authentication of an `activo` account SHALL reset failure counters and window metadata. A blocked account SHALL remain blocked and SHALL NOT be unlocked by submitting valid credentials.
 
 #### Scenario: First failed attempt initializes fixed window
 - GIVEN an active account with zero recorded failures
@@ -119,7 +119,6 @@ The system SHALL automatically transition an `activo` account to `bloqueado` whe
 - WHEN a 6th invalid password is submitted before the 10-minute window expires
 - THEN the failure count MUST increment to 6
 - AND the account state MUST transition immediately to bloqueado
-- AND the system MUST record the lockout timestamp
 - AND subsequent authentication attempts MUST be denied
 
 #### Scenario: Window expiration before sixth failure resets counter
@@ -146,7 +145,7 @@ The system SHALL automatically transition an `activo` account to `bloqueado` whe
 
 ### Requirement: Lockout Concurrency Invariant
 
-The system SHALL ensure that concurrent failed login attempts cannot produce lost counter increments, bypass lockout rules, or leave an account in an inconsistent state. When simultaneous invalid attempts occur for an active account, the system MUST enforce serializable or atomic counter tracking such that a qualifying 6th failure reliably transitions the account to `bloqueado`.
+Concurrent failed authentication attempts SHALL be counted without lost increments and SHALL NOT allow a qualifying sixth failure to bypass the lockout rule. When simultaneous invalid attempts occur for an active account, the system MUST ensure reliable counter tracking such that a qualifying 6th failure reliably transitions the account to `bloqueado`.
 
 #### Scenario: Simultaneous failed attempts do not lose increments
 - GIVEN an active account with 4 recorded failures in the active window
@@ -164,7 +163,7 @@ The system SHALL provide an administrative command-line interface (`create-user`
 - GIVEN a unique username and role administrador
 - WHEN an operator executes create-user and provides an interactive valid passphrase
 - THEN the system MUST create the user account with state activo
-- AND the password MUST be hashed with bcrypt at cost factor 10
+- AND the password MUST be hashed with bcrypt at cost 10
 - AND the operator MUST be able to immediately authenticate with the created credentials
 
 #### Scenario: Reject CLI user creation with duplicate username
@@ -189,14 +188,13 @@ The system SHALL provide an administrative command-line interface (`create-user`
 
 ### Requirement: Administrative Security Unlock CLI
 
-The system SHALL provide an administrative command-line interface (`unlock-user`) allowing operators to restore accounts locked by brute-force protection. The command SHALL accept an explicit username. The target account MUST exist and MUST currently be in state `bloqueado`. A successful unlock SHALL transition the account state from `bloqueado` to `activo`, reset the failed attempt count to 0, and clear lockout timestamps. The command SHALL NOT modify accounts in state `inactivo` or `creado`, and SHALL NOT alter the account's role or password.
+The system SHALL provide an administrative command-line interface (`unlock-user`) allowing operators to restore accounts locked by brute-force protection. The command SHALL accept an explicit username. The target account MUST exist and MUST currently be in state `bloqueado`. A successful unlock SHALL transition the account state from `bloqueado` to `activo` and clear failure tracking metadata. The command SHALL NOT modify accounts in state `inactivo` or `creado`, and SHALL NOT alter the account's role or password.
 
 #### Scenario: Unlock blocked account to active state
 - GIVEN an existing account in state bloqueado
 - WHEN unlock-user is executed with that username
 - THEN the account state MUST transition to activo
-- AND the failed attempt count MUST reset to 0
-- AND the lockout timestamps MUST be cleared
+- AND the failure tracking metadata MUST be cleared
 - AND the user MUST be permitted to authenticate again
 
 #### Scenario: Reject unlock for nonexistent user
@@ -220,7 +218,7 @@ The system SHALL provide an administrative command-line interface (`unlock-user`
 
 ### Requirement: Authenticated Session Establishment and Fixation Protection
 
-Upon successful credential verification, the system SHALL establish a server-side authenticated session. Before activating authenticated privileges, the system SHALL regenerate the session identifier (`session_regenerate_id(true)`) to prevent session fixation attacks. An invalid or failed authentication attempt SHALL NOT establish an authenticated session and SHALL NOT upgrade an existing anonymous session.
+Upon successful credential verification, the system SHALL establish a server-side authenticated session. The system SHALL replace/regenerate the pre-authentication session identifier before authenticated privileges become associated with the session to prevent session fixation attacks. An invalid or failed authentication attempt SHALL NOT establish an authenticated session and SHALL NOT upgrade an existing anonymous session.
 
 #### Scenario: Regenerate session ID on successful login
 - GIVEN an anonymous session issuing a login request
@@ -239,11 +237,11 @@ Upon successful credential verification, the system SHALL establish a server-sid
 
 ### Requirement: Persistent Current-User Authority and Stale-Session Invalidation
 
-For every HTTP request targeting a protected route, the system SHALL resolve the authenticated user's current account record from persistent storage using the session identity. The persistent record SHALL be the sole authority for account state and role. If the user record no longer exists or holds a state other than `activo` (`bloqueado`, `inactivo`, `creado`), the system SHALL immediately invalidate the authenticated session, clear session data, expire the session cookie, and deny handler dispatch. Any administrative role change in the database SHALL take effect on the user's immediate next protected request.
+For every protected request, the system SHALL revalidate the authenticated account against persistent account data before authorizing the request. The persisted current account state and role SHALL be authoritative. If the user record no longer exists or holds a state other than `activo` (`bloqueado`, `inactivo`, `creado`), the system SHALL immediately invalidate the authenticated session, clear session data, invalidate the browser's ability to reuse the previous authenticated session, and deny handler dispatch. A role change in persistent storage SHALL affect the user's immediate next protected request.
 
 #### Scenario: Immediately revoke access when account transitions to blocked
 - GIVEN an authenticated user with an open session
-- WHEN the account state in the database is changed to bloqueado
+- WHEN the account state in persistent storage is changed to bloqueado
 - AND the user submits a subsequent request to a protected route
 - THEN the system MUST invalidate the session
 - AND the protected handler MUST NOT execute
@@ -251,7 +249,7 @@ For every HTTP request targeting a protected route, the system SHALL resolve the
 
 #### Scenario: Immediately revoke access when account transitions to inactive
 - GIVEN an authenticated user with an open session
-- WHEN the account state in the database is changed to inactivo
+- WHEN the account state in persistent storage is changed to inactivo
 - AND the user submits a subsequent request to a protected route
 - THEN the system MUST invalidate the session
 - AND the protected handler MUST NOT execute
@@ -259,13 +257,13 @@ For every HTTP request targeting a protected route, the system SHALL resolve the
 
 #### Scenario: Immediately apply updated role permissions
 - GIVEN an authenticated user with role cajero
-- WHEN the user's role in the database is updated to administrador
+- WHEN the user's role in persistent storage is updated to administrador
 - AND the user submits a subsequent request to an administrator-only route
-- THEN the system MUST resolve the updated role from the database
+- THEN the system MUST resolve the updated role from persistent storage
 - AND the user MUST be permitted to execute the administrator operation
 
 #### Scenario: Invalidate session when user record is missing
-- GIVEN a session referencing a user identity that does not exist in the database
+- GIVEN a session referencing a user identity that does not exist in persistent storage
 - WHEN a protected route is requested
 - THEN the system MUST invalidate the session
 - AND the protected handler MUST NOT execute
@@ -300,14 +298,19 @@ The system SHALL enforce automatic session expiration based on inactivity durati
 
 ### Requirement: Complete Session Termination via Logout
 
-The system SHALL provide a `POST /logout` endpoint to terminate authenticated sessions. The logout request SHALL require an active authenticated session and a valid CSRF token. Upon successful processing, the system SHALL clear all session variables, destroy server-side session storage, expire the client session cookie, and redirect the client to `/login` with HTTP status 303 See Other. Subsequent requests using the previous session credentials SHALL be treated as unauthenticated.
+The system SHALL provide a `POST /logout` endpoint to terminate authenticated sessions. The logout request SHALL require an active authenticated session and a valid CSRF token. Upon successful processing, the system SHALL:
+- remove authenticated identity from the active session
+- invalidate server-side authenticated session state
+- invalidate the browser's ability to reuse the previous authenticated session
+- cause subsequent protected requests using the prior session to be treated as unauthenticated
+- redirect with HTTP status 303 See Other to `/login`
 
-#### Scenario: Logout invalidates server session and deletes client cookie
+#### Scenario: Logout invalidates server session and prevents session reuse
 - GIVEN an authenticated session with a valid CSRF token
 - WHEN a POST request is sent to /logout
-- THEN the system MUST clear in-memory session data
-- AND the system MUST destroy the server-side session
-- AND the response MUST instruct the client to expire the session cookie
+- THEN the system MUST remove authenticated identity from the active session
+- AND the system MUST invalidate server-side authenticated session state
+- AND the browser MUST NOT be able to reuse the prior authenticated session
 - AND the response MUST redirect to /login with status 303 See Other
 
 #### Scenario: Reject protected request following logout
@@ -327,11 +330,11 @@ The system SHALL provide a `POST /logout` endpoint to terminate authenticated se
 ### Requirement: Single-Role Authorization Model and R1 Route Protection
 
 The system SHALL enforce coarse-grained single-role authorization evaluated on the server before dispatching any protected business handler. Each user account SHALL hold exactly one role. Direct HTTP requests SHALL be subject to server-side role verification regardless of whether corresponding action controls were visible in the client interface. The system SHALL enforce the following route authorization matrix across existing R1 endpoints:
-- `administrador`: Authorized for all operational routes (`/products`, `/categories`, `/locations`, `/inventory`, `/inventory/stock`, `/inventory/counts`).
+- `administrador`: Authorized for all operational routes (`GET /products`, `POST /categories`, `POST /products`, `POST /products/{id}/price`, `POST /products/{id}/deactivate`, `POST /products/{id}/activate`, `GET /locations`, `POST /locations`, `GET /inventory`, `POST /inventory/stock`, `GET /inventory/counts`, `POST /inventory/counts`).
 - `bodeguero`: Authorized for `GET /products`, `GET /locations`, `POST /locations`, `GET /inventory`, `POST /inventory/stock`, `GET /inventory/counts`, `POST /inventory/counts`.
 - `cajero`: Authorized for `GET /products` (read-only catalog search).
 - `compras`: Authorized for `GET /products` (read-only catalog search).
-Any authenticated request targeting a route for which the user's role is not authorized SHALL be rejected with HTTP status 403 Forbidden.
+Any authenticated request targeting a route for which the user's role is not authorized SHALL be rejected with HTTP status 403 Forbidden without redirecting.
 
 #### Scenario: Cashier accesses product catalog
 - GIVEN an authenticated user with role cajero
@@ -400,7 +403,7 @@ When an unauthenticated request targeting a protected GET route is redirected to
 
 ### Requirement: HTTP Login Behavior and Error Disclosure
 
-The system SHALL provide `GET /login` and `POST /login` endpoints. `GET /login` SHALL allow anonymous access and render the login view; if an already-authenticated user with an active session accesses `GET /login`, the system SHALL redirect them to `/products`. `POST /login` SHALL require CSRF validation, accept username and password inputs, enforce password length bounds, verify credentials, track failed attempts, and upon success, regenerate session identity and issue an HTTP 303 See Other redirect. Any authentication failure SHALL return HTTP status 422 with a generic error message that prevents account enumeration and state diagnosis.
+The system SHALL provide `GET /login` and `POST /login` endpoints. `GET /login` SHALL allow anonymous access and render the login view; if an already-authenticated user with an active session accesses `GET /login`, the system SHALL redirect them to `/products`. `POST /login` SHALL require CSRF validation, accept username and password inputs, enforce password length bounds, verify credentials, track failed attempts, and upon success, replace the pre-authentication session identifier and issue an HTTP 303 See Other redirect. Any authentication failure SHALL return HTTP status 422 with a generic error message that prevents account enumeration and state diagnosis.
 
 #### Scenario: Anonymous user accesses login page
 - GIVEN an unauthenticated client
@@ -440,12 +443,12 @@ The login interface SHALL render in accordance with the application's visual des
 
 ### Requirement: Sensitive Credential Logging Prohibition
 
-The system SHALL NOT output plaintext passwords, password hashes, session tokens, or CSRF tokens to application logs, error reports, or diagnostic interfaces. Technical error logging SHALL record correlation identifiers and technical exceptions without exposing credential secrets.
+The system SHALL NOT output plaintext passwords, password hashes, session identifiers, or CSRF tokens to application logs, error reports, or diagnostic interfaces. Technical error logging SHALL record correlation identifiers and technical exceptions without exposing credential secrets.
 
 #### Scenario: Application logs exclude sensitive authentication tokens
 - GIVEN an authentication operation or unexpected failure
 - WHEN diagnostic logs are written
-- THEN the logged content MUST NOT contain plaintext passwords, password hashes, session IDs, or CSRF tokens
+- THEN the logged content MUST NOT contain plaintext passwords, password hashes, session identifiers, or CSRF tokens
 
 ---
 

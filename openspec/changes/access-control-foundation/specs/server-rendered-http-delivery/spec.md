@@ -72,7 +72,7 @@ Server validation MUST be authoritative. Invalid submissions MUST return 422 wit
 
 ### Requirement: Infrastructure Health Liveness and Probe Boundaries
 
-The system MUST provide an anonymous GET /health endpoint returning a minimal availability check without exposing database credentials, operational records, session diagnostics, or internal system state. State-changing probe endpoints (POST /health) MUST NOT be exposed in production and MAY exist only outside production environments for integration harness testing.
+The system MUST provide an anonymous GET /health endpoint returning a minimal availability check without exposing database credentials, operational records, session diagnostics, or internal system state. State-changing probe endpoints (POST /health) SHALL NOT be available in production and MAY exist only outside production environments for integration harness testing.
 
 #### Scenario: Access public liveness probe
 - GIVEN an unauthenticated client
