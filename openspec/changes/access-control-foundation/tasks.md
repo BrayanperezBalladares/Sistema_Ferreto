@@ -3,10 +3,10 @@
 ## Phase A: Account Persistence Foundation (Slice A1 & A2)
 
 - [x] A.1 Create additive migration `database/migrations/0007_create_usuario.up.sql` (`usuario` table: `id_usuario` PK, `username` VARCHAR(50) UNIQUE, `password_hash` VARCHAR(255), `rol` VARCHAR(30), `estado` VARCHAR(20) DEFAULT 'creado', `failed_attempt_count` INT UNSIGNED DEFAULT 0, `failure_window_started_at` TIMESTAMP NULL, `locked_at` TIMESTAMP NULL, `created_at`, `updated_at`, portable CHECK constraints for roles `administrador`/`cajero`/`bodeguero`/`compras` and states `creado`/`activo`/`bloqueado`/`inactivo`) and reversal `0007_create_usuario.down.sql`.
-- [ ] A.2 Implement `src/Modules/Access/UserQuery.php` providing read-only PDO methods `findById(int $id): ?array` and `findByUsername(string $username): ?array` using prepared statements.
-- [ ] A.3 Implement `src/Modules/Access/UserCommand.php` for account insertion (`create`), setting explicit state, role, and hashed password.
-- [ ] A.4 Implement in `src/Modules/Access/UserCommand.php` atomic failed-attempt tracking (`recordFailure`), failure metadata reset (`resetFailures`), and administrative unlock mutation (`unlock`) enforcing `bloqueado -> activo` transition.
-- [ ] A.5 Add integration test `tests/Integration/UserPersistenceTest.php` verifying schema constraints, username uniqueness, account states, atomic failure updates, failure resets, and unlock state validation against test DB.
+- [x] A.2 Implement `src/Modules/Access/UserQuery.php` providing read-only PDO methods `findById(int $id): ?array` and `findByUsername(string $username): ?array` using prepared statements.
+- [x] A.3 Implement `src/Modules/Access/UserCommand.php` for account insertion (`create`), setting explicit state, role, and hashed password.
+- [x] A.4 Implement in `src/Modules/Access/UserCommand.php` atomic failed-attempt tracking (`recordFailure`), failure metadata reset (`resetFailures`), and administrative unlock mutation (`unlock`) enforcing `bloqueado -> activo` transition.
+- [x] A.5 Add integration test `tests/Integration/UserPersistenceTest.php` verifying schema constraints, username uniqueness, account states, atomic failure updates, failure resets, and unlock state validation against test DB.
 
 ## Phase B: Administrative User Management CLI (Slice B1 & B2)
 
