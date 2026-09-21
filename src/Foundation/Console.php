@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Foundation;
 
+use App\Modules\Access\UserCliHandler;
+use App\Modules\Access\UserCommand;
 use InvalidArgumentException;
 use Throwable;
 
@@ -11,8 +13,10 @@ final class Console
 {
     private readonly string $root;
 
-    public function __construct(string $root)
-    {
+    public function __construct(
+        string $root,
+        private readonly ?UserCliHandler $userCliHandler = null,
+    ) {
         $resolved = realpath($root);
         if ($resolved === false || !is_file($resolved . '/composer.json')) {
             throw new InvalidArgumentException('Project root is invalid.');
@@ -23,23 +27,42 @@ final class Console
     /** @param list<string> $arguments */
     public function run(array $arguments): int
     {
-        if (count($arguments) !== 1) {
+        if (count($arguments) < 1) {
             return 64;
         }
 
+        $command = $arguments[0];
+
         try {
-            return match ($arguments[0]) {
-                'verify-assets' => $this->verifyAssets(),
-                'config'        => $this->validateConfig(),
-                'serve'         => $this->serve(),
-                'migrate'       => $this->runMigrate(),
-                'seed'          => $this->runSeed(),
+            return match ($command) {
+                'verify-assets' => count($arguments) === 1 ? $this->verifyAssets() : 64,
+                'config'        => count($arguments) === 1 ? $this->validateConfig() : 64,
+                'serve'         => count($arguments) === 1 ? $this->serve() : 64,
+                'migrate'       => count($arguments) === 1 ? $this->runMigrate() : 64,
+                'seed'          => count($arguments) === 1 ? $this->runSeed() : 64,
+                'create-user'   => $this->runCreateUser(array_slice($arguments, 1)),
                 default => 64,
             };
         } catch (Throwable $exception) {
             fwrite(STDERR, $exception->getMessage() . PHP_EOL);
             return 1;
         }
+    }
+
+    /** @param list<string> $args */
+    private function runCreateUser(array $args): int
+    {
+        if ($this->userCliHandler !== null) {
+            return $this->userCliHandler->handleCreateUser($args);
+        }
+
+        $config  = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db      = new Database($config);
+        $tx      = new Transaction($db);
+        $command = new UserCommand($tx);
+        $handler = new UserCliHandler($command);
+
+        return $handler->handleCreateUser($args);
     }
 
     private function verifyAssets(): int
