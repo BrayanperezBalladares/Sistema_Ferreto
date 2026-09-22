@@ -258,3 +258,137 @@ body.ferreto-app {
     min-width: 170px;
   }
 }
+
+/* ==========================================================================
+   Login Screen & Access Control
+   ========================================================================== */
+
+body.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.login-brand {
+  background: var(--color-nav);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.login-body {
+  padding: 24px;
+}
+
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px 0;
+  line-height: 1.2;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 20px 0;
+}
+
+.login-error-alert {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger-text);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-form .field {
+  margin-bottom: 16px;
+}
+
+.login-form .field.field-password {
+  margin-bottom: 24px;
+}
+
+.login-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.login-required {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.login-input {
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  border: 1px solid var(--color-border);
+  width: 100%;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+}
+
+.login-input:focus,
+.login-input:focus-visible {
+  outline: 2px solid var(--color-nav, #111827);
+  outline-offset: 1px;
+  border-color: var(--color-nav, #111827);
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: none;
+  background-color: var(--color-primary);
+  color: var(--color-nav, #111827);
+  transition: background-color 0.15s ease;
+}
+
+.login-submit:hover {
+  background-color: var(--color-primary-hover);
+  color: var(--color-nav, #111827);
+}
+
+.login-submit:focus,
+.login-submit:focus-visible {
+  outline: 2px solid var(--color-nav, #111827);
+  outline-offset: 2px;
+}

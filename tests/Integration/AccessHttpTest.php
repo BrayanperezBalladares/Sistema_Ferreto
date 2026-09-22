@@ -134,8 +134,8 @@ final class AccessHttpTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/<input[^>]*id="password"[^>]*value=/i', $response->body);
         self::assertDoesNotMatchRegularExpression('/<input[^>]*name="password"[^>]*value=/i', $response->body);
 
-        // Submit button with min-height >= 44px
-        self::assertMatchesRegularExpression('/<button[^>]*type="submit"[^>]*style="[^"]*min-height:\s*44px/i', $response->body);
+        // Submit button with login-submit class
+        self::assertMatchesRegularExpression('/<button[^>]*type="submit"[^>]*class="[^"]*login-submit/i', $response->body);
 
         // CSRF hidden input with token
         self::assertMatchesRegularExpression('/<input[^>]*type="hidden"[^>]*name="_csrf"[^>]*value="' . preg_quote($token, '/') . '"/i', $response->body);
