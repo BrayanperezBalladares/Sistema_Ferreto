@@ -1,3 +1,11 @@
+<?php
+
+use App\Foundation\Renderer;
+
+$csrf     = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
+$username = isset($data['username']) && is_string($data['username']) ? $data['username'] : '';
+$error    = isset($data['error']) && is_string($data['error']) ? $data['error'] : null;
+?>
 <!doctype html>
 <html lang="es">
 <head>

@@ -33,12 +33,12 @@
 
 ## Phase D: HTTP Login & Logout Delivery (Slice D1)
 
-- [ ] D.1 Implement `src/Modules/Access/AccessHandler.php` handling `GET /login`, `POST /login`, and `POST /logout` with CSRF protection, returning HTTP 422 with generic error copy for failed credentials.
-- [ ] D.2 Implement return-after-login in `AccessHandler.php`: validate relative destination (`/` prefix, rejecting `//` and external URLs), store in session, redirect to destination on login if role authorized, or fallback to `/products`.
-- [ ] D.3 Implement complete logout in `AccessHandler.php`: clear session data, destroy server session, expire client cookie, and redirect 303 to `/login`.
-- [ ] D.4 Create responsive login template `templates/pages/login.php` adhering to `docs/ui/DESIGN.md` (single-column card, 360px viewport support, visible labels, autocomplete attributes, >=44px touch targets).
-- [ ] D.5 Register routes in `config/routes.php` (`GET /login`, `POST /login`, `POST /logout`) and wire dependencies in `public/index.php`.
-- [ ] D.6 Add HTTP integration tests `tests/Integration/AccessHttpTest.php` verifying login success/failure, 422 generic response, 303 redirects, safe return paths, open redirect rejection, already-authenticated redirect, and logout destruction.
+- [x] D.1 Implement `src/Modules/Access/AccessHandler.php` handling `GET /login`, `POST /login`, and `POST /logout` with CSRF protection, returning HTTP 422 with generic error copy for failed credentials.
+- [x] D.2 Implement return-after-login in `AccessHandler.php`: validate relative destination (`/` prefix, rejecting `//` and external URLs), store in session, redirect to destination on login if role authorized, or fallback to `/products`.
+- [x] D.3 Implement complete logout in `AccessHandler.php`: clear session data, destroy server session, expire client cookie, and redirect 303 to `/login`.
+- [x] D.4 Create responsive login template `templates/pages/login.php` adhering to `docs/ui/DESIGN.md` (single-column card, 360px viewport support, visible labels, autocomplete attributes, >=44px touch targets).
+- [x] D.5 Register routes in `config/routes.php` (`GET /login`, `POST /login`, `POST /logout`) and wire dependencies in `public/index.php`.
+- [x] D.6 Add HTTP integration tests `tests/Integration/AccessHttpTest.php` verifying login success/failure, 422 generic response, 303 redirects, safe return paths, open redirect rejection, already-authenticated redirect, and logout destruction.
 
 ## Phase E: Authentication & Role Authorization Guards (Slice E1 & E2)
 
