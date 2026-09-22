@@ -108,6 +108,25 @@ final readonly class AuthSession
      */
     public function user(): ?array
     {
+        return $this->resolveCurrentUser(true);
+    }
+
+    /**
+     * Passively inspects and revalidates the current authenticated user context
+     * without refreshing the session activity timestamp.
+     *
+     * @return array{id_usuario: int, username: string, rol: string, estado: string}|null
+     */
+    public function peekUser(): ?array
+    {
+        return $this->resolveCurrentUser(false);
+    }
+
+    /**
+     * @return array{id_usuario: int, username: string, rol: string, estado: string}|null
+     */
+    private function resolveCurrentUser(bool $touchActivity): ?array
+    {
         $userId = $this->session->get(self::KEY_USER_ID);
         if (!is_int($userId) && (!is_string($userId) || !ctype_digit($userId))) {
             return null;
@@ -142,8 +161,10 @@ final readonly class AuthSession
             return null;
         }
 
-        // Valid interaction: refresh last activity
-        $this->session->set(self::KEY_LAST_ACTIVITY, $now);
+        if ($touchActivity) {
+            // Valid interaction: refresh last activity
+            $this->session->set(self::KEY_LAST_ACTIVITY, $now);
+        }
 
         return [
             'id_usuario' => $user['id_usuario'],

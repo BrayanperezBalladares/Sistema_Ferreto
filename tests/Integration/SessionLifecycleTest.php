@@ -369,4 +369,120 @@ final class SessionLifecycleTest extends TestCase
         self::assertFalse($authSession->isAuthenticated());
         self::assertNull($authSession->user());
     }
+
+    public function testPeekUserReturnsCurrentContextWithoutTouchingLastActivity(): void
+    {
+        $hash   = password_hash('ValidPassphrase15', PASSWORD_BCRYPT, ['cost' => 10]);
+        $userId = $this->command->create('peek_user', $hash, 'bodeguero', 'activo');
+
+        $currentTime = 1000000;
+        $authSession = new AuthSession(
+            $this->session,
+            $this->query,
+            clock: function () use (&$currentTime): int {
+                return $currentTime;
+            },
+        );
+
+        $authSession->establish($userId);
+        $initialActivity = $this->session->get(AuthSession::KEY_LAST_ACTIVITY);
+        self::assertSame(1000000, $initialActivity);
+
+        // Advance clock by 300 seconds
+        $currentTime = 1000300;
+        $context = $authSession->peekUser();
+
+        self::assertNotNull($context);
+        self::assertSame($userId, $context['id_usuario']);
+        self::assertSame('peek_user', $context['username']);
+        self::assertSame('bodeguero', $context['rol']);
+        self::assertSame('activo', $context['estado']);
+
+        // auth_last_activity remains strictly unchanged
+        self::assertSame($initialActivity, $this->session->get(AuthSession::KEY_LAST_ACTIVITY));
+    }
+
+    public function testPeekUserEnforcesInactivityTimeoutAndInvalidatesSession(): void
+    {
+        $hash   = password_hash('ValidPassphrase15', PASSWORD_BCRYPT, ['cost' => 10]);
+        $userId = $this->command->create('peek_timeout_user', $hash, 'administrador', 'activo');
+
+        $currentTime = 1000000;
+        $authSession = new AuthSession(
+            $this->session,
+            $this->query,
+            clock: function () use (&$currentTime): int {
+                return $currentTime;
+            },
+        );
+        $authSession->establish($userId);
+
+        // Advance beyond 1800s default timeout
+        $currentTime = 1000000 + 1801;
+        $result = $authSession->peekUser();
+
+        self::assertNull($result);
+        self::assertFalse($authSession->isAuthenticated());
+        self::assertNull($this->session->get(AuthSession::KEY_USER_ID));
+        self::assertNull($this->session->get(AuthSession::KEY_LAST_ACTIVITY));
+    }
+
+    public function testPeekUserInvalidatesSessionWhenAccountBecomesBlockedOrInactive(): void
+    {
+        $hash   = password_hash('ValidPassphrase15', PASSWORD_BCRYPT, ['cost' => 10]);
+        $blockedUserId = $this->command->create('peek_blocked', $hash, 'cajero', 'activo');
+
+        $authSession = new AuthSession($this->session, $this->query);
+        $authSession->establish($blockedUserId);
+        self::assertTrue($authSession->isAuthenticated());
+
+        // Account is locked in DB
+        self::$testDb->pdo()->exec("UPDATE usuario SET estado = 'bloqueado' WHERE id_usuario = {$blockedUserId}");
+
+        self::assertNull($authSession->peekUser());
+        self::assertFalse($authSession->isAuthenticated());
+        self::assertNull($this->session->get(AuthSession::KEY_USER_ID));
+
+        // Test inactivo state
+        $inactiveUserId = $this->command->create('peek_inactive', $hash, 'bodeguero', 'activo');
+        $session2 = new NativeSession(false);
+        $authSession2 = new AuthSession($session2, $this->query);
+        $authSession2->establish($inactiveUserId);
+        self::assertTrue($authSession2->isAuthenticated());
+
+        // Account deactivated in DB
+        self::$testDb->pdo()->exec("UPDATE usuario SET estado = 'inactivo' WHERE id_usuario = {$inactiveUserId}");
+
+        self::assertNull($authSession2->peekUser());
+        self::assertFalse($authSession2->isAuthenticated());
+        self::assertNull($session2->get(AuthSession::KEY_USER_ID));
+    }
+
+    public function testPeekUserReflectsRoleChangeImmediatelyWithoutRefreshingActivity(): void
+    {
+        $hash   = password_hash('ValidPassphrase15', PASSWORD_BCRYPT, ['cost' => 10]);
+        $userId = $this->command->create('peek_role_shift', $hash, 'compras', 'activo');
+
+        $currentTime = 1000000;
+        $authSession = new AuthSession(
+            $this->session,
+            $this->query,
+            clock: function () use (&$currentTime): int {
+                return $currentTime;
+            },
+        );
+        $authSession->establish($userId);
+        $initialActivity = $this->session->get(AuthSession::KEY_LAST_ACTIVITY);
+
+        // Advance clock
+        $currentTime = 1000500;
+
+        // Update role in DB
+        self::$testDb->pdo()->exec("UPDATE usuario SET rol = 'bodeguero' WHERE id_usuario = {$userId}");
+
+        $context = $authSession->peekUser();
+        self::assertNotNull($context);
+        self::assertSame('bodeguero', $context['rol']);
+        self::assertSame($initialActivity, $this->session->get(AuthSession::KEY_LAST_ACTIVITY));
+    }
 }
