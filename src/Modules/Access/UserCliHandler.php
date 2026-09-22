@@ -103,6 +103,44 @@ final class UserCliHandler
         return 0;
     }
 
+    /**
+     * @param list<string> $arguments
+     */
+    public function handleUnlockUser(array $arguments): int
+    {
+        if (count($arguments) !== 1) {
+            $this->writeErr("Usage: php scripts/console.php unlock-user <username>" . PHP_EOL);
+            return 64;
+        }
+
+        $username = trim($arguments[0]);
+
+        if (str_starts_with($username, '--')) {
+            $this->writeErr("Error: Options are not supported." . PHP_EOL);
+            return 64;
+        }
+
+        if ($username === '' || mb_strlen($username, 'UTF-8') > 50) {
+            $this->writeErr("Error: Username must be between 1 and 50 characters." . PHP_EOL);
+            return 1;
+        }
+
+        try {
+            $unlocked = $this->command->unlock($username);
+        } catch (Throwable) {
+            $this->writeErr("Error: Failed to unlock user." . PHP_EOL);
+            return 1;
+        }
+
+        if (!$unlocked) {
+            $this->writeErr(sprintf("Error: User '%s' could not be unlocked. Account must exist and be blocked." . PHP_EOL, $username));
+            return 1;
+        }
+
+        $this->writeOut(sprintf("User '%s' unlocked successfully." . PHP_EOL, $username));
+        return 0;
+    }
+
     private function readPassword(): string
     {
         if ($this->passwordReader !== null) {

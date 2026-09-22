@@ -370,4 +370,193 @@ final class ConsoleUserTest extends TestCase
         // Empty username
         self::assertSame(1, $handler->handleCreateUser(['', 'cajero']));
     }
+
+    public function testBlockedUserUnlockSuccess(): void
+    {
+        $id = $this->command->create('blocked_user', '$2y$10$dummyhashforunlocktest123456789012345678901234567890', 'cajero', 'bloqueado');
+        $pdo = self::$testDb->pdo();
+        $pdo->exec(
+            "UPDATE usuario SET failed_attempt_count = 6, failure_window_started_at = UTC_TIMESTAMP(), locked_at = UTC_TIMESTAMP() "
+            . "WHERE id_usuario = {$id}"
+        );
+
+        $before = $this->query->findById($id);
+        self::assertNotNull($before);
+        self::assertSame('bloqueado', $before['estado']);
+        self::assertSame(6, $before['failed_attempt_count']);
+        self::assertNotNull($before['failure_window_started_at']);
+        self::assertNotNull($before['locked_at']);
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+
+        $handler = new UserCliHandler($this->command, null, $out, $err);
+
+        $exitCode = $handler->handleUnlockUser(['blocked_user']);
+        self::assertSame(0, $exitCode);
+
+        rewind($out);
+        $stdout = stream_get_contents($out);
+        self::assertIsString($stdout);
+        self::assertStringContainsString("User 'blocked_user' unlocked successfully.", $stdout);
+
+        $after = $this->query->findById($id);
+        self::assertNotNull($after);
+        self::assertSame('activo', $after['estado']);
+        self::assertSame(0, $after['failed_attempt_count']);
+        self::assertNull($after['failure_window_started_at']);
+        self::assertNull($after['locked_at']);
+        self::assertSame('blocked_user', $after['username']);
+        self::assertSame('cajero', $after['rol']);
+        self::assertSame($before['password_hash'], $after['password_hash']);
+        self::assertSame($before['created_at'], $after['created_at']);
+    }
+
+    public function testCreatedUserUnlockRejection(): void
+    {
+        $id = $this->command->create('created_user', 'hash_created', 'bodeguero', 'creado');
+
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($err);
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), $err);
+
+        $exitCode = $handler->handleUnlockUser(['created_user']);
+        self::assertSame(1, $exitCode);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertStringContainsString("User 'created_user' could not be unlocked", $stderr);
+
+        $after = $this->query->findById($id);
+        self::assertNotNull($after);
+        self::assertSame('creado', $after['estado']);
+        self::assertSame('bodeguero', $after['rol']);
+        self::assertSame('hash_created', $after['password_hash']);
+    }
+
+    public function testInactiveUserUnlockRejection(): void
+    {
+        $id = $this->command->create('inactive_user', 'hash_inactive', 'administrador', 'inactivo');
+
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($err);
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), $err);
+
+        $exitCode = $handler->handleUnlockUser(['inactive_user']);
+        self::assertSame(1, $exitCode);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertStringContainsString("User 'inactive_user' could not be unlocked", $stderr);
+
+        $after = $this->query->findById($id);
+        self::assertNotNull($after);
+        self::assertSame('inactivo', $after['estado']);
+        self::assertSame('administrador', $after['rol']);
+    }
+
+    public function testActiveUserUnlockRejection(): void
+    {
+        $id = $this->command->create('active_user', 'hash_active', 'compras', 'activo');
+
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($err);
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), $err);
+
+        $exitCode = $handler->handleUnlockUser(['active_user']);
+        self::assertSame(1, $exitCode);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertStringContainsString("User 'active_user' could not be unlocked", $stderr);
+
+        $after = $this->query->findById($id);
+        self::assertNotNull($after);
+        self::assertSame('activo', $after['estado']);
+    }
+
+    public function testMissingUserUnlockRejection(): void
+    {
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($err);
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), $err);
+
+        $exitCode = $handler->handleUnlockUser(['nonexistent_user']);
+        self::assertSame(1, $exitCode);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertStringContainsString("User 'nonexistent_user' could not be unlocked", $stderr);
+
+        self::assertNull($this->query->findByUsername('nonexistent_user'));
+    }
+
+    public function testUnlockUserArgumentValidation(): void
+    {
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), fopen('php://memory', 'w+'));
+        $root = dirname(__DIR__, 2);
+        $console = new Console($root, $handler);
+
+        // Missing argument
+        self::assertSame(64, $console->run(['unlock-user']));
+
+        // Extra argument
+        self::assertSame(64, $console->run(['unlock-user', 'user', 'extra']));
+
+        // Option argument
+        self::assertSame(64, $console->run(['unlock-user', '--all']));
+
+        // Empty username
+        self::assertSame(1, $handler->handleUnlockUser(['']));
+    }
+
+    public function testConsoleDispatchUnlockUser(): void
+    {
+        $id = $this->command->create('dispatched_blocked', 'hash_disp', 'cajero', 'bloqueado');
+
+        $handler = new UserCliHandler($this->command, null, fopen('php://memory', 'w+'), fopen('php://memory', 'w+'));
+        $root = dirname(__DIR__, 2);
+        $console = new Console($root, $handler);
+
+        $exitCode = $console->run(['unlock-user', 'dispatched_blocked']);
+        self::assertSame(0, $exitCode);
+
+        $after = $this->query->findById($id);
+        self::assertNotNull($after);
+        self::assertSame('activo', $after['estado']);
+    }
+
+    public function testUnlockUserOutputSafety(): void
+    {
+        $hash = '$2y$10$supersecretpasswordhashthatmustneverappearinoutput1234567';
+        $this->command->create('secret_blocked', $hash, 'cajero', 'bloqueado');
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+
+        $handler = new UserCliHandler($this->command, null, $out, $err);
+        $exitCode = $handler->handleUnlockUser(['secret_blocked']);
+        self::assertSame(0, $exitCode);
+
+        rewind($out);
+        $stdout = stream_get_contents($out);
+        self::assertIsString($stdout);
+        self::assertStringNotContainsString($hash, $stdout);
+        self::assertStringNotContainsString('SELECT', $stdout);
+        self::assertStringNotContainsString('UPDATE', $stdout);
+        self::assertStringNotContainsString('usuario', $stdout);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertEmpty($stderr);
+    }
 }

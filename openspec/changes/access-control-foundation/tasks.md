@@ -12,8 +12,8 @@
 
 - [x] B.1 Wire CLI commands in `src/Foundation/Console.php` to dispatch multi-argument commands `create-user` and `unlock-user`.
 - [x] B.2 Implement interactive `create-user <username> <rol>` in `src/Modules/Access/UserCliHandler.php` with non-echo terminal input (Windows PowerShell / POSIX stty), fail-closed enforcement on insecure terminals, password contract validation (minimum 15 Unicode codepoints, maximum 72 UTF-8 bytes, no silent truncation), bcrypt hashing with cost 10, duplicate rejection, and explicit `activo` state creation.
-- [ ] B.3 Implement `unlock-user <username>` in `src/Modules/Access/UserCliHandler.php` transitioning `bloqueado` accounts to `activo` and clearing failure metadata, while rejecting nonexistent, `creado`, or `inactivo` accounts.
-- [ ] B.4 Add integration tests `tests/Integration/ConsoleUserTest.php` validating `create-user` (valid input, length/byte limits, multibyte handling, duplicate username, echo fail-closed) and `unlock-user` (blocked account transition, rejection of inactive/created/missing accounts).
+- [x] B.3 Implement `unlock-user <username>` in `src/Modules/Access/UserCliHandler.php` transitioning `bloqueado` accounts to `activo` and clearing failure metadata, while rejecting nonexistent, `creado`, or `inactivo` accounts.
+- [x] B.4 Add integration tests `tests/Integration/ConsoleUserTest.php` validating `create-user` (valid input, length/byte limits, multibyte handling, duplicate username, echo fail-closed) and `unlock-user` (blocked account transition, rejection of inactive/created/missing accounts).
 
 ## Phase C: Authentication Core & Session Lifecycle (Slice C1 & C2)
 

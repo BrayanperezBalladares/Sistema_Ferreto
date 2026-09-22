@@ -41,6 +41,7 @@ final class Console
                 'migrate'       => count($arguments) === 1 ? $this->runMigrate() : 64,
                 'seed'          => count($arguments) === 1 ? $this->runSeed() : 64,
                 'create-user'   => $this->runCreateUser(array_slice($arguments, 1)),
+                'unlock-user'   => $this->runUnlockUser(array_slice($arguments, 1)),
                 default => 64,
             };
         } catch (Throwable $exception) {
@@ -63,6 +64,22 @@ final class Console
         $handler = new UserCliHandler($command);
 
         return $handler->handleCreateUser($args);
+    }
+
+    /** @param list<string> $args */
+    private function runUnlockUser(array $args): int
+    {
+        if ($this->userCliHandler !== null) {
+            return $this->userCliHandler->handleUnlockUser($args);
+        }
+
+        $config  = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db      = new Database($config);
+        $tx      = new Transaction($db);
+        $command = new UserCommand($tx);
+        $handler = new UserCliHandler($command);
+
+        return $handler->handleUnlockUser($args);
     }
 
     private function verifyAssets(): int
