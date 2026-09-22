@@ -17,8 +17,8 @@
 
 ## Phase C: Authentication Core & Session Lifecycle (Slice C1 & C2)
 
-- [ ] C.1 Implement `src/Modules/Access/Authenticator.php` orchestrating credential validation with `password_verify()`, precomputed dummy bcrypt execution for nonexistent usernames to mitigate timing leaks, and UTF-8 72-byte ceiling rejection before hashing.
-- [ ] C.2 Implement fixed first-failure 10-minute lockout window logic in `Authenticator.php`: attempt 1 starts window; attempts 1–5 stay active; attempt 6 within window transitions account to `bloqueado`; expired window resets counter to 1; successful login clears failure metadata; blocked account with valid password denied.
+- [x] C.1 Implement `src/Modules/Access/Authenticator.php` orchestrating credential validation with `password_verify()`, precomputed dummy bcrypt execution for nonexistent usernames to mitigate timing leaks, and UTF-8 72-byte ceiling rejection before hashing.
+- [x] C.2 Implement fixed first-failure 10-minute lockout window logic in `Authenticator.php`: attempt 1 starts window; attempts 1–5 stay active; attempt 6 within window transitions account to `bloqueado`; expired window resets counter to 1; successful login clears failure metadata; blocked account with valid password denied.
 - [ ] C.3 Extend `src/Foundation/NativeSession.php` with `regenerate(): void` (invoking `session_regenerate_id(true)` to prevent fixation), `destroy(): void`, and cookie expiration helper.
 - [ ] C.4 Implement current-user persistent revalidation in `src/Modules/Access/AuthSession.php`: re-query DB on each request by `auth_user_id`, immediately revoking session if missing or `estado !== 'activo'`.
 - [ ] C.5 Implement role-aware inactivity tracking in `AuthSession.php`: 20 minutes for `cajero`, configurable default (30 minutes in `config/defaults.php` via `SESSION_IDLE_TIMEOUT`) for other roles, clearing expired sessions on protected requests.
