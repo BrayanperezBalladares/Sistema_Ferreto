@@ -26,6 +26,11 @@
 - [x] C.7 Add integration tests `tests/Integration/SessionLifecycleTest.php` proving session fixation regeneration, stale-state revocation, role updates during open sessions, and inactivity expiration.
 - [x] C.8 Ensure no logging of passwords, hashes, session IDs, or CSRF tokens in `src/Foundation/Logger.php` or handlers, verified by `tests/Integration/SensitiveLoggingTest.php`.
 
+## Implementation Prerequisites: Access Foundation Support (Slice Pre-D1)
+
+- [x] Pre-D1.1 Passive session inspection in `src/Modules/Access/AuthSession.php` (`peekUser()`).
+- [x] Pre-D1.2 Centralized canonical route authorization policy in `src/Modules/Access/RouteAccessPolicy.php`.
+
 ## Phase D: HTTP Login & Logout Delivery (Slice D1)
 
 - [ ] D.1 Implement `src/Modules/Access/AccessHandler.php` handling `GET /login`, `POST /login`, and `POST /logout` with CSRF protection, returning HTTP 422 with generic error copy for failed credentials.
@@ -75,6 +80,7 @@
 - **Slice B2**: `unlock-user` CLI command and unlock tests.
 - **Slice C1**: `Authenticator` core logic, timing attack mitigation, and first-failure 10-minute lockout tests.
 - **Slice C2**: `NativeSession` enhancements, `AuthSession`, inactivity expiration, and concurrency tests.
+- **Slice Pre-D1**: Implementation prerequisites (`AuthSession::peekUser()` passive session inspection, `RouteAccessPolicy` canonical authorization matrix).
 - **Slice D1**: `AccessHandler`, `GET/POST /login`, `POST /logout`, return-after-login, responsive login view, and HTTP tests.
 - **Slice E1**: `AuthGuard` implementation, HTMX session expiry handling, and browser redirect tests.
 - **Slice E2**: `RoleGuard` implementation, R1 route authorization matrix enforcement, and 403 tests.
