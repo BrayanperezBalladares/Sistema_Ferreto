@@ -42,7 +42,7 @@
 
 ## Phase E: Authentication & Role Authorization Guards (Slice E1 & E2)
 
-- [ ] E.1 Implement `src/Modules/Access/AuthGuard.php` intercepting requests before handler dispatch: allow public routes (`GET /login`, `POST /login`, `GET /health`), redirect unauthenticated browser requests with 303 to `/login`, and intercept unauthenticated HTMX requests with HTTP 200 + `HX-Redirect: /login` and empty body.
+- [x] E.1 Implement `src/Modules/Access/AuthGuard.php` intercepting requests before handler dispatch: allow public routes (`GET /login`, `POST /login`, `GET /health`), redirect unauthenticated browser requests with 303 to `/login`, and intercept unauthenticated HTMX requests with HTTP 200 + `HX-Redirect: /login` and empty body.
 - [ ] E.2 Implement `src/Modules/Access/RoleGuard.php` evaluating the authoritative fresh DB role against the exact R1 route matrix: `administrador` (all 14 routes), `bodeguero` (catalog read, locations, inventory stock, counts), `cajero` (catalog read only), `compras` (catalog read only).
 - [ ] E.3 Integrate `AuthGuard` and `RoleGuard` into `src/Foundation/Kernel.php`, ensuring unauthenticated requests redirect and unauthorized requests return HTTP 403 Forbidden without executing handlers or mutations.
 - [ ] E.4 Add guard integration tests `tests/Integration/GuardTest.php` exercising the complete matrix for all 4 roles across all 14 business routes, unauthenticated browser 303 redirect, unauthenticated HTMX 200 + `HX-Redirect`, and 403 authorization denials.
