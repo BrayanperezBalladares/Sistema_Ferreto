@@ -22,9 +22,9 @@
 - [x] C.3 Extend `src/Foundation/NativeSession.php` with `regenerate(): void` (invoking `session_regenerate_id(true)` to prevent fixation), `destroy(): void`, and cookie expiration helper.
 - [x] C.4 Implement current-user persistent revalidation in `src/Modules/Access/AuthSession.php`: re-query DB on each request by `auth_user_id`, immediately revoking session if missing or `estado !== 'activo'`.
 - [x] C.5 Implement role-aware inactivity tracking in `AuthSession.php`: 20 minutes for `cajero`, configurable default (30 minutes in `config/defaults.php` via `SESSION_IDLE_TIMEOUT`) for other roles, clearing expired sessions on protected requests.
-- [ ] C.6 Add concurrency tests in `tests/Integration/LockoutConcurrencyTest.php` proving parallel failed attempts do not lose increments and the 6th failure reliably locks the account.
+- [x] C.6 Add concurrency tests in `tests/Integration/LockoutConcurrencyTest.php` proving parallel failed attempts do not lose increments and the 6th failure reliably locks the account.
 - [x] C.7 Add integration tests `tests/Integration/SessionLifecycleTest.php` proving session fixation regeneration, stale-state revocation, role updates during open sessions, and inactivity expiration.
-- [ ] C.8 Ensure no logging of passwords, hashes, session IDs, or CSRF tokens in `src/Foundation/Logger.php` or handlers, verified by `tests/Integration/SensitiveLoggingTest.php`.
+- [x] C.8 Ensure no logging of passwords, hashes, session IDs, or CSRF tokens in `src/Foundation/Logger.php` or handlers, verified by `tests/Integration/SensitiveLoggingTest.php`.
 
 ## Phase D: HTTP Login & Logout Delivery (Slice D1)
 
