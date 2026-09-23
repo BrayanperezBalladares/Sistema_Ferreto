@@ -5,15 +5,18 @@ use App\Foundation\Renderer;
 /** @var list<array{id_conteo: int, id_stock: int, cantidad_sistema: string, cantidad_contada: string, diferencia: string, notas: ?string, created_at: string}> $counts */
 $counts = isset($data['counts']) && is_array($data['counts']) ? $data['counts'] : [];
 ?>
-<div class="card-surface p-0" id="count-history-container">
+<div class="ferreto-card" id="count-history-container">
   <?php if (empty($counts)): ?>
-    <div class="has-text-centered py-6 px-4">
-      <p class="is-size-2 mb-2" aria-hidden="true">📋</p>
-      <p class="has-text-grey is-size-6 mb-0">No hay conteos registrados para esta existencia.</p>
+    <div class="empty-state-box">
+      <div class="empty-state-icon" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+      </div>
+      <h3 class="empty-state-title">No hay conteos registrados para esta existencia.</h3>
+      <p class="empty-state-desc">Usa el botón "Registrar conteo" para añadir la primera observación física.</p>
     </div>
   <?php else: ?>
     <div class="table-container mb-0">
-      <table class="table is-fullwidth is-hoverable is-narrow operational-table count-history-table mb-0">
+      <table class="ferreto-table count-history-table">
         <thead>
           <tr>
             <th scope="col" style="width: 25%;">Fecha</th>
@@ -33,11 +36,28 @@ $counts = isset($data['counts']) && is_array($data['counts']) ? $data['counts'] 
             $diffText = $isNeg ? $diff : ($isZero ? '0.000' : '+' . $diff);
             ?>
             <tr>
-              <td><span class="has-text-weight-medium is-family-monospace is-size-7"><?= Renderer::escape($c['created_at']) ?></span></td>
-              <td class="has-text-right"><span class="is-family-monospace"><?= Renderer::escape($c['cantidad_sistema']) ?></span></td>
-              <td class="has-text-right"><span class="is-family-monospace"><?= Renderer::escape($c['cantidad_contada']) ?></span></td>
-              <td class="has-text-right"><span class="is-family-monospace has-text-weight-semibold <?= $diffClass ?>"><?= Renderer::escape($diffText) ?></span></td>
-              <td><span class="is-size-7 <?= $c['notas'] !== null && $c['notas'] !== '' ? 'has-text-dark' : 'has-text-grey-light' ?>"><?= $c['notas'] !== null && $c['notas'] !== '' ? Renderer::escape($c['notas']) : '—' ?></span></td>
+              <td class="cell-date">
+                <span class="count-date"><?= Renderer::escape($c['created_at']) ?></span>
+              </td>
+              <td class="has-text-right cell-qty-sys">
+                <span class="count-label-mobile">Sistema: </span>
+                <span class="count-val"><?= Renderer::escape($c['cantidad_sistema']) ?></span>
+              </td>
+              <td class="has-text-right cell-qty-counted">
+                <span class="count-label-mobile">Contado: </span>
+                <span class="count-val has-text-weight-semibold"><?= Renderer::escape($c['cantidad_contada']) ?></span>
+              </td>
+              <td class="has-text-right cell-diff">
+                <span class="count-label-mobile">Diferencia: </span>
+                <span class="count-diff has-text-weight-semibold <?= $diffClass ?>"><?= Renderer::escape($diffText) ?></span>
+              </td>
+              <td class="cell-notes">
+                <?php if ($c['notas'] !== null && $c['notas'] !== ''): ?>
+                  <span class="count-notes"><?= Renderer::escape($c['notas']) ?></span>
+                <?php else: ?>
+                  <span class="count-notes-empty">—</span>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
