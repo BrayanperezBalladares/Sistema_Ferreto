@@ -6,17 +6,25 @@ namespace App\Foundation;
 
 final readonly class HealthHandler implements Handler
 {
+    private HealthAccessPolicy $healthPolicy;
+
     public function __construct(
         private Renderer $renderer,
         private Csrf $csrf,
         private Session $session,
+        ?HealthAccessPolicy $healthPolicy = null,
     ) {
+        $this->healthPolicy = $healthPolicy ?? new HealthAccessPolicy();
     }
 
     public function handle(Request $request): Response
     {
         if ($request->method === 'GET') {
             return $this->html($request, new ValidationResult([], []), $this->session->remove('flash'));
+        }
+
+        if (!$this->healthPolicy->allowsDiagnosticPost()) {
+            return new Response(405, ['Allow' => 'GET'], 'Method Not Allowed');
         }
 
         $input = trim($request->body['probe'] ?? '');

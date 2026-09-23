@@ -49,8 +49,8 @@
 
 ## Phase F: Infrastructure Health Boundaries (Slice F1)
 
-- [ ] F.1 Update `src/Foundation/HealthHandler.php` ensuring `GET /health` remains an anonymous minimal liveness probe, and gate `POST /health` behind `APP_ENV !== 'production'` (returning HTTP 405 Method Not Allowed with `Allow: GET`).
-- [ ] F.2 Add integration tests `tests/Integration/HealthBoundaryTest.php` verifying public access to `GET /health` and rejecting `POST /health` with 405 Method Not Allowed in simulated production mode (`APP_ENV=production`).
+- [x] F.1 Update `src/Foundation/HealthHandler.php` ensuring `GET /health` remains an anonymous minimal liveness probe, and gate `POST /health` behind `APP_ENV !== 'production'` (returning HTTP 405 Method Not Allowed with `Allow: GET`).
+- [x] F.2 Add integration tests `tests/Integration/HealthBoundaryTest.php` verifying public access to `GET /health` and rejecting `POST /health` with 405 Method Not Allowed in simulated production mode (`APP_ENV=production`).
 
 ## Phase G: Authenticated Shell & Role-Aware UI (Slice G1 & G2)
 
