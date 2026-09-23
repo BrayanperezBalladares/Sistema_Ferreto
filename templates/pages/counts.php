@@ -41,7 +41,7 @@ ob_start();
       <div class="field stock-selector-field">
         <label class="label is-small" for="stock-select">Seleccionar existencia para conteo</label>
         <div class="control">
-          <div class="select is-small is-fullwidth">
+          <div class="select is-small">
             <select name="stock" id="stock-select" onchange="this.form.submit()">
               <option value="">Selecciona una existencia...</option>
               <?php foreach ($positions as $pos): ?>
@@ -71,7 +71,7 @@ ob_start();
       <div class="stock-summary-header">
         <span class="stock-summary-badge">Resumen de existencia</span>
       </div>
-      <div class="stock-summary-grid columns is-multiline mb-0">
+      <div class="columns is-multiline mb-0">
         <div class="column is-12-mobile is-4-tablet">
           <div class="stock-summary-item">
             <span class="stock-summary-label">Producto</span>
@@ -84,8 +84,8 @@ ob_start();
             <span class="stock-summary-value location-code"><?= Renderer::escape($selectedStock['ubicacion_codigo']) ?></span>
           </div>
         </div>
-        <div class="column is-12-mobile is-4-tablet">
-          <div class="stock-summary-item stock-summary-quantity">
+        <div class="column is-12-mobile is-4-tablet stock-summary-quantity">
+          <div class="stock-summary-item">
             <span class="stock-summary-label">Cantidad del sistema</span>
             <span class="stock-summary-value quantity-value"><?= Renderer::escape($selectedStock['cantidad']) ?></span>
           </div>

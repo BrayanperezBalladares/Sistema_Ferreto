@@ -98,7 +98,9 @@ body.ferreto-app {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 .btn-primary:hover { background-color: var(--color-primary-hover); color: var(--color-nav, #111827); }
-.btn-primary:focus,
+.btn-primary:focus {
+  outline: none;
+}
 .btn-primary:focus-visible {
   outline: 2px solid var(--color-nav, #111827);
   outline-offset: 2px;
@@ -110,7 +112,9 @@ body.ferreto-app {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .btn-secondary:hover { background-color: var(--color-bg); border-color: #CBD5E1; }
-.btn-secondary:focus,
+.btn-secondary:focus {
+  outline: none;
+}
 .btn-secondary:focus-visible {
   outline: 2px solid var(--color-nav, #111827);
   outline-offset: 1px;
@@ -261,23 +265,54 @@ body.ferreto-app {
    ========================================================================== */
 
 .counts-toolbar {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
 }
 
 .stock-selector-field {
+  max-width: 520px;
+  width: 100%;
   margin-bottom: 0;
 }
 
+.stock-selector-field .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.stock-selector-field .control,
+.stock-selector-field .select {
+  width: 100%;
+}
+
+.stock-selector-field select {
+  width: 100%;
+  max-width: 520px;
+  height: 38px;
+  font-size: 14px;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 32px 0 12px;
+}
+
+.stock-selector-field select:focus,
+.stock-selector-field select:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  outline: none;
+}
+
 .stock-summary {
-  padding: 20px 24px;
+  padding: 16px 20px;
 }
 
 .stock-summary-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .stock-summary-badge {
@@ -294,22 +329,18 @@ body.ferreto-app {
   border: 1px solid var(--color-border);
 }
 
-.stock-summary-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 24px;
-  align-items: start;
+.stock-summary .columns {
+  align-items: baseline;
 }
 
 .stock-summary-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0;
+  gap: 3px;
 }
 
 .stock-summary-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -317,13 +348,14 @@ body.ferreto-app {
 }
 
 .stock-summary-value {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--color-text);
+  line-height: 1.4;
 }
 
 .stock-summary-value.product-title {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .stock-summary-value.location-code {
@@ -336,7 +368,7 @@ body.ferreto-app {
 }
 
 .quantity-value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
@@ -552,8 +584,7 @@ body.ferreto-app {
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .stock-summary { padding: 14px 16px; }
-  .stock-summary-grid { grid-template-columns: 1fr; gap: 12px; }
+  .stock-summary { padding: 12px 14px; }
   .stock-summary-quantity { text-align: left; }
 }
 
