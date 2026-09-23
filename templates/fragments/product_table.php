@@ -7,6 +7,17 @@ $products = $data['products'] ?? [];
 $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
+
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => true;
+
+$canUpdatePrice = $can('POST', '/products/1/price');
+$canDeactivate = $can('POST', '/products/1/deactivate');
+$canActivate = $can('POST', '/products/1/activate');
+$hasRowActions = $canUpdatePrice || $canDeactivate || $canActivate;
 ?>
 <div id="product-table-container">
 <?php if ($errors !== []): ?>
@@ -41,7 +52,9 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
           <th>Categoría</th>
           <th class="col-price">Precio actual</th>
           <th>Estado</th>
+          <?php if ($hasRowActions): ?>
           <th>Acciones</th>
+          <?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -68,8 +81,10 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
                 <span class="badge-inactive">Inactivo</span>
               <?php endif; ?>
             </td>
+            <?php if ($hasRowActions): ?>
             <td class="cell-actions">
               <div class="table-actions">
+                <?php if ($canUpdatePrice): ?>
                 <button
                   type="button"
                   class="btn-secondary btn-sm"
@@ -80,7 +95,9 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
                 >
                   Actualizar precio
                 </button>
+                <?php endif; ?>
                 <?php if ($p['estado_activo'] === 1): ?>
+                  <?php if ($canDeactivate): ?>
                   <button
                     type="button"
                     class="btn-secondary btn-sm btn-sm-danger"
@@ -90,7 +107,9 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
                   >
                     Desactivar
                   </button>
+                  <?php endif; ?>
                 <?php else: ?>
+                  <?php if ($canActivate): ?>
                   <button
                     type="button"
                     class="btn-secondary btn-sm btn-sm-activate"
@@ -100,9 +119,11 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
                   >
                     Activar
                   </button>
+                  <?php endif; ?>
                 <?php endif; ?>
               </div>
             </td>
+            <?php endif; ?>
           </tr>
         <?php endforeach; ?>
       </tbody>

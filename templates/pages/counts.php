@@ -13,6 +13,13 @@ $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : [];
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
+
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => true;
+
 $activeNav = 'counts';
 
 ob_start();
@@ -23,7 +30,7 @@ ob_start();
       <h1 class="page-title">Conteos físicos</h1>
       <p class="page-subtitle">Registra observaciones físicas del inventario sin modificar las existencias registradas en el sistema.</p>
     </div>
-    <?php if ($selectedStock !== null): ?>
+    <?php if ($selectedStock !== null && $can('POST', '/inventory/counts')): ?>
       <div class="page-actions">
         <button class="btn-primary" type="button" data-modal-open="modal-count"><span aria-hidden="true">+</span> Registrar conteo</button>
       </div>
@@ -99,6 +106,7 @@ ob_start();
       <?php require dirname(__DIR__) . '/fragments/count_history.php'; ?>
     </div>
 
+    <?php if ($selectedStock !== null && $can('POST', '/inventory/counts')): ?>
     <div class="modal <?= !empty($errors) ? 'is-active' : '' ?>" id="modal-count" role="dialog" aria-modal="true" aria-labelledby="modal-count-title">
       <div class="modal-background" data-modal-close></div>
       <div class="modal-card">
@@ -158,6 +166,7 @@ ob_start();
         </form>
       </div>
     </div>
+    <?php endif; ?>
   <?php endif; ?>
 </section>
 <?php

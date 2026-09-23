@@ -93,5 +93,6 @@ $routes = array_map(
     $authGuard,
     $roleGuard,
     healthPolicy: null,
-    viewContext: $viewContext
+    viewContext: $viewContext,
+    routePolicy: $routePolicy,
 ))->handle($request)->emit();

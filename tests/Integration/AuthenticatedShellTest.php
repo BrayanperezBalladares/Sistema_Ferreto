@@ -179,6 +179,7 @@ final class AuthenticatedShellTest extends TestCase
             $roleGuard,
             healthPolicy: null,
             viewContext: self::$viewContext,
+            routePolicy: $routePolicy,
         );
 
         return $kernel->handle($request);
@@ -429,5 +430,80 @@ final class AuthenticatedShellTest extends TestCase
         self::assertStringNotContainsString('badge-role', $response->body);
         self::assertStringNotContainsString('btn-logout', $response->body);
         self::assertStringNotContainsString('action="/logout"', $response->body);
+    }
+
+    public function testRoleAwareNavigationAndActionSuppression(): void
+    {
+        // Seed a product so table renders rather than empty state
+        $cmd = new ProductCommand(self::$tx);
+        $cmd->register('Martillo Test', '25.00', null, 'Martillo para pruebas');
+
+        // 1. Cajero on Products: can view catalog, but no mutation controls and no Inventario section
+        $cajeroId = $this->createUser('cajero_ui_test', 'cajero', 'activo');
+        $cajeroSession = new NativeSession(false);
+        $this->establishSession($cajeroId, $cajeroSession);
+
+        $cajeroRes = $this->dispatch(new Request('GET', '/products'), session: $cajeroSession);
+        self::assertSame(200, $cajeroRes->status);
+        self::assertStringContainsString('cajero_ui_test', $cajeroRes->body);
+        self::assertStringContainsString('Cajero', $cajeroRes->body);
+        self::assertStringContainsString('Productos', $cajeroRes->body);
+        // Navigation suppression
+        self::assertStringNotContainsString('Ubicaciones', $cajeroRes->body);
+        self::assertStringNotContainsString('Existencias por ubicación', $cajeroRes->body);
+        self::assertStringNotContainsString('Conteos físicos', $cajeroRes->body);
+        self::assertStringNotContainsString('<div class="nav-section-label">Inventario</div>', $cajeroRes->body);
+        // Action suppression
+        self::assertStringNotContainsString('Nueva categoría', $cajeroRes->body);
+        self::assertStringNotContainsString('Registrar producto', $cajeroRes->body);
+        self::assertStringNotContainsString('<th>Acciones</th>', $cajeroRes->body);
+        self::assertStringNotContainsString('Actualizar precio', $cajeroRes->body);
+        self::assertStringNotContainsString('modal-category', $cajeroRes->body);
+        self::assertStringNotContainsString('modal-product', $cajeroRes->body);
+
+        // 2. Bodeguero on Products: has full navigation, but no catalog mutation controls
+        $bodegueroId = $this->createUser('bodeguero_ui_test', 'bodeguero', 'activo');
+        $bodegueroSession = new NativeSession(false);
+        $this->establishSession($bodegueroId, $bodegueroSession);
+
+        $bodegueroRes = $this->dispatch(new Request('GET', '/products'), session: $bodegueroSession);
+        self::assertSame(200, $bodegueroRes->status);
+        self::assertStringContainsString('bodeguero_ui_test', $bodegueroRes->body);
+        self::assertStringContainsString('Bodeguero', $bodegueroRes->body);
+        // Bodeguero has navigation to inventory and locations
+        self::assertStringContainsString('Ubicaciones', $bodegueroRes->body);
+        self::assertStringContainsString('Existencias por ubicación', $bodegueroRes->body);
+        self::assertStringContainsString('Conteos físicos', $bodegueroRes->body);
+        self::assertStringContainsString('<div class="nav-section-label">Inventario</div>', $bodegueroRes->body);
+        // Bodeguero cannot mutate catalog
+        self::assertStringNotContainsString('Nueva categoría', $bodegueroRes->body);
+        self::assertStringNotContainsString('Registrar producto', $bodegueroRes->body);
+        self::assertStringNotContainsString('<th>Acciones</th>', $bodegueroRes->body);
+
+        // 3. Bodeguero on Locations: sees + Nueva ubicación
+        $locationsRes = $this->dispatch(new Request('GET', '/locations'), session: $bodegueroSession);
+        self::assertSame(200, $locationsRes->status);
+        self::assertStringContainsString('Nueva ubicación', $locationsRes->body);
+        self::assertStringContainsString('modal-location', $locationsRes->body);
+
+        // 4. Bodeguero on Inventory: sees + Registrar existencia
+        $inventoryRes = $this->dispatch(new Request('GET', '/inventory'), session: $bodegueroSession);
+        self::assertSame(200, $inventoryRes->status);
+        self::assertStringContainsString('Registrar existencia', $inventoryRes->body);
+        self::assertStringContainsString('modal-stock', $inventoryRes->body);
+
+        // 5. Administrador on Products: has full controls
+        $adminId = $this->createUser('admin_ui_test', 'administrador', 'activo');
+        $adminSession = new NativeSession(false);
+        $this->establishSession($adminId, $adminSession);
+
+        $adminRes = $this->dispatch(new Request('GET', '/products'), session: $adminSession);
+        self::assertSame(200, $adminRes->status);
+        self::assertStringContainsString('Nueva categoría', $adminRes->body);
+        self::assertStringContainsString('Registrar producto', $adminRes->body);
+        self::assertStringContainsString('<th>Acciones</th>', $adminRes->body);
+        self::assertStringContainsString('modal-category', $adminRes->body);
+        self::assertStringContainsString('modal-product', $adminRes->body);
+        self::assertStringContainsString('modal-price', $adminRes->body);
     }
 }

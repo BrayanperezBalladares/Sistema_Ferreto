@@ -14,6 +14,12 @@ $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : []
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
 
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => true;
+
 $activeNav = 'inventory';
 
 ob_start();
@@ -24,11 +30,13 @@ ob_start();
       <h1 class="page-title">Existencias por ubicación</h1>
       <p class="page-subtitle">Consulta las existencias registradas para cada producto y ubicación.</p>
     </div>
+    <?php if ($can('POST', '/inventory/stock')): ?>
     <div class="page-actions">
       <button class="btn-primary" type="button" data-modal-open="modal-stock">
         <span aria-hidden="true">+</span> Registrar existencia
       </button>
     </div>
+    <?php endif; ?>
   </div>
 
   <div id="stock-table-container">
@@ -70,6 +78,7 @@ ob_start();
     </div>
   </div>
 
+  <?php if ($can('POST', '/inventory/stock')): ?>
   <!-- Modal: Registrar existencia -->
   <div class="modal <?= !empty($errors) ? 'is-active' : '' ?>" id="modal-stock" role="dialog" aria-modal="true" aria-labelledby="modal-stock-title">
     <div class="modal-background" data-modal-close></div>
@@ -139,6 +148,7 @@ ob_start();
       </form>
     </div>
   </div>
+  <?php endif; ?>
 </section>
 
 <?php
