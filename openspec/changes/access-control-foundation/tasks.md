@@ -60,9 +60,9 @@
 
 ## Phase H: Test Suite Authentication Migration (Slice H1)
 
-- [ ] H.1 Create test authentication trait `tests/Support/AuthSessionTrait.php` for establishing authenticated principal sessions in the `_test` database without disabling guards or bypassing security code.
-- [ ] H.2 Migrate existing R1 test suites (`CatalogHttpTest.php`, `LocationHttpTest.php`, `InventoryHttpTest.php`, `CountHttpTest.php`) to execute with appropriate authenticated roles.
-- [ ] H.3 Verify complete suite execution under `composer test` proving all R1 existing test cases pass cleanly with authentication guards active.
+- [x] H.1 Create test authentication trait `tests/Support/AuthSessionTrait.php` for establishing authenticated principal sessions in the `_test` database without disabling guards or bypassing security code.
+- [x] H.2 Migrate existing R1 test suites (`CatalogHttpTest.php`, `LocationHttpTest.php`, `InventoryHttpTest.php`, `CountHttpTest.php`) to execute with appropriate authenticated roles.
+- [x] H.3 Verify complete suite execution under `composer test` proving all R1 existing test cases pass cleanly with authentication guards active.
 
 ## Phase I: Security & R1 Regression Verification (Slice I1)
 

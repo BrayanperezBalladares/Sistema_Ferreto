@@ -8,10 +8,12 @@ use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, 
 use App\Modules\Inventory\{LocationCommand, LocationHandler, LocationQuery};
 use PDO;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\AuthSessionTrait;
 
 final class LocationHttpTest extends TestCase
 {
     use DatabaseIsolationTrait;
+    use AuthSessionTrait;
 
     private static Database $testDb;
     private static Database $devDb;
@@ -51,6 +53,7 @@ final class LocationHttpTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $pdo->exec('TRUNCATE TABLE ubicacion');
+        $pdo->exec('TRUNCATE TABLE usuario');
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
@@ -235,20 +238,15 @@ final class LocationHttpTest extends TestCase
 
     public function testProductionEntrypointServesLocations(): void
     {
-        $root = dirname(__DIR__, 2);
-        $code = 'putenv("APP_ENV=test"); $_SERVER["REQUEST_METHOD"] = "GET"; $_SERVER["REQUEST_URI"] = "/locations"; $_SERVER["SERVER_NAME"] = "localhost"; require "public/index.php";';
-        $proc = proc_open([PHP_BINARY, '-r', $code], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
-        self::assertIsResource($proc);
-        $stdout = (string) stream_get_contents($pipes[1]);
-        $stderr = (string) stream_get_contents($pipes[2]);
-        foreach ($pipes as $p) { fclose($p); }
-        $exitCode = proc_close($proc);
+        $adminId = $this->createAuthUser(self::$testDb, 'admin_location_entrypoint', 'administrador', 'activo');
+        $res = $this->runEntrypointRequest('GET', '/locations', $adminId);
 
-        self::assertSame(0, $exitCode);
-        self::assertStringNotContainsString('Undefined array key "location"', $stderr);
-        self::assertStringNotContainsString('"level":"error"', $stderr);
-        self::assertStringContainsString('Ubicaciones', $stdout);
-        self::assertStringContainsString('id="location-table-container"', $stdout);
+        self::assertSame(200, $res['status']);
+        self::assertSame(0, $res['exitCode']);
+        self::assertStringNotContainsString('Undefined array key "location"', $res['stderr']);
+        self::assertStringNotContainsString('"level":"error"', $res['stderr']);
+        self::assertStringContainsString('Ubicaciones', $res['stdout']);
+        self::assertStringContainsString('id="location-table-container"', $res['stdout']);
     }
 
     /** @param array<string, mixed> $body */

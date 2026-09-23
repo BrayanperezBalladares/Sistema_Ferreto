@@ -7,10 +7,12 @@ namespace Tests\Integration;
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
 use App\Modules\Inventory\{CountCommand, CountQuery, InventoryHandler, LocationCommand, ProductCommand, StockCommand, StockQuery};
 use PHPUnit\Framework\TestCase;
+use Tests\Support\AuthSessionTrait;
 
 final class CountHttpTest extends TestCase
 {
     use DatabaseIsolationTrait;
+    use AuthSessionTrait;
 
     private static Database $testDb, $devDb;
     private static Config $config;
@@ -53,7 +55,7 @@ final class CountHttpTest extends TestCase
     {
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'categoria'] as $t) {
+        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'categoria', 'usuario'] as $t) {
             $pdo->exec("TRUNCATE TABLE {$t}");
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
@@ -161,20 +163,15 @@ final class CountHttpTest extends TestCase
 
     public function testProductionEntrypointServesCounts(): void
     {
-        $root = dirname(__DIR__, 2);
-        $code = 'putenv("APP_ENV=test"); $_SERVER["REQUEST_METHOD"] = "GET"; $_SERVER["REQUEST_URI"] = "/inventory/counts"; $_SERVER["SERVER_NAME"] = "localhost"; require "public/index.php";';
-        $proc = proc_open([PHP_BINARY, '-r', $code], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
-        self::assertIsResource($proc);
-        $stdout = (string) stream_get_contents($pipes[1]);
-        $stderr = (string) stream_get_contents($pipes[2]);
-        foreach ($pipes as $p) { fclose($p); }
-        $exitCode = proc_close($proc);
+        $adminId = $this->createAuthUser(self::$testDb, 'admin_count_entrypoint', 'administrador', 'activo');
+        $res = $this->runEntrypointRequest('GET', '/inventory/counts', $adminId);
 
-        self::assertSame(0, $exitCode);
-        self::assertStringNotContainsString('Undefined array key "inventory"', $stderr);
-        self::assertStringNotContainsString('"level":"error"', $stderr);
-        self::assertStringContainsString('Conteos físicos', $stdout);
-        self::assertStringContainsString('id="stock-selector-container"', $stdout);
+        self::assertSame(200, $res['status']);
+        self::assertSame(0, $res['exitCode']);
+        self::assertStringNotContainsString('Undefined array key "inventory"', $res['stderr']);
+        self::assertStringNotContainsString('"level":"error"', $res['stderr']);
+        self::assertStringContainsString('Conteos físicos', $res['stdout']);
+        self::assertStringContainsString('id="stock-selector-container"', $res['stdout']);
     }
 
     public function testCountRegistrationSucceedsAndEnforcesStockNonMutationInvariant(): void
