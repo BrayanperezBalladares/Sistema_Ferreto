@@ -227,6 +227,7 @@ body.ferreto-app {
 .ferreto-table td.cell-price {
   text-align: right; font-variant-numeric: tabular-nums; font-weight: 500;
 }
+.ferreto-table td.cell-quantity { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
 .product-title { font-weight: 600; color: var(--color-text); }
 .product-desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
 .badge-active {
@@ -344,9 +345,10 @@ body.ferreto-app {
     flex: 0 0 auto;
     min-height: 38px;
   }
-  .ferreto-table thead { display: none; }
-  .ferreto-table, .ferreto-table tbody { display: block; width: 100%; }
-  .ferreto-table tr {
+  .ferreto-table:not(.ferreto-table-tabular) thead { display: none; }
+  .ferreto-table:not(.ferreto-table-tabular),
+  .ferreto-table:not(.ferreto-table-tabular) tbody { display: block; width: 100%; }
+  .ferreto-table:not(.ferreto-table-tabular) tr {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: baseline;
@@ -354,7 +356,9 @@ body.ferreto-app {
     border-bottom: 1px solid var(--color-border);
     gap: 6px 12px;
   }
-  .ferreto-table td { padding: 0; border: none; }
+  .ferreto-table:not(.ferreto-table-tabular) td { padding: 0; border: none; }
+  .ferreto-table-tabular th { padding: 10px 12px; font-size: 11px; letter-spacing: 0.04em; }
+  .ferreto-table-tabular td { padding: 10px 12px; font-size: 13px; }
   .cell-product { grid-column: 1 / 2; }
   .cell-price { grid-column: 2 / 3; text-align: right; font-weight: 600; font-size: 15px; color: var(--color-text); }
   .cell-category { grid-column: 1 / 2; display: flex; align-items: center; gap: 6px; }
