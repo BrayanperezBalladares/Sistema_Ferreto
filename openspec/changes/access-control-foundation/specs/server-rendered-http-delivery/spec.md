@@ -81,9 +81,12 @@ The system MUST provide an anonymous GET /health endpoint returning a minimal av
 - AND the response MUST NOT expose database credentials, operational records, or session identifiers
 
 #### Scenario: Reject probe mutation in production
-- GIVEN the application is running in a production environment
+- GIVEN the application is running in a production or disallowed environment
 - WHEN a POST request is issued to /health
-- THEN the system MUST NOT expose or execute the diagnostic probe mutation
+- THEN the system MUST respond with HTTP status 405 Method Not Allowed
+- AND the response MUST include header Allow set to GET
+- AND the response body MUST be Method Not Allowed
+- AND the diagnostic probe mutation and session flash MUST NOT be executed
 
 ---
 

@@ -26,7 +26,7 @@ Establish the minimal, robust security foundation for **Ferreterías El Construc
 | **Return Redirection** | Server session storage (`auth_target_url`) with relative path validation | Query parameter (`?return=...`); open referer header | Eliminates open redirect vectors and tamperable URL parameters while preserving workflow continuity. |
 | **Admin Provisioning** | Interactive CLI command (`scripts/console.php create-user`) with initial state `'activo'` | DB migration seed; default `admin:admin`; public signup | Zero plaintext credentials in version control; privileged provisioning creates usable accounts before User Admin UI exists. |
 | **Lockout Recovery** | Interactive CLI command (`scripts/console.php unlock-user`) | Automatic time-based unlock; email reset link | Authoritative requirement (§6) mandates administrative unlock; avoids external SMTP dependency. Restricts recovery strictly to `bloqueado` accounts. |
-| **Health Endpoint** | `GET /health` public minimal liveness; `POST /health` test/dev-only harness | Public mutating probe; fully authenticated health check | Allows container/load-balancer liveness checks while closing arbitrary session mutation in production (`APP_ENV !== 'production'`). |
+| **Health Endpoint** | `GET /health` public minimal liveness; `POST /health` test/dev-only harness | Public mutating probe; fully authenticated health check | Allows container/load-balancer liveness checks while closing arbitrary session mutation in production (`APP_ENV !== 'production'`, returning HTTP 405 with `Allow: GET`). |
 
 ---
 
@@ -221,7 +221,7 @@ Derived from actual `config/routes.php` (14 existing routes) plus 3 new access r
 | # | Method | Path | Handler Key | Allowed Roles | Anonymous Allowed? | Operational Notes |
 |---|---|---|---|---|---|---|
 | 1 | `GET` | `/health` | `health` | Public / All | **YES** | Minimal liveness check |
-| 2 | `POST` | `/health` | `health` | Dev/Test only | Gated | Gated by `APP_ENV !== 'production'` |
+| 2 | `POST` | `/health` | `health` | Dev/Test only | Gated | Gated by `APP_ENV !== 'production'` (fails closed returning HTTP 405 `Allow: GET`) |
 | 3 | `GET` | `/login` | `access` | Public / All | **YES** | Redirects to `/products` if authenticated |
 | 4 | `POST` | `/login` | `access` | Public / All | **YES** | Authenticates credentials |
 | 5 | `POST` | `/logout` | `access` | `administrador`, `bodeguero`, `cajero`, `compras` | **NO** | Complete session destruction |
