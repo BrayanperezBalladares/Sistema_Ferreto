@@ -80,12 +80,29 @@ body.ferreto-app {
 }
 .page-title { font-size: 26px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; line-height: 1.2; }
 .page-subtitle { font-size: 14px; color: var(--color-text-muted); margin: 0; }
+.nav-icon,
+.logout-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-icon svg,
+.logout-icon svg {
+  display: inline-block;
+  vertical-align: middle;
+}
 .btn-primary {
-  background-color: var(--color-primary); color: #FFFFFF; border: none;
+  background-color: var(--color-primary); color: var(--color-nav, #111827); border: none;
   border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; padding: 8px 16px;
   cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
-.btn-primary:hover { background-color: var(--color-primary-hover); color: #FFFFFF; }
+.btn-primary:hover { background-color: var(--color-primary-hover); color: var(--color-nav, #111827); }
+.btn-primary:focus,
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-nav, #111827);
+  outline-offset: 2px;
+}
 .btn-secondary {
   background-color: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
   border-radius: var(--radius-sm); font-weight: 500; font-size: 14px; padding: 8px 16px;
@@ -181,13 +198,18 @@ body.ferreto-app {
   }
   .nav-toggle {
     display: inline-flex; flex-direction: column; justify-content: center;
-    align-items: center; width: 40px; height: 40px; min-width: 40px; min-height: 40px;
+    align-items: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px;
     border: 1px solid var(--color-border); border-radius: var(--radius-sm);
     background: var(--color-surface); color: var(--color-text); cursor: pointer;
-    gap: 4px; padding: 0; flex-shrink: 0;
+    gap: 3.5px; padding: 0; flex-shrink: 0;
+  }
+  .nav-toggle:focus,
+  .nav-toggle:focus-visible {
+    outline: 2px solid var(--color-nav, #111827);
+    outline-offset: 2px;
   }
   .nav-toggle-bar {
-    width: 18px; height: 2px; background-color: var(--color-text);
+    width: 16px; height: 2px; background-color: var(--color-text);
     border-radius: 1px; transition: background-color 0.15s ease;
   }
   .nav-toggle:hover { background-color: var(--color-surface-subtle); }
@@ -215,8 +237,15 @@ body.ferreto-app {
     width: 44px; height: 44px; min-width: 44px; min-height: 44px;
   }
   .app-workspace { padding: 12px; }
-  .topbar-crumb, .topbar-sep { display: none; }
-  .topbar-current { font-size: 14px; }
+  .topbar-current, .topbar-sep { display: none; }
+  .topbar-crumb {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
   .page-header {
     flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px;
   }
@@ -288,25 +317,25 @@ body.ferreto-app {
 .topbar-user {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   margin-left: auto;
   flex-shrink: 0;
 }
 
-.user-meta {
+.topbar-user .user-meta {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.user-name {
+.topbar-user .user-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
   line-height: 1.2;
 }
 
-.badge-role {
+.topbar-user .badge-role {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -319,22 +348,21 @@ body.ferreto-app {
   letter-spacing: 0.02em;
 }
 
-.logout-form {
+.topbar-user .logout-form {
   display: inline-flex;
   margin: 0;
   padding: 0;
 }
 
-.btn-logout {
+.topbar-user .btn-logout {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 8px 12px;
+  min-height: 32px;
+  padding: 4px 10px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-muted);
   background-color: transparent;
   border: 1px solid var(--color-border);
@@ -345,19 +373,21 @@ body.ferreto-app {
   box-sizing: border-box;
 }
 
-.btn-logout:hover {
+.topbar-user .btn-logout:hover {
   color: var(--color-danger);
   background-color: var(--color-danger-subtle);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-.btn-logout:focus,
-.btn-logout:focus-visible {
-  outline: 2px solid var(--color-nav);
+.topbar-user .btn-logout:focus,
+.topbar-user .btn-logout:focus-visible {
+  outline: 2px solid var(--color-nav, #111827);
   outline-offset: 2px;
 }
 
 .logout-icon {
+  display: inline-flex;
+  align-items: center;
   font-size: 14px;
   line-height: 1;
 }
@@ -396,6 +426,10 @@ body.ferreto-app {
   background: var(--color-nav-surface);
   color: var(--color-nav-muted);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -406,10 +440,20 @@ body.ferreto-app {
 .sidebar-user .btn-logout {
   width: 100%;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   color: var(--color-nav-muted);
   background-color: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .sidebar-user .btn-logout:hover {
@@ -424,8 +468,14 @@ body.ferreto-app {
   outline-offset: 2px;
 }
 
-@media (max-width: 640px) {
-  .topbar-user .user-meta {
+@media (min-width: 1024px) {
+  .sidebar-user {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .topbar-user {
     display: none;
   }
 }
