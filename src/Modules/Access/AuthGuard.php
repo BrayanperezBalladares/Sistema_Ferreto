@@ -40,9 +40,18 @@ final readonly class AuthGuard
      * Returns a Response when access is denied:
      * - Standard browser request: 303 See Other redirecting to /login.
      * - HTMX request (HX-Request: true): HTTP 200 with HX-Redirect: /login and empty body.
+     *
+     * @param array{
+     *     id_usuario: int,
+     *     username: string,
+     *     rol: string,
+     *     estado: string
+     * }|null $principal Output parameter populated with the sanitized authenticated principal
      */
-    public function check(Request $request): ?Response
+    public function check(Request $request, ?array &$principal = null): ?Response
     {
+        $principal = null;
+
         if ($this->isPublicRoute($request)) {
             return null;
         }
@@ -51,6 +60,12 @@ final readonly class AuthGuard
         // role-aware inactivity expiration, and activity timestamp refresh.
         $user = $this->authSession->user();
         if ($user !== null) {
+            $principal = [
+                'id_usuario' => (int) $user['id_usuario'],
+                'username'   => (string) $user['username'],
+                'rol'        => (string) $user['rol'],
+                'estado'     => (string) $user['estado'],
+            ];
             return null;
         }
 

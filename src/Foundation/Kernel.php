@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Foundation;
 
 use App\Modules\Access\AuthGuard;
+use App\Modules\Access\RoleGuard;
 
 final readonly class Kernel
 {
@@ -13,6 +14,7 @@ final readonly class Kernel
         private Csrf $csrf,
         private ErrorMapper $errors,
         private ?AuthGuard $authGuard = null,
+        private ?RoleGuard $roleGuard = null,
     ) {
     }
 
@@ -20,10 +22,18 @@ final readonly class Kernel
     {
         try {
             return $this->router->dispatch($request, function (Request $matched): ?Response {
+                $principal = null;
                 if ($this->authGuard !== null) {
-                    $authResponse = $this->authGuard->check($matched);
+                    $authResponse = $this->authGuard->check($matched, $principal);
                     if ($authResponse !== null) {
                         return $authResponse;
+                    }
+                }
+
+                if ($this->roleGuard !== null && $principal !== null) {
+                    $roleResponse = $this->roleGuard->check($matched, $principal);
+                    if ($roleResponse !== null) {
+                        return $roleResponse;
                     }
                 }
 
