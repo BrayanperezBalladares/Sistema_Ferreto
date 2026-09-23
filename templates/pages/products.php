@@ -27,7 +27,7 @@ ob_start();
     </div>
   </div>
 
-  <div class="search-bar-card">
+  <div class="search-toolbar">
     <input
       class="search-input"
       type="search"
@@ -68,7 +68,7 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Guardar categoría</button>
         </footer>
@@ -127,7 +127,7 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Registrar producto</button>
         </footer>
@@ -161,7 +161,7 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Actualizar precio</button>
         </footer>
@@ -183,7 +183,7 @@ ob_start();
           <p class="mb-2">¿Estás seguro de que deseas desactivar el producto <strong id="modal-deactivate-product-name"></strong>?</p>
           <p class="is-size-7 has-text-grey">El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.</p>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-danger" type="submit">Desactivar</button>
         </footer>
@@ -205,7 +205,7 @@ ob_start();
           <p class="mb-2">¿Estás seguro de que deseas activar el producto <strong id="modal-activate-product-name"></strong>?</p>
           <p class="is-size-7 has-text-grey">Este producto volverá a estar activo en el catálogo. Se conservará su información y sus referencias existentes.</p>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Activar</button>
         </footer>
