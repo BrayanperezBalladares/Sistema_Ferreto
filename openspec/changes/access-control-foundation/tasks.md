@@ -54,7 +54,7 @@
 
 ## Phase G: Authenticated Shell & Role-Aware UI (Slice G1 & G2)
 
-- [ ] G.1 Update `templates/layout.php` and navigation to render username, human-readable role badge, and touch-accessible logout button (>=44px) in topbar and mobile drawer.
+- [x] G.1 Update `templates/layout.php` and navigation to render username, human-readable role badge, and touch-accessible logout button (>=44px) in topbar and mobile drawer.
 - [ ] G.2 Conditionally suppress unauthorized operational buttons in `templates/pages/products.php`, `templates/pages/locations.php`, `templates/pages/inventory.php`, and `templates/pages/counts.php` based on user role (`cajero`/`compras` cannot see mutation controls; `bodeguero` cannot see catalog mutation controls).
 - [ ] G.3 Add UI integration tests `tests/Integration/AuthenticatedUiTest.php` verifying layout context display and role-based action control suppression in rendered HTML.
 

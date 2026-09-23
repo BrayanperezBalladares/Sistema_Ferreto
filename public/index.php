@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
+use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction, ViewContext};
 use App\Modules\Access\{AccessHandler, Authenticator, AuthSession, RouteAccessPolicy, UserCommand, UserQuery};
 use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
 
@@ -24,7 +24,8 @@ if (isset($assets[$request->path]) && $request->method === 'GET') {
 
 $session = new NativeSession(!in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], true));
 $csrf = new Csrf($session);
-$renderer = new Renderer($root);
+$viewContext = new ViewContext();
+$renderer = new Renderer($root, $viewContext);
 
 $config = Config::fromEnvironment(require $root . '/config/defaults.php');
 $database = new Database($config, $config->get('APP_ENV') === 'test');
@@ -83,4 +84,4 @@ $routes = array_map(
     $routeConfig
 );
 
-(new Kernel(new Router($routes), $csrf, new ErrorMapper(new Logger(), $renderer)))->handle($request)->emit();
+(new Kernel(new Router($routes), $csrf, new ErrorMapper(new Logger(), $renderer), healthPolicy: null, viewContext: $viewContext))->handle($request)->emit();

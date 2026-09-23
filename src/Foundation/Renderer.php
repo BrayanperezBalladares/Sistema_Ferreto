@@ -20,8 +20,15 @@ final readonly class Renderer
         'error' => 'error.php',
     ];
 
-    public function __construct(private string $root)
+    public function __construct(
+        private string $root,
+        private ?ViewContext $viewContext = null,
+    ) {
+    }
+
+    public function viewContext(): ?ViewContext
     {
+        return $this->viewContext;
     }
 
     /**
@@ -29,6 +36,10 @@ final readonly class Renderer
      */
     public function render(string $name, array $data = []): string
     {
+        if ($this->viewContext !== null) {
+            $data = array_merge($this->viewContext->all(), $data);
+        }
+
         $file = self::TEMPLATES[$name] ?? throw new \InvalidArgumentException('Template is not allowed.');
         $level = ob_get_level();
         ob_start();

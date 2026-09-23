@@ -10,6 +10,7 @@
   <script src="/assets/app.js" defer></script>
 </head>
 <body class="ferreto-app">
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
   <div class="app-layout">
     <aside class="app-sidebar" id="app-sidebar">
       <div class="sidebar-brand">
@@ -23,28 +24,54 @@
         </button>
       </div>
 <?php
+use App\Foundation\Renderer;
+
 $activeNav = $activeNav ?? 'products';
+$user = $data['user'] ?? null;
+$csrf = $data['csrf'] ?? '';
+$roleLabels = [
+    'administrador' => 'Administrador',
+    'bodeguero' => 'Bodeguero',
+    'cajero' => 'Cajero',
+    'compras' => 'Compras',
+];
+$roleLabel = $user !== null ? ($roleLabels[$user['rol']] ?? ucfirst((string) $user['rol'])) : '';
 ?>
       <nav class="sidebar-nav" aria-label="Navegación principal">
         <div class="nav-section-label">Catálogo</div>
-        <a href="/products" class="nav-item <?= $activeNav === 'products' ? 'is-active' : '' ?>">
+        <a href="/products" class="nav-item <?= $activeNav === 'products' ? 'is-active' : '' ?>"<?= $activeNav === 'products' ? ' aria-current="page"' : '' ?>>
           <span class="nav-icon" aria-hidden="true">📦</span>
           <span class="nav-label">Productos</span>
         </a>
-        <a href="/locations" class="nav-item <?= $activeNav === 'locations' ? 'is-active' : '' ?>">
+        <a href="/locations" class="nav-item <?= $activeNav === 'locations' ? 'is-active' : '' ?>"<?= $activeNav === 'locations' ? ' aria-current="page"' : '' ?>>
           <span class="nav-icon" aria-hidden="true">📍</span>
           <span class="nav-label">Ubicaciones</span>
         </a>
         <div class="nav-section-label">Inventario</div>
-        <a href="/inventory" class="nav-item <?= $activeNav === 'inventory' ? 'is-active' : '' ?>">
+        <a href="/inventory" class="nav-item <?= $activeNav === 'inventory' ? 'is-active' : '' ?>"<?= $activeNav === 'inventory' ? ' aria-current="page"' : '' ?>>
           <span class="nav-icon" aria-hidden="true">📊</span>
           <span class="nav-label">Existencias por ubicación</span>
         </a>
-        <a href="/inventory/counts" class="nav-item <?= $activeNav === 'counts' ? 'is-active' : '' ?>">
+        <a href="/inventory/counts" class="nav-item <?= $activeNav === 'counts' ? 'is-active' : '' ?>"<?= $activeNav === 'counts' ? ' aria-current="page"' : '' ?>>
           <span class="nav-icon" aria-hidden="true">📋</span>
           <span class="nav-label">Conteos físicos</span>
         </a>
       </nav>
+      <?php if ($user !== null): ?>
+      <div class="sidebar-user">
+        <div class="sidebar-user-meta">
+          <span class="user-name"><?= Renderer::escape($user['username']) ?></span>
+          <span class="badge-role"><?= Renderer::escape($roleLabel) ?></span>
+        </div>
+        <form method="post" action="/logout" class="logout-form">
+          <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <button type="submit" class="btn-logout" aria-label="Cerrar sesión">
+            <span class="logout-icon" aria-hidden="true">🚪</span>
+            <span class="logout-text">Cerrar sesión</span>
+          </button>
+        </form>
+      </div>
+      <?php endif; ?>
     </aside>
     <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true" data-drawer-close></div>
     <div class="app-main">
@@ -71,8 +98,23 @@ $activeNav = $activeNav ?? 'products';
             <span class="topbar-current">Productos</span>
           <?php endif; ?>
         </div>
+        <?php if ($user !== null): ?>
+        <div class="topbar-user">
+          <div class="user-meta">
+            <span class="user-name"><?= Renderer::escape($user['username']) ?></span>
+            <span class="badge-role"><?= Renderer::escape($roleLabel) ?></span>
+          </div>
+          <form method="post" action="/logout" class="logout-form">
+            <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+            <button type="submit" class="btn-logout" aria-label="Cerrar sesión">
+              <span class="logout-icon" aria-hidden="true">🚪</span>
+              <span class="logout-text">Salir</span>
+            </button>
+          </form>
+        </div>
+        <?php endif; ?>
       </header>
-      <main class="app-workspace">
+      <main class="app-workspace" id="main-content">
         <?= $content ?>
       </main>
     </div>

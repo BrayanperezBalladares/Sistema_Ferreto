@@ -18,12 +18,15 @@ final readonly class Kernel
         private ?AuthGuard $authGuard = null,
         private ?RoleGuard $roleGuard = null,
         ?HealthAccessPolicy $healthPolicy = null,
+        private ?ViewContext $viewContext = null,
     ) {
         $this->healthPolicy = $healthPolicy ?? new HealthAccessPolicy();
     }
 
     public function handle(Request $request): Response
     {
+        $this->viewContext?->clear();
+
         try {
             return $this->router->dispatch($request, function (Request $matched): ?Response {
                 if ($matched->method === 'POST' && $matched->path === '/health' && !$this->healthPolicy->allowsDiagnosticPost()) {
@@ -43,6 +46,14 @@ final readonly class Kernel
                     if ($roleResponse !== null) {
                         return $roleResponse;
                     }
+                }
+
+                if ($principal !== null && $this->viewContext !== null) {
+                    $this->viewContext->set('user', [
+                        'username' => $principal['username'],
+                        'rol' => $principal['rol'],
+                    ]);
+                    $this->viewContext->set('csrf', $this->csrf->token());
                 }
 
                 if (!in_array($matched->method, ['GET', 'HEAD', 'OPTIONS'], true) && !$this->csrf->valid($matched)) {
