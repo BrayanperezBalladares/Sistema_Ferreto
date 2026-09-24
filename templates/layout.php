@@ -41,7 +41,7 @@ $roleLabel = $user !== null ? ($roleLabels[$user['rol']] ?? ucfirst((string) $us
 $permissions = $data['permissions'] ?? null;
 $can = $permissions instanceof \App\Modules\Access\ViewPermissions
     ? $permissions->can(...)
-    : static fn (string $method, string $path): bool => true;
+    : static fn (string $method, string $path): bool => false;
 ?>
       <nav class="sidebar-nav" aria-label="Navegación principal">
         <?php if ($can('GET', '/products') || $can('GET', '/locations')): ?>

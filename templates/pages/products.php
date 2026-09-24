@@ -15,7 +15,7 @@ $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : []
 $permissions = $data['permissions'] ?? null;
 $can = $permissions instanceof \App\Modules\Access\ViewPermissions
     ? $permissions->can(...)
-    : static fn (string $method, string $path): bool => true;
+    : static fn (string $method, string $path): bool => false;
 
 ob_start();
 ?>

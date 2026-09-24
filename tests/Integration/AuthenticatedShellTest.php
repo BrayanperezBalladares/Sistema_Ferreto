@@ -506,4 +506,70 @@ final class AuthenticatedShellTest extends TestCase
         self::assertStringContainsString('modal-product', $adminRes->body);
         self::assertStringContainsString('modal-price', $adminRes->body);
     }
+
+    public function testMissingViewPermissionsFailsClosed(): void
+    {
+        $bareRenderer = new Renderer(dirname(__DIR__, 2));
+
+        $renderedProducts = $bareRenderer->render('page.products', [
+            'products' => [[
+                'id_producto' => 1,
+                'id_categoria' => null,
+                'categoria_nombre' => null,
+                'nombre' => 'Producto Prueba',
+                'descripcion' => null,
+                'precio_actual' => '10.00',
+                'estado_activo' => 1,
+                'created_at' => '2026-01-01 00:00:00',
+                'updated_at' => '2026-01-01 00:00:00',
+            ]],
+            'categories' => [],
+            'query' => '',
+            'csrf' => 'token123',
+        ]);
+
+        self::assertStringNotContainsString('Nueva categoría', $renderedProducts);
+        self::assertStringNotContainsString('Registrar producto', $renderedProducts);
+        self::assertStringNotContainsString('modal-category', $renderedProducts);
+        self::assertStringNotContainsString('modal-product', $renderedProducts);
+        self::assertStringNotContainsString('modal-price', $renderedProducts);
+        self::assertStringNotContainsString('modal-deactivate', $renderedProducts);
+        self::assertStringNotContainsString('modal-activate', $renderedProducts);
+        self::assertStringNotContainsString('<th>Acciones</th>', $renderedProducts);
+        self::assertStringNotContainsString('Actualizar precio', $renderedProducts);
+
+        $renderedLocations = $bareRenderer->render('page.locations', [
+            'locations' => [],
+            'csrf' => 'token123',
+        ]);
+        self::assertStringNotContainsString('Nueva ubicación', $renderedLocations);
+        self::assertStringNotContainsString('modal-location', $renderedLocations);
+        self::assertStringNotContainsString('<div class="nav-section-label">Inventario</div>', $renderedLocations);
+        self::assertStringNotContainsString('href="/locations"', $renderedLocations);
+        self::assertStringNotContainsString('href="/inventory"', $renderedLocations);
+        self::assertStringNotContainsString('href="/inventory/counts"', $renderedLocations);
+
+        $renderedInventory = $bareRenderer->render('page.inventory', [
+            'positions' => [],
+            'products' => [],
+            'locations' => [],
+            'csrf' => 'token123',
+        ]);
+        self::assertStringNotContainsString('Registrar existencia', $renderedInventory);
+        self::assertStringNotContainsString('modal-stock', $renderedInventory);
+
+        $renderedCounts = $bareRenderer->render('page.counts', [
+            'stocks' => [],
+            'selectedStock' => [
+                'id_stock' => 1,
+                'producto_nombre' => 'Producto Prueba',
+                'ubicacion_codigo' => 'LOC-1',
+                'cantidad' => '10.000',
+            ],
+            'observations' => [],
+            'csrf' => 'token123',
+        ]);
+        self::assertStringNotContainsString('data-modal-open="modal-count"', $renderedCounts);
+        self::assertStringNotContainsString('id="modal-count"', $renderedCounts);
+    }
 }

@@ -38,7 +38,9 @@ final class LocationHttpTest extends TestCase
         $tx = new Transaction(self::$testDb);
         self::$locQuery = new LocationQuery(self::$testDb);
         self::$locCmd = new LocationCommand($tx);
-        self::$renderer = new Renderer(dirname(__DIR__, 2));
+        $viewContext = new \App\Foundation\ViewContext();
+        $viewContext->set('permissions', new \App\Modules\Access\ViewPermissions(new \App\Modules\Access\RouteAccessPolicy(), 'administrador'));
+        self::$renderer = new Renderer(dirname(__DIR__, 2), $viewContext);
 
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
     }

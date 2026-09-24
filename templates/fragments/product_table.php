@@ -12,7 +12,7 @@ $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] 
 $permissions = $data['permissions'] ?? null;
 $can = $permissions instanceof \App\Modules\Access\ViewPermissions
     ? $permissions->can(...)
-    : static fn (string $method, string $path): bool => true;
+    : static fn (string $method, string $path): bool => false;
 
 $canUpdatePrice = $can('POST', '/products/1/price');
 $canDeactivate = $can('POST', '/products/1/deactivate');

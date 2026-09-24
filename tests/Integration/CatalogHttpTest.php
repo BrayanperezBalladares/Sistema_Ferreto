@@ -49,7 +49,9 @@ final class CatalogHttpTest extends TestCase
         self::$catCmd = new CategoryCommand(self::$tx);
         self::$prodQuery = new ProductQuery(self::$testDb);
         self::$prodCmd = new ProductCommand(self::$tx);
-        self::$renderer = new Renderer(dirname(__DIR__, 2));
+        $viewContext = new \App\Foundation\ViewContext();
+        $viewContext->set('permissions', new \App\Modules\Access\ViewPermissions(new \App\Modules\Access\RouteAccessPolicy(), 'administrador'));
+        self::$renderer = new Renderer(dirname(__DIR__, 2), $viewContext);
 
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
     }
