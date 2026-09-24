@@ -66,9 +66,9 @@
 
 ## Phase I: Security & R1 Regression Verification (Slice I1)
 
-- [ ] I.1 Verify end-to-end R1 business domain invariants: product creation, price update, activation/deactivation, location creation, stock position uniqueness, and observational counts non-mutation for authorized roles.
-- [ ] I.2 Verify development database invariance: ensure automated tests execute exclusively in `_test` DB and leave development tables untouched.
-- [ ] I.3 Run full canonical verification: `composer setup`, `composer test`, `composer analyse`, `openspec validate access-control-foundation`, and `openspec validate --specs`.
+- [x] I.1 Verify end-to-end R1 business domain invariants: product creation, price update, activation/deactivation, location creation, stock position uniqueness, and observational counts non-mutation for authorized roles.
+- [x] I.2 Verify development database invariance: ensure automated tests execute exclusively in `_test` DB and leave development tables untouched.
+- [x] I.3 Run full canonical verification: `composer setup`, `composer test`, `composer analyse`, `openspec validate access-control-foundation`, and `openspec validate --specs`.
 
 ---
 
