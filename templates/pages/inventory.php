@@ -14,6 +14,12 @@ $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : []
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
 
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => false;
+
 $activeNav = 'inventory';
 
 ob_start();
@@ -24,53 +30,55 @@ ob_start();
       <h1 class="page-title">Existencias por ubicación</h1>
       <p class="page-subtitle">Consulta las existencias registradas para cada producto y ubicación.</p>
     </div>
+    <?php if ($can('POST', '/inventory/stock')): ?>
     <div class="page-actions">
       <button class="btn-primary" type="button" data-modal-open="modal-stock">
         <span aria-hidden="true">+</span> Registrar existencia
       </button>
     </div>
-  </div>
-
-  <div class="card-surface p-0" id="stock-table-container">
-    <?php if (empty($positions)): ?>
-      <div class="has-text-centered py-6 px-4">
-        <p class="is-size-2 mb-2" aria-hidden="true">📊</p>
-        <p class="has-text-weight-bold is-size-5 mb-1">No hay existencias registradas</p>
-        <p class="has-text-grey is-size-6 mb-4">Registra una existencia para relacionar un producto con una ubicación.</p>
-        <button class="btn-primary" type="button" data-modal-open="modal-stock">
-          <span aria-hidden="true">+</span> Registrar existencia
-        </button>
-      </div>
-    <?php else: ?>
-      <div class="table-container mb-0">
-        <table class="table is-fullwidth is-hoverable is-narrow operational-table mb-0">
-          <thead>
-            <tr>
-              <th scope="col" style="width: 40%;">Producto</th>
-              <th scope="col" style="width: 35%;">Ubicación</th>
-              <th scope="col" style="width: 25%;" class="has-text-right">Cantidad</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($positions as $pos): ?>
-              <tr>
-                <td>
-                  <span class="has-text-weight-semibold"><?= Renderer::escape($pos['producto_nombre']) ?></span>
-                </td>
-                <td>
-                  <span class="has-text-weight-medium"><?= Renderer::escape($pos['ubicacion_codigo']) ?></span>
-                </td>
-                <td class="has-text-right">
-                  <span class="is-family-monospace"><?= Renderer::escape($pos['cantidad']) ?></span>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
     <?php endif; ?>
   </div>
 
+  <div id="stock-table-container">
+    <div class="ferreto-card">
+      <?php if (empty($positions)): ?>
+        <div class="empty-state-box">
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <h3 class="empty-state-title">No hay existencias registradas</h3>
+          <p class="empty-state-desc">Registra una existencia para relacionar un producto con una ubicación.</p>
+        </div>
+      <?php else: ?>
+        <div class="table-container mb-0">
+          <table class="ferreto-table ferreto-table-tabular">
+            <thead>
+              <tr>
+                <th scope="col" style="width: 40%;">Producto</th>
+                <th scope="col" style="width: 35%;">Ubicación</th>
+                <th scope="col" style="width: 25%;" class="has-text-right">Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($positions as $pos): ?>
+                <tr>
+                  <td class="cell-product"><span class="has-text-weight-semibold"><?= Renderer::escape($pos['producto_nombre']) ?></span></td>
+                  <td class="cell-location"><span class="has-text-weight-medium"><?= Renderer::escape($pos['ubicacion_codigo']) ?></span></td>
+                  <td class="has-text-right cell-quantity"><span><?= Renderer::escape($pos['cantidad']) ?></span></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <?php if ($can('POST', '/inventory/stock')): ?>
   <!-- Modal: Registrar existencia -->
   <div class="modal <?= !empty($errors) ? 'is-active' : '' ?>" id="modal-stock" role="dialog" aria-modal="true" aria-labelledby="modal-stock-title">
     <div class="modal-background" data-modal-close></div>
@@ -133,13 +141,14 @@ ob_start();
             <?php endif; ?>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Guardar existencia</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 </section>
 
 <?php

@@ -11,6 +11,12 @@ $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 /** @var array<string, string> $input */
 $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : [];
 
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => false;
+
 ob_start();
 ?>
 <section id="catalog-section">
@@ -19,15 +25,21 @@ ob_start();
       <h1 class="page-title">Productos</h1>
       <p class="page-subtitle">Gestión de artículos, precios de venta y disponibilidad.</p>
     </div>
+    <?php if ($can('POST', '/categories') || $can('POST', '/products')): ?>
     <div class="page-actions">
+      <?php if ($can('POST', '/categories')): ?>
       <button class="btn-secondary" type="button" data-modal-open="modal-category">Nueva categoría</button>
+      <?php endif; ?>
+      <?php if ($can('POST', '/products')): ?>
       <button class="btn-primary" type="button" data-modal-open="modal-product">
         <span aria-hidden="true">+</span> Registrar producto
       </button>
+      <?php endif; ?>
     </div>
+    <?php endif; ?>
   </div>
 
-  <div class="search-bar-card">
+  <div class="search-toolbar">
     <input
       class="search-input"
       type="search"
@@ -44,6 +56,7 @@ ob_start();
 
   <?php require dirname(__DIR__) . '/fragments/product_table.php'; ?>
 
+  <?php if ($can('POST', '/categories')): ?>
   <!-- Modal: Nueva categoría -->
   <div class="modal" id="modal-category" role="dialog" aria-modal="true" aria-labelledby="modal-category-title">
     <div class="modal-background" data-modal-close></div>
@@ -68,14 +81,16 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Guardar categoría</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 
+  <?php if ($can('POST', '/products')): ?>
   <!-- Modal: Registrar producto -->
   <div class="modal" id="modal-product" role="dialog" aria-modal="true" aria-labelledby="modal-product-title">
     <div class="modal-background" data-modal-close></div>
@@ -127,14 +142,16 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Registrar producto</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 
+  <?php if ($can('POST', '/products/1/price')): ?>
   <!-- Modal: Actualizar precio -->
   <div class="modal" id="modal-price" role="dialog" aria-modal="true" aria-labelledby="modal-price-title">
     <div class="modal-background" data-modal-close></div>
@@ -161,14 +178,16 @@ ob_start();
             </div>
           </div>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Actualizar precio</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 
+  <?php if ($can('POST', '/products/1/deactivate')): ?>
   <!-- Modal: Desactivar producto -->
   <div class="modal" id="modal-deactivate" role="dialog" aria-modal="true" aria-labelledby="modal-deactivate-title">
     <div class="modal-background" data-modal-close></div>
@@ -183,14 +202,16 @@ ob_start();
           <p class="mb-2">¿Estás seguro de que deseas desactivar el producto <strong id="modal-deactivate-product-name"></strong>?</p>
           <p class="is-size-7 has-text-grey">El producto permanecerá en el sistema con sus registros históricos e inventario, pero quedará marcado como inactivo.</p>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-danger" type="submit">Desactivar</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 
+  <?php if ($can('POST', '/products/1/activate')): ?>
   <!-- Modal: Activar producto -->
   <div class="modal" id="modal-activate" role="dialog" aria-modal="true" aria-labelledby="modal-activate-title">
     <div class="modal-background" data-modal-close></div>
@@ -205,13 +226,14 @@ ob_start();
           <p class="mb-2">¿Estás seguro de que deseas activar el producto <strong id="modal-activate-product-name"></strong>?</p>
           <p class="is-size-7 has-text-grey">Este producto volverá a estar activo en el catálogo. Se conservará su información y sus referencias existentes.</p>
         </section>
-        <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+        <footer class="modal-card-foot modal-actions">
           <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
           <button class="btn-primary" type="submit">Activar</button>
         </footer>
       </form>
     </div>
   </div>
+  <?php endif; ?>
 </section>
 
 <?php

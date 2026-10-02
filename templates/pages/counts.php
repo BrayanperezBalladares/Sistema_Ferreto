@@ -13,6 +13,13 @@ $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : [];
 /** @var array<string, string> $errors */
 $errors = isset($data['errors']) && is_array($data['errors']) ? $data['errors'] : [];
+
+/** @var \App\Modules\Access\ViewPermissions|null $permissions */
+$permissions = $data['permissions'] ?? null;
+$can = $permissions instanceof \App\Modules\Access\ViewPermissions
+    ? $permissions->can(...)
+    : static fn (string $method, string $path): bool => false;
+
 $activeNav = 'counts';
 
 ob_start();
@@ -23,7 +30,7 @@ ob_start();
       <h1 class="page-title">Conteos físicos</h1>
       <p class="page-subtitle">Registra observaciones físicas del inventario sin modificar las existencias registradas en el sistema.</p>
     </div>
-    <?php if ($selectedStock !== null): ?>
+    <?php if ($selectedStock !== null && $can('POST', '/inventory/counts')): ?>
       <div class="page-actions">
         <button class="btn-primary" type="button" data-modal-open="modal-count"><span aria-hidden="true">+</span> Registrar conteo</button>
       </div>
@@ -36,12 +43,12 @@ ob_start();
     </div>
   <?php endif; ?>
 
-  <div class="card-surface p-4 mb-4" id="stock-selector-container">
+  <div class="counts-toolbar mb-4" id="stock-selector-container">
     <form method="get" action="/inventory/counts" id="stock-selector-form">
-      <div class="field">
+      <div class="field stock-selector-field">
         <label class="label is-small" for="stock-select">Seleccionar existencia para conteo</label>
         <div class="control">
-          <div class="select is-small is-fullwidth">
+          <div class="select is-small">
             <select name="stock" id="stock-select" onchange="this.form.submit()">
               <option value="">Selecciona una existencia...</option>
               <?php foreach ($positions as $pos): ?>
@@ -57,26 +64,49 @@ ob_start();
   </div>
 
   <?php if ($selectedStock === null): ?>
-    <div class="card-surface p-0">
-      <div class="has-text-centered py-6 px-4">
-        <p class="is-size-2 mb-2" aria-hidden="true">📋</p>
-        <p class="has-text-weight-bold is-size-5 mb-1">Selecciona una existencia</p>
-        <p class="has-text-grey is-size-6 mb-0">Selecciona una existencia para consultar su historial de conteos físicos y registrar nuevas observaciones.</p>
+    <div class="ferreto-card">
+      <div class="empty-state-box">
+        <div class="empty-state-icon" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        </div>
+        <h3 class="empty-state-title">Selecciona una existencia</h3>
+        <p class="empty-state-desc">Selecciona una existencia para consultar su historial de conteos físicos y registrar nuevas observaciones.</p>
       </div>
     </div>
   <?php else: ?>
-    <div class="card-surface p-4 mb-4" id="selected-stock-summary">
+    <div class="ferreto-card stock-summary mb-4" id="selected-stock-summary">
+      <div class="stock-summary-header">
+        <span class="stock-summary-badge">Resumen de existencia</span>
+      </div>
       <div class="columns is-multiline mb-0">
-        <div class="column is-12-mobile is-4-tablet"><p class="has-text-grey is-size-7 mb-1">Producto</p><p class="has-text-weight-bold is-size-6"><?= Renderer::escape($selectedStock['producto_nombre']) ?></p></div>
-        <div class="column is-12-mobile is-4-tablet"><p class="has-text-grey is-size-7 mb-1">Ubicación</p><p class="has-text-weight-semibold is-size-6"><?= Renderer::escape($selectedStock['ubicacion_codigo']) ?></p></div>
-        <div class="column is-12-mobile is-4-tablet has-text-right-tablet"><p class="has-text-grey is-size-7 mb-1">Cantidad del sistema</p><p class="is-family-monospace has-text-weight-bold is-size-5"><?= Renderer::escape($selectedStock['cantidad']) ?></p></div>
+        <div class="column is-12-mobile is-4-tablet">
+          <div class="stock-summary-item">
+            <span class="stock-summary-label">Producto</span>
+            <span class="stock-summary-value product-title"><?= Renderer::escape($selectedStock['producto_nombre']) ?></span>
+          </div>
+        </div>
+        <div class="column is-12-mobile is-4-tablet">
+          <div class="stock-summary-item">
+            <span class="stock-summary-label">Ubicación</span>
+            <span class="stock-summary-value location-code"><?= Renderer::escape($selectedStock['ubicacion_codigo']) ?></span>
+          </div>
+        </div>
+        <div class="column is-12-mobile is-4-tablet stock-summary-quantity">
+          <div class="stock-summary-item">
+            <span class="stock-summary-label">Cantidad del sistema</span>
+            <span class="stock-summary-value quantity-value"><?= Renderer::escape($selectedStock['cantidad']) ?></span>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="mb-4">
-      <h2 class="is-size-6 has-text-weight-bold mb-2">Historial de observaciones</h2>
+    <div class="count-history-section mb-4">
+      <div class="section-header mb-3">
+        <h2 class="section-title">Historial de observaciones</h2>
+      </div>
       <?php require dirname(__DIR__) . '/fragments/count_history.php'; ?>
     </div>
 
+    <?php if ($selectedStock !== null && $can('POST', '/inventory/counts')): ?>
     <div class="modal <?= !empty($errors) ? 'is-active' : '' ?>" id="modal-count" role="dialog" aria-modal="true" aria-labelledby="modal-count-title">
       <div class="modal-background" data-modal-close></div>
       <div class="modal-card">
@@ -129,13 +159,14 @@ ob_start();
               </div>
             </div>
           </section>
-          <footer class="modal-card-foot" style="justify-content: flex-end; gap: 8px;">
+          <footer class="modal-card-foot modal-actions">
             <button class="btn-secondary" type="button" data-modal-close>Cancelar</button>
             <button class="btn-primary" type="submit">Registrar conteo</button>
           </footer>
         </form>
       </div>
     </div>
+    <?php endif; ?>
   <?php endif; ?>
 </section>
 <?php

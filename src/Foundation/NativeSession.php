@@ -34,4 +34,39 @@ final class NativeSession implements Session
         unset($_SESSION[$key]);
         return $value;
     }
+
+    public function regenerate(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+    }
+
+    public function expireCookie(): void
+    {
+        if ((bool) ini_get('session.use_cookies') && !headers_sent()) {
+            $name = session_name();
+            if (is_string($name)) {
+                $params = session_get_cookie_params();
+                setcookie(
+                    $name,
+                    '',
+                    time() - 42000,
+                    $params['path'],
+                    $params['domain'],
+                    $params['secure'],
+                    $params['httponly']
+                );
+            }
+        }
+    }
+
+    public function destroy(): void
+    {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $this->expireCookie();
+            session_destroy();
+        }
+    }
 }

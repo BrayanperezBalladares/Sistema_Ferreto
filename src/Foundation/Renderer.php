@@ -10,6 +10,7 @@ final readonly class Renderer
         'page.health' => 'pages/health.php',
         'fragment.health' => 'fragments/health.php',
         'fragment.notification' => 'fragments/notification.php',
+        'page.login' => 'pages/login.php',
         'page.products' => 'pages/products.php',
         'fragment.product_table' => 'fragments/product_table.php',
         'page.locations' => 'pages/locations.php',
@@ -19,8 +20,15 @@ final readonly class Renderer
         'error' => 'error.php',
     ];
 
-    public function __construct(private string $root)
+    public function __construct(
+        private string $root,
+        private ?ViewContext $viewContext = null,
+    ) {
+    }
+
+    public function viewContext(): ?ViewContext
     {
+        return $this->viewContext;
     }
 
     /**
@@ -28,6 +36,10 @@ final readonly class Renderer
      */
     public function render(string $name, array $data = []): string
     {
+        if ($this->viewContext !== null) {
+            $data = array_merge($this->viewContext->all(), $data);
+        }
+
         $file = self::TEMPLATES[$name] ?? throw new \InvalidArgumentException('Template is not allowed.');
         $level = ob_get_level();
         ob_start();

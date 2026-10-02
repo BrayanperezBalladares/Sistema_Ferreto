@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction};
+use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction, ViewContext};
+use App\Modules\Access\{AccessHandler, Authenticator, AuthGuard, AuthSession, RoleGuard, RouteAccessPolicy, UserCommand, UserQuery};
 use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -23,7 +24,8 @@ if (isset($assets[$request->path]) && $request->method === 'GET') {
 
 $session = new NativeSession(!in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], true));
 $csrf = new Csrf($session);
-$renderer = new Renderer($root);
+$viewContext = new ViewContext();
+$renderer = new Renderer($root, $viewContext);
 
 $config = Config::fromEnvironment(require $root . '/config/defaults.php');
 $database = new Database($config, $config->get('APP_ENV') === 'test');
@@ -33,6 +35,15 @@ $productQuery = new ProductQuery($database);
 $categoryQuery = new CategoryQuery($database);
 $locationQuery = new LocationQuery($database);
 $stockQuery = new StockQuery($database);
+
+$userQuery = new UserQuery($database);
+$userCommand = new UserCommand($tx);
+$authenticator = new Authenticator($userQuery, $userCommand);
+$authSession = new AuthSession($session, $userQuery);
+$routePolicy = new RouteAccessPolicy();
+$access = new AccessHandler($renderer, $authenticator, $authSession, $csrf, $routePolicy);
+$authGuard = new AuthGuard($authSession);
+$roleGuard = new RoleGuard($routePolicy);
 
 $health = new HealthHandler($renderer, $csrf, $session);
 $catalog = new CatalogHandler(
@@ -62,6 +73,7 @@ $inventory = new InventoryHandler(
 
 $handlers = [
     'health' => $health->handle(...),
+    'access' => $access->handle(...),
     'catalog' => $catalog->handle(...),
     'location' => $location->handle(...),
     'inventory' => $inventory->handle(...),
@@ -74,4 +86,13 @@ $routes = array_map(
     $routeConfig
 );
 
-(new Kernel(new Router($routes), $csrf, new ErrorMapper(new Logger(), $renderer)))->handle($request)->emit();
+(new Kernel(
+    new Router($routes),
+    $csrf,
+    new ErrorMapper(new Logger(), $renderer),
+    $authGuard,
+    $roleGuard,
+    healthPolicy: null,
+    viewContext: $viewContext,
+    routePolicy: $routePolicy,
+))->handle($request)->emit();

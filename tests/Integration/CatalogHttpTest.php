@@ -21,9 +21,12 @@ use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\ProductQuery;
 use PDO;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\AuthSessionTrait;
 
 final class CatalogHttpTest extends TestCase
 {
+    use AuthSessionTrait;
+
     private static Database $testDb;
     private static Transaction $tx;
     private static CategoryQuery $catQuery;
@@ -46,7 +49,9 @@ final class CatalogHttpTest extends TestCase
         self::$catCmd = new CategoryCommand(self::$tx);
         self::$prodQuery = new ProductQuery(self::$testDb);
         self::$prodCmd = new ProductCommand(self::$tx);
-        self::$renderer = new Renderer(dirname(__DIR__, 2));
+        $viewContext = new \App\Foundation\ViewContext();
+        $viewContext->set('permissions', new \App\Modules\Access\ViewPermissions(new \App\Modules\Access\RouteAccessPolicy(), 'administrador'));
+        self::$renderer = new Renderer(dirname(__DIR__, 2), $viewContext);
 
         (new MigrationRunner(self::$testDb))->run(dirname(__DIR__, 2) . '/database/migrations');
     }
@@ -56,7 +61,7 @@ final class CatalogHttpTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria', 'usuario'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE {$tbl}");
             }
@@ -578,34 +583,17 @@ final class CatalogHttpTest extends TestCase
 
     public function testProductionEntrypointServesCatalog(): void
     {
-        $root = dirname(__DIR__, 2);
-        $code = 'putenv("APP_ENV=test"); $_SERVER["REQUEST_METHOD"] = "GET"; $_SERVER["REQUEST_URI"] = "/products"; $_SERVER["SERVER_NAME"] = "localhost"; require "public/index.php";';
+        $adminId = $this->createAuthUser(self::$testDb, 'admin_catalog_entrypoint', 'administrador', 'activo');
+        $res = $this->runEntrypointRequest('GET', '/products', $adminId);
 
-        $process = proc_open([
-            PHP_BINARY,
-            '-r',
-            $code,
-        ], [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ], $pipes, $root);
-
-        self::assertIsResource($process);
-        $stdout = (string) stream_get_contents($pipes[1]);
-        $stderr = (string) stream_get_contents($pipes[2]);
-        fclose($pipes[0]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
-
-        self::assertSame(0, $exitCode);
-        self::assertStringNotContainsString('Undefined array key "catalog"', $stderr);
-        self::assertStringNotContainsString('"level":"error"', $stderr);
-        self::assertStringContainsString('Productos', $stdout);
-        self::assertStringNotContainsString('Product Catalog', $stdout);
-        self::assertStringContainsString('id="product-table-container"', $stdout);
-        self::assertStringNotContainsString('Request failed', $stdout);
+        self::assertSame(200, $res['status']);
+        self::assertSame(0, $res['exitCode']);
+        self::assertStringNotContainsString('Undefined array key "catalog"', $res['stderr']);
+        self::assertStringNotContainsString('"level":"error"', $res['stderr']);
+        self::assertStringContainsString('Productos', $res['stdout']);
+        self::assertStringNotContainsString('Product Catalog', $res['stdout']);
+        self::assertStringContainsString('id="product-table-container"', $res['stdout']);
+        self::assertStringNotContainsString('Request failed', $res['stdout']);
     }
 }
 

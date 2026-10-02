@@ -5,6 +5,9 @@ declare(strict_types=1);
 return [
     ['GET', '/health', 'health'],
     ['POST', '/health', 'health'],
+    ['GET', '/login', 'access'],
+    ['POST', '/login', 'access'],
+    ['POST', '/logout', 'access'],
     ['GET', '/products', 'catalog'],
     ['POST', '/categories', 'catalog'],
     ['POST', '/products', 'catalog'],
