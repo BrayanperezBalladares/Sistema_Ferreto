@@ -11,13 +11,17 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
 
 | Migration File | Primary Table | Purpose / Architectural Invariants |
 |---|---|---|
-| `0001_infrastructure_probe.sql` | `infrastructure_probe` | Diagnostic connectivity table used to verify database connectivity. |
-| `0002_producto_categoria.sql` | `producto_categoria` | Catalog categorization. Uniqueness on `nombre`. Self-healing default fallback. |
-| `0003_producto.sql` | `producto` | Core product catalog. `precio_venta` uses `DECIMAL(12,2)`. Foreign key to `producto_categoria(id_categoria)`. Uniqueness on SKU / name. |
-| `0004_inventario_ubicacion.sql` | `inventario_ubicacion` | Physical warehouse locations. Uniqueness on `codigo` (e.g. `PAS-01-A`). `estado_activo` flag. |
-| `0005_inventario_stock.sql` | `inventario_stock` | Product-to-location mapping. `cantidad` uses `DECIMAL(12,3)`. Composite uniqueness on `(id_producto, id_ubicacion)`. |
-| `0006_conteo_inventario.sql` | `conteo_inventario` | Observational physical inventory audits. Stores `cantidad_sistema` and `cantidad_contada` (`DECIMAL(12,3)`), plus computed `diferencia`. |
-| `0007_usuario.sql` | `usuario` | User accounts, credentials, and roles. Password hash (bcrypt cost 10), failed login attempts, lockout state (`bloqueado`), and timestamps. |
+| `0001_probe.up.sql` | `infrastructure_probe` | Diagnostic connectivity table used to verify database connectivity. |
+| `0002_create_categoria.up.sql` | `categoria` | Catalog categorization. Uniqueness on `nombre` (`uk_categoria_nombre`). Self-healing default fallback. |
+| `0003_create_producto.up.sql` | `producto` | Core product catalog. `precio_actual` uses `DECIMAL(12,2)`. Foreign key to `categoria(id_categoria)`. No SKU, barcode, or unique product-name constraint. |
+| `0004_create_ubicacion.up.sql` | `ubicacion` | Physical warehouse locations. Uniqueness on `codigo` (`uk_ubicacion_codigo`). `estado_activo` flag. |
+| `0005_create_inventario_stock.up.sql` | `inventario_stock` | Product-to-location mapping. `cantidad` uses `DECIMAL(12,3)`. Composite uniqueness on `(id_producto, id_ubicacion)`. |
+| `0006_create_conteo_inventario.up.sql` | `conteo_inventario` | Observational physical inventory audits. Stores `cantidad_sistema` and `cantidad_contada` (`DECIMAL(12,3)`), plus computed `diferencia`. |
+| `0007_create_usuario.up.sql` | `usuario` | User accounts, credentials, and roles. Password hash (bcrypt cost 10), failed login attempts, lockout state (`bloqueado`), and timestamps. |
+
+### Technical Tables
+- **`schema_migrations`**: Bootstrapped automatically by `App\Foundation\MigrationRunner` if not present. Tracks applied migration identifiers, sha256 checksums, and execution timestamps (`identifier VARCHAR(255) PRIMARY KEY`, `checksum CHAR(64) NOT NULL`, `applied_at DATETIME NOT NULL`).
+- **`infrastructure_probe`**: Created by `0001_probe.up.sql` to verify database connectivity and isolation (`id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY`, `created_at DATETIME NOT NULL`).
 
 ---
 
@@ -25,25 +29,28 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
 
 ```
        +-----------------------+
-       |  producto_categoria   |
+       |       categoria       |
        +-----------------------+
        | PK  id_categoria      |
        |     nombre (UNIQUE)   |
        |     descripcion       |
-       |     estado_activo     |
+       |     created_at        |
+       |     updated_at        |
        +-----------+-----------+
                    | 1
                    |
                    | N
        +-----------v-----------+                       +------------------------+
-       |       producto        |                       |  inventario_ubicacion  |
+       |       producto        |                       |       ubicacion        |
        +-----------------------+                       +------------------------+
        | PK  id_producto       |                       | PK  id_ubicacion       |
        | FK  id_categoria      |                       |     codigo (UNIQUE)    |
-       |     sku (UNIQUE)      |                       |     descripcion        |
-       |     nombre            |                       |     estado_activo      |
-       |     precio_venta      |                       +-----------+------------+
-       |     estado_activo     |                                   | 1
+       |     nombre            |                       |     descripcion        |
+       |     descripcion       |                       |     estado_activo      |
+       |     precio_actual     |                       |     created_at         |
+       |     estado_activo     |                       |     updated_at         |
+       |     created_at        |                       +-----------+------------+
+       |     updated_at        |                                   | 1
        +-----------+-----------+                                   |
                    | 1                                             |
                    |                                               |
@@ -58,6 +65,8 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
                                | FK  id_ubicacion         |
                                |     cantidad (DEC(12,3)) |
                                |     UNIQUE(prod, ubic)   |
+                               |     created_at           |
+                               |     updated_at           |
                                +------------+-------------+
                                             | 1
                                             |
@@ -80,11 +89,13 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
        | PK  id_usuario        |
        |     username (UNIQUE) |
        |     password_hash     |
-       |     rol (ENUM)        |  --> ('administrador', 'bodeguero', 'cajero', 'compras')
-       |     estado (ENUM)     |  --> ('activo', 'inactivo', 'bloqueado')
+       |     rol (VARCHAR(30)) |  --> CHECK ('administrador', 'cajero', 'bodeguero', 'compras')
+       |     estado (VARCHAR)  |  --> CHECK ('creado', 'activo', 'bloqueado', 'inactivo')
        |     failed_attempts   |
-       |     last_failed_at    |
+       |     failure_window    |
+       |     locked_at         |
        |     created_at        |
+       |     updated_at        |
        +-----------------------+
 ```
 
@@ -94,7 +105,7 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
 
 Hardware store items involve discrete units (e.g. hammers, drills), continuous measurements (e.g. meters of cable, kilograms of nails), and currency:
 
-- **Monetary Values (`precio_venta`)**: Must **always** use `DECIMAL(12,2)`.
+- **Monetary Values (`precio_actual`)**: Must **always** use `DECIMAL(12,2)`.
 - **Stock Quantities (`cantidad`, `cantidad_sistema`, `cantidad_contada`, `diferencia`)**: Must **always** use `DECIMAL(12,3)`.
 - **STRICT PROHIBITION**:
   - **NEVER** cast database numbers to PHP `float` or `double` for calculation.

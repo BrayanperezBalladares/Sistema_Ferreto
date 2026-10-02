@@ -7,7 +7,7 @@
 
 ## 1. Request Lifecycle Pipeline
 
-Every HTTP request enters via `public/index.php` and executes through a deterministic, strictly-ordered pipeline orchestrated by `App\Foundation\Kernel`:
+Every HTTP request enters via `public/index.php` and executes through a deterministic, strictly-ordered pipeline orchestrated by `App\Foundation\Kernel` and `App\Foundation\Router`:
 
 ```
 +----------------------------------------------------------------------------------------------------+
@@ -18,47 +18,50 @@ Every HTTP request enters via `public/index.php` and executes through a determin
                                           public/index.php
                                                   |
                                                   v
-                                         App\Foundation\Kernel
-                                                  |
-     +--------------------------------------------+--------------------------------------------+
-     | 1. Health Boundary Gate                                                                 |
-     |    App\Foundation\HealthAccessPolicy                                                    |
-     |    - Allows GET /health (public liveness)                                               |
-     |    - Restricts POST /health to development / test (405 Method Not Allowed otherwise)   |
-     +--------------------------------------------+--------------------------------------------+
-                                                  |
-     +--------------------------------------------+--------------------------------------------+
-     | 2. Authentication Guard                                                                 |
-     |    App\Modules\Access\AuthGuard                                                         |
-     |    - Resolves principal via App\Modules\Access\AuthSession                              |
-     |    - Enforces role-based inactivity timeouts (20m cajero, 30m others)                   |
-     |    - If unauthenticated on protected route: returns 303 Redirect to /login              |
-     +--------------------------------------------+--------------------------------------------+
-                                                  |
-     +--------------------------------------------+--------------------------------------------+
-     | 3. Authorization Guard                                                                  |
-     |    App\Modules\Access\RoleGuard                                                         |
-     |    - Consults canonical App\Modules\Access\RouteAccessPolicy                            |
-     |    - If role lacks permission for (Method, Path): returns 403 Forbidden                 |
-     +--------------------------------------------+--------------------------------------------+
-                                                  |
-     +--------------------------------------------+--------------------------------------------+
-     | 4. CSRF Guard                                                                           |
-     |    App\Foundation\Csrf                                                                  |
-     |    - Verifies _csrf token on all state-mutating requests (POST, PUT, DELETE)            |
-     |    - If invalid or missing: returns 403 Forbidden                                       |
-     +--------------------------------------------+--------------------------------------------+
-                                                  |
-     +--------------------------------------------+--------------------------------------------+
-     | 5. Routing & Handler Dispatch                                                           |
-     |    App\Foundation\Router                                                                |
-     |    - Matches exact path or parameterized regex pattern (e.g. /products/{id}/price)      |
-     |    - Dispatches to matched Handler closure                                              |
-     +--------------------------------------------+--------------------------------------------+
+                                       App\Foundation\Kernel
                                                   |
                                                   v
-                                          Matched Handler
-                               (CatalogHandler, StockHandler, etc.)
+                                       App\Foundation\Router
+                                                  |
+                 +--------------------------------+--------------------------------+
+                 | 1. Path Sanitization & Validation                               |
+                 |    - Checks directory traversal ('..', '%2e', '%5c', '\')       |
+                 |    - If invalid: immediately returns 400 Bad Request            |
+                 +--------------------------------+--------------------------------+
+                                                  |
+                 +--------------------------------+--------------------------------+
+                 | 2. Route Matching                                               |
+                 |    - Evaluates registered routes (config/routes.php)            |
+                 |    - If path unknown: returns 404 Not Found                     |
+                 |    - If path matches but method disallowed: returns 405         |
+                 +--------------------------------+--------------------------------+
+                                                  | (Route Matched: executes $before hook)
+                                                  v
+                 +--------------------------------+--------------------------------+
+                 | 3. Pre-Handler Boundaries & Guards                              |
+                 |                                                                 |
+                 |    a. Health Diagnostic Gate (App\Foundation\HealthAccessPolicy)|
+                 |       - Restricts POST /health to dev/test (405 otherwise)      |
+                 |                                                                 |
+                 |    b. Authentication Guard (App\Modules\Access\AuthGuard)       |
+                 |       - Validates session & enforces inactivity timeout         |
+                 |       - If unauthenticated on protected route: 303 to /login    |
+                 |                                                                 |
+                 |    c. Authorization Guard (App\Modules\Access\RoleGuard)        |
+                 |       - Evaluates role against RouteAccessPolicy matrix         |
+                 |       - If role lacks permission: returns 403 Forbidden         |
+                 |                                                                 |
+                 |    d. ViewContext Population (App\Foundation\ViewContext)       |
+                 |       - Sets 'user', 'csrf', and 'permissions' (ViewPermissions)|
+                 |                                                                 |
+                 |    e. CSRF Guard (App\Foundation\Csrf)                          |
+                 |       - Validates _csrf on state-mutating requests (POST, etc.) |
+                 |       - If invalid or missing: returns 403 Forbidden            |
+                 +--------------------------------+--------------------------------+
+                                                  | (Guards Passed)
+                                                  v
+                                           Matched Handler
+                                (CatalogHandler, StockHandler, etc.)
                                                   |
                          +------------------------+------------------------+
                          |                                                 |

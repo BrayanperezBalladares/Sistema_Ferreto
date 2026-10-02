@@ -24,10 +24,10 @@ The system defines four authoritative roles within the operational domain:
 
 | Role Identifier (`rol`) | Spanish UI Label | Responsibilities & Operational Scope |
 |---|---|---|
-| `administrador` | **Administrador** | Complete operational and configuration authority. Creates categories, registers products, updates prices, activates/deactivates items, manages locations, adjusts stock, performs physical counts, and creates/unlocks system accounts. |
+| `administrador` | **Administrador** | Complete operational and configuration authority. Creates categories, registers products, updates prices, activates/deactivates items, manages locations, registers stock placements per location, performs observational physical counts, and creates/unlocks system accounts. *(Note: formal stock adjustments and reconciliation workflows are non-implemented future capabilities).* |
 | `bodeguero` | **Bodeguero** | Warehouse and physical inventory operations. Reads catalog; creates and manages warehouse locations; registers stock locations and initial balances; records physical inventory count observations. Denied price changes, product creation, and account administration. |
-| `cajero` | **Cajero** | Retail checkout and front-desk customer service. Reads catalog and prices for customer inquiries. Denied inventory modifications, count recording, product editing, and administration. (In future phases: manages cash registers, processes sales, prints invoices). |
-| `compras` | **Compras** | Purchasing and supplier procurement. Reads product catalog and pricing. Denied inventory mutations, stock adjustments, and administrative functions. (In future phases: creates purchase orders, manages vendor catalog, receives shipments). |
+| `cajero` | **Cajero** | Retail checkout and front-desk customer service. Reads catalog and prices for customer inquiries. Denied inventory modifications, count recording, product editing, and administration. *(In future phases: manages cash registers, processes sales, prints invoices).* |
+| `compras` | **Compras** | Purchasing and supplier procurement. Reads product catalog and pricing. Denied inventory mutations and administrative functions. *(In future phases: creates purchase orders, manages vendor catalog, receives shipments).* |
 
 ---
 
@@ -64,13 +64,15 @@ To prevent agent hallucinations and speculative implementations, all requirement
 ### A. IMPLEMENTED (Authoritative & Verified)
 Features that exist in production code, verified by automated tests and documented in canonical OpenSpec specs (`openspec/specs/`):
 - **Reproducible Runtime**: Zero-build asset pipeline, Bulma + HTMX vendored locally, PSR-4 autoloading, custom Console CLI.
-- **Transactional Foundation**: Native PDO wrapper, explicit Transactions, deterministic migrations (`0001`–`0007`).
-- **Product Catalog (R1)**: Category management, product creation, price updates (`DECIMAL(12,2)`), activation/deactivation, HTMX real-time search.
-- **Inventory & Locations (R1)**: Physical warehouse locations, product stock mapping (`DECIMAL(12,3)`), observational physical counts (`conteo_inventario`).
+- **Transactional Foundation**: Native PDO wrapper, explicit Transactions, deterministic migrations (`0001`–`0007`), technical tables (`schema_migrations`, `infrastructure_probe`).
+- **Product Catalog (R1)**: Category management (`categoria`), product creation (`producto`), price updates (`DECIMAL(12,2)` in `precio_actual`), activation/deactivation, HTMX real-time search. (No SKU, barcode, or unique product name constraint).
+- **Inventory & Locations (R1)**: Generic physical locations (`ubicacion`), product stock mapping (`inventario_stock` with `DECIMAL(12,3)`), observational physical counts (`conteo_inventario`).
 - **Access Control Foundation**: Native sessions, bcrypt authentication, timing attack mitigation, 6-attempt lockout, inactivity timeouts (20m cashier / 30m others), `RouteAccessPolicy`, `AuthGuard`, `RoleGuard`, `ViewPermissions`, fail-closed UI suppression.
 
 ### B. FUTURE REQUIREMENT (Planned, Non-Implemented)
 Features identified in the project vision or roadmap, but **NOT YET IMPLEMENTED**:
+- Stock reconciliation and administrative stock adjustment/shrinkage workflows.
+- SKU and barcode identifiers for products.
 - Point of Sale (POS) checkout, sales orders, payment processing, invoice generation.
 - Purchasing orders, supplier catalogs, shipment receiving.
 - Multi-branch / multi-warehouse stock transfers.

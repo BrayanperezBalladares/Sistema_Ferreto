@@ -10,15 +10,15 @@
 
 > [!CAUTION]
 > **DO NOT INFER IMPLEMENTATION FROM DOCUMENTED FUTURE REQUIREMENTS.**
-> If a concept (such as POS, sales orders, purchase orders, suppliers, or multi-branch transfers) is mentioned in business documentation or roadmaps, **it does NOT exist in code today**. Check this document and the codebase before making any assumption.
+> If a concept (such as POS, sales orders, purchase orders, suppliers, SKU/barcode identifiers, or multi-branch transfers) is mentioned in business documentation or roadmaps, **it does NOT exist in code today**. Check this document and the codebase before making any assumption.
 
 ---
 
 ## 2. Exhaustive Audit: What IS Implemented
 
 ### A. Infrastructure & Foundation (`src/Foundation/`)
-- [x] **Kernel**: Synchronous pipeline coordinating health checks, auth guards, CSRF validation, router matching, and error mapping.
-- [x] **Router**: Parameterized path matcher (`/products/{id}/price`) with 405 Method Not Allowed fallback.
+- [x] **Kernel**: Synchronous pipeline coordinating route matching, health checks, auth guards, CSRF validation, handler dispatch, and error mapping.
+- [x] **Router**: Parameterized path matcher (`/products/{id}/price`) with pre-dispatch guard hook, path normalization, 400 Bad Request on traversal, and 405 Method Not Allowed fallback.
 - [x] **HTTP Abstraction**: Immutable `Request` (method, path, headers, query, body, cookies) and `Response` (status, headers, body, redirect factory).
 - [x] **Session**: `NativeSession` wrapper with deterministic start, regeneration, destruction, and key-value storage.
 - [x] **CSRF Protection**: Cryptographic token generation via `random_bytes(32)`, session binding, and validation on all unsafe methods.
@@ -36,14 +36,14 @@
 - [x] **Login & Logout**: Full HTTP flow with CSRF protection, secure redirection validation (preventing open redirects), and session regeneration upon login.
 
 ### C. Product Catalog Module (`src/Modules/Inventory/`)
-- [x] **Categories**: Category creation via modal, uniqueness validation on name, unclassified category fallback.
-- [x] **Products**: Product registration, unique SKU/name, retail price (`DECIMAL(12,2)`), active/inactive state toggle.
+- [x] **Categories**: Category creation via modal, uniqueness validation on name (`uk_categoria_nombre`), unclassified category fallback.
+- [x] **Products**: Product registration (name, optional description, optional category, selling price `DECIMAL(12,2)` stored in `precio_actual`, active/inactive state toggle). Per canonical specification, SKU and barcode identifiers are explicitly NOT required or implemented. Product name is not uniquely constrained.
 - [x] **Real-time Search**: HTMX-powered live search by product name with 300ms debounce.
 - [x] **Price Updates**: Dedicated endpoint `POST /products/{id}/price` with strict decimal formatting and audit trail.
 
 ### D. Inventory & Locations Module (`src/Modules/Inventory/`)
-- [x] **Warehouse Locations**: Registration of physical storage spaces (`codigo`, `descripcion`, `estado_activo`).
-- [x] **Stock Placement**: Mapping products to locations with quantity tracking (`DECIMAL(12,3)`).
+- [x] **Warehouse Locations**: Registration of physical storage spaces (`codigo` with unique constraint `uk_ubicacion_codigo`, `descripcion`, `estado_activo`).
+- [x] **Stock Placement**: Mapping products to locations with quantity tracking (`DECIMAL(12,3)` in `cantidad`, unique per product/location).
 - [x] **Physical Counts (`conteo_inventario`)**: Observational count registration (`cantidad_sistema`, `cantidad_contada`, `diferencia`, `notas`).
 - [x] **Observational Invariant**: Physical counts **NEVER** overwrite or mutate system stock balances.
 
@@ -85,10 +85,12 @@ The following modules, tables, endpoints, and behaviors **DO NOT EXIST**:
 
 | Domain | What Does NOT Exist Today |
 |---|---|
+| **Product Identifiers** | No SKU or barcode columns or validation in database or application (per canonical spec, SKU and barcode are explicitly not required for R1). |
+| **Product Name Uniqueness** | Product names are not uniquely constrained in schema or validator (unlike category names, which have `uk_categoria_nombre`). |
+| **Stock Adjustments & Reconciliation** | No administrative write-off, shrinkage adjustment, or stock reconciliation command (counts in `conteo_inventario` are purely observational). |
 | **Point of Sale (POS)** | No cashier shift opening/closing, no sales orders, no shopping cart, no payment recording, no receipt or invoice printing. |
 | **Purchasing & Suppliers** | No supplier entity or table, no purchase orders (PO), no receiving dock validation against POs. |
 | **Logistics & Multi-Store** | No branch/store entity, no inter-warehouse transfers, no in-transit stock status. |
-| **Stock Adjustments** | No administrative write-off, shrinkage adjustment, or stock reconciliation command (counts are purely observational). |
 | **System Administration UI** | No user management web screens. User creation and unlocking exist **exclusively** via the CLI tool `scripts/console.php`. |
 | **Audit Log Subsystem** | No centralized `audit_log` table tracking arbitrary user events (mutations rely on table-specific audit columns like `created_at`, `updated_at`). |
 | **Analytics & BI** | No reporting dashboards, no PDF export, no Excel/CSV downloads, no scheduled ETL jobs. |

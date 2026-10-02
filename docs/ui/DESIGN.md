@@ -23,7 +23,7 @@
 > DESIGN.md must never be used to invent unsupported functionality.
 
 ### Current Implementation Status Note
-The Product & Inventory Catalog UI currently exists functionally but has not yet undergone visual refinement to this canonical design system. The provisional dark/unstyled layout must **NOT** be treated as a visual authority. All visual refinement work must align strictly with the rules defined herein on the dedicated refinement branch: `feature/product-inventory-ui-refinement`.
+The Product & Inventory Catalog UI, warehouse locations, physical counts, and the authenticated application shell have completed full visual refinement to this canonical design system (*Industrial Precision Workspace*). They now represent the approved, active visual authority in production templates.
 
 ---
 
