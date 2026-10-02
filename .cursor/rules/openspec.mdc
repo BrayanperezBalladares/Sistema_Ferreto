@@ -1,0 +1,21 @@
+---
+description: OpenSpec Spec-Driven Development rules for Sistema Ferreto
+globs: openspec/**/*
+---
+
+# OpenSpec SDD Rules
+
+When working on specifications or changes in `openspec/`:
+
+1. **Hierarchy**:
+   - `openspec/specs/` contains canonical, authoritative specifications.
+   - `openspec/changes/archive/` is historical read-only reference. NEVER treat it as active backlog.
+   - Active changes live in `openspec/changes/<change-name>/`.
+2. **Delta Specifications**:
+   - Must use standard OpenSpec 2.0 sections (`ADDED`, `MODIFIED`, `REMOVED`).
+   - Requirements must include Gherkin scenarios with concrete, verifiable inputs and outputs.
+3. **Validation**:
+   - Run `openspec validate <change-name>` when modifying an active change.
+   - Run `openspec validate --specs` to verify all canonical specifications.
+4. **Archival**:
+   - When all tasks in `tasks.md` are verified and complete, archive via `openspec archive <change-name> --yes`.
