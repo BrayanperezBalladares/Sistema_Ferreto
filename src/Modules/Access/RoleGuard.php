@@ -52,11 +52,6 @@ final readonly class RoleGuard
             return null;
         }
 
-        // Only enforce role authorization for defined business routes in RouteAccessPolicy
-        if ($this->routePolicy->allowedRolesFor($request->method, $request->path) === null) {
-            return null;
-        }
-
         if (!$this->routePolicy->isAllowed($request->method, $request->path, $principal['rol'])) {
             return new Response(403, [], 'Forbidden');
         }
