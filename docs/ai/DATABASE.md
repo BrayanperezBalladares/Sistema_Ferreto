@@ -16,7 +16,7 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
 | `0003_create_producto.up.sql` | `producto` | Core product catalog. `precio_actual` uses `DECIMAL(12,2)`. Foreign key to `categoria(id_categoria)`. No SKU, barcode, or unique product-name constraint. |
 | `0004_create_ubicacion.up.sql` | `ubicacion` | Physical warehouse locations. Uniqueness on `codigo` (`uk_ubicacion_codigo`). `estado_activo` flag. |
 | `0005_create_inventario_stock.up.sql` | `inventario_stock` | Product-to-location mapping. `cantidad` uses `DECIMAL(12,3)`. Composite uniqueness on `(id_producto, id_ubicacion)`. |
-| `0006_create_conteo_inventario.up.sql` | `conteo_inventario` | Observational physical inventory audits. Stores `cantidad_sistema` and `cantidad_contada` (`DECIMAL(12,3)`), plus computed `diferencia`. |
+| `0006_create_conteo_inventario.up.sql` | `conteo_inventario` | Observational physical inventory audits. Stores `cantidad_sistema` and `cantidad_contada` (`DECIMAL(12,3)`), and persisted variance `diferencia` calculated during insert as `(:qty - s.cantidad)` by `CountCommand`. |
 | `0007_create_usuario.up.sql` | `usuario` | User accounts, credentials, and roles. Password hash (bcrypt cost 10), failed login attempts, lockout state (`bloqueado`), and timestamps. |
 
 ### Technical Tables
@@ -83,20 +83,20 @@ Database schema changes are strictly versioned, deterministic, and executed sequ
                                |     created_at           |
                                +--------------------------+
 
-       +-----------------------+
-       |        usuario        |
-       +-----------------------+
-       | PK  id_usuario        |
-       |     username (UNIQUE) |
-       |     password_hash     |
-       |     rol (VARCHAR(30)) |  --> CHECK ('administrador', 'cajero', 'bodeguero', 'compras')
-       |     estado (VARCHAR)  |  --> CHECK ('creado', 'activo', 'bloqueado', 'inactivo')
-       |     failed_attempts   |
-       |     failure_window    |
-       |     locked_at         |
-       |     created_at        |
-       |     updated_at        |
-       +-----------------------+
+       +-------------------------------+
+       |            usuario            |
+       +-------------------------------+
+       | PK  id_usuario                |
+       |     username (UNIQUE)         |
+       |     password_hash             |
+       |     rol (VARCHAR(30))         |  --> CHECK ('administrador', 'cajero', 'bodeguero', 'compras')
+       |     estado (VARCHAR(20))      |  --> CHECK ('creado', 'activo', 'bloqueado', 'inactivo')
+       |     failed_attempt_count      |
+       |     failure_window_started_at |
+       |     locked_at                 |
+       |     created_at                |
+       |     updated_at                |
+       +-------------------------------+
 ```
 
 ---
@@ -122,6 +122,14 @@ The table `conteo_inventario` serves a strict architectural purpose:
 > Submitting a physical count **MUST NEVER** update, overwrite, or mutate the `cantidad` column in `inventario_stock`.
 
 Stock reconciliation (adjusting system quantity to match physical count) is a separate business event requiring explicit administrative authorization, which will be implemented in a future release.
+
+### Persisted Variance Column (`diferencia`)
+In the schema (`0006_create_conteo_inventario.up.sql`), `diferencia` is defined as a standard persisted column: `diferencia DECIMAL(12,3) NOT NULL`. It is **NOT** a database-level generated or virtual column (`GENERATED ALWAYS AS`). The variance calculation is executed by `App\Modules\Inventory\CountCommand` during the atomic `INSERT INTO ... SELECT` query:
+```sql
+SELECT s.id_stock, s.cantidad, :qty_val, (:qty_calc - s.cantidad), :notas, UTC_TIMESTAMP()
+FROM inventario_stock s WHERE s.id_stock = :id_stock
+```
+This guarantees that `diferencia = cantidad_contada - cantidad_sistema` is calculated against the exact snapshot of `cantidad_sistema` at the moment of insertion and stored durably.
 
 ---
 

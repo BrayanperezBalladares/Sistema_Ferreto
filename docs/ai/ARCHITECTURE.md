@@ -154,6 +154,11 @@ $can = $permissions instanceof \App\Modules\Access\ViewPermissions
 <?php endif; ?>
 ```
 
+> [!WARNING]
+> **Route Policy Registration Invariant & Known Latent Gap:**
+> `App\Modules\Access\RouteAccessPolicy` is the single canonical authorization matrix for all business routes. All 17 current R1 routes are either explicitly exempt or mapped in `RouteAccessPolicy::MATRIX`.
+> However, `RoleGuard::check()` currently returns `null` (skipping role evaluation) if a registered route is missing from `RouteAccessPolicy::MATRIX`. Therefore, **every newly registered business route MUST receive an explicit entry in `RouteAccessPolicy`** to prevent unintended access. A dedicated hardening task on branch `fix/role-policy-fail-closed` is recommended to enforce strict server-side fail-closed rejection for unmapped routes.
+
 ---
 
 ## 4. Command-Query Separation (CQS) Pattern

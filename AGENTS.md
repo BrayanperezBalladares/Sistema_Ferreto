@@ -53,6 +53,7 @@ When evaluating requirements, constraints, or code changes, follow this strict p
 - **ViewContext**: Shared layout and user data are encapsulated in `App\Foundation\ViewContext` and injected into `Renderer`.
 - **HTMX Partial Updates**: Endpoints support full navigation and partial HTML fragments. In HTMX requests (`hx-request: true`), return only the target fragment.
 - **Route Authorization Authority**: `App\Modules\Access\RouteAccessPolicy` is the single canonical authorization matrix for all routes and roles.
+- **Route Policy Registration Invariant**: Every newly registered business route in `config/routes.php` must have an explicit mapping in `RouteAccessPolicy`. (RoleGuard skips role evaluation for routes absent from the matrix; hardening tracked separately).
 - **UI Permissions**: Templates evaluate capability through `App\Modules\Access\ViewPermissions` (which wraps `RouteAccessPolicy`). If `ViewPermissions` is missing, templates **fail closed** (`static fn(): bool => false`).
 - **Physical Count Invariant**: Counts in `conteo_inventario` are purely observational. They **MUST NEVER** mutate `inventario_stock.cantidad`.
 - **Decimal Precision**: Monetary values use `DECIMAL(12,2)`. Stock quantities use `DECIMAL(12,3)`. **NEVER** parse or calculate monetary values using floating-point types (`float`). Store and format as strings/exact decimals.

@@ -38,7 +38,7 @@
 ### C. Product Catalog Module (`src/Modules/Inventory/`)
 - [x] **Categories**: Category creation via modal, uniqueness validation on name (`uk_categoria_nombre`), unclassified category fallback.
 - [x] **Products**: Product registration (name, optional description, optional category, selling price `DECIMAL(12,2)` stored in `precio_actual`, active/inactive state toggle). Per canonical specification, SKU and barcode identifiers are explicitly NOT required or implemented. Product name is not uniquely constrained.
-- [x] **Real-time Search**: HTMX-powered live search by product name with 300ms debounce.
+- [x] **Real-time Search**: HTMX-powered live search by product name with 300ms debounce. (`ProductQuery` supports optional category and status filtering at the query layer, but `CatalogHandler` and `products.php` currently wire and render text search only).
 - [x] **Price Updates**: Dedicated endpoint `POST /products/{id}/price` with strict decimal formatting and audit trail.
 
 ### D. Inventory & Locations Module (`src/Modules/Inventory/`)
@@ -87,6 +87,7 @@ The following modules, tables, endpoints, and behaviors **DO NOT EXIST**:
 |---|---|
 | **Product Identifiers** | No SKU or barcode columns or validation in database or application (per canonical spec, SKU and barcode are explicitly not required for R1). |
 | **Product Name Uniqueness** | Product names are not uniquely constrained in schema or validator (unlike category names, which have `uk_categoria_nombre`). |
+| **Catalog UI Filters** | No category dropdown or status filter controls are wired in `CatalogHandler` or rendered in `products.php` (live search by product name only). |
 | **Stock Adjustments & Reconciliation** | No administrative write-off, shrinkage adjustment, or stock reconciliation command (counts in `conteo_inventario` are purely observational). |
 | **Point of Sale (POS)** | No cashier shift opening/closing, no sales orders, no shopping cart, no payment recording, no receipt or invoice printing. |
 | **Purchasing & Suppliers** | No supplier entity or table, no purchase orders (PO), no receiving dock validation against POs. |
