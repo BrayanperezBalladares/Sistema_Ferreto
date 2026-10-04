@@ -2,7 +2,7 @@
 
 > **Audience**: AI Coding Agents & Engineering Team
 > **Status**: Production-Ready Release 1 (R1) Baseline
-> **Verified Quality**: 380 tests | 2575 assertions | PHPStan Level Max | 6 Canonical OpenSpec Specs
+> **Verified Quality**: 382 tests | 2581 assertions | PHPStan Level Max | 6 Canonical OpenSpec Specs
 
 ---
 
@@ -30,9 +30,9 @@
 ### B. Access Control & Security (`src/Modules/Access/`)
 - [x] **Authentication Engine**: Native bcrypt password hashing (cost 10), timing-attack mitigated dummy hash evaluation for non-existent users, lockout after 6 failed attempts in a 10-minute window.
 - [x] **Session Inactivity Management**: Distinct timeouts per role: **20 minutes** for `cajero`, **30 minutes** for `administrador`, `bodeguero`, and `compras`. Stale sessions are destroyed on next request.
-- [x] **Single Authorization Authority**: `RouteAccessPolicy` mapping HTTP methods and paths to allowed roles.
-- [x] **Guards**: `AuthGuard` (redirects anonymous users to `/login`) and `RoleGuard` (returns 403 Forbidden for unauthorized roles).
-- [x] **Presentation Permissions**: `ViewPermissions` wrapping `RouteAccessPolicy`. Templates evaluate `$can($method, $path)` and fail closed.
+- [x] **Single Authorization Authority**: `RouteAccessPolicy` is the authoritative canonical matrix mapping HTTP methods and paths to allowed roles. All 17 current R1 routes are explicitly covered (exempt or mapped).
+- [x] **Guards**: `AuthGuard` (redirects anonymous users to `/login`) and `RoleGuard` (structurally fail-closed: returns 403 Forbidden for unauthorized roles AND denies any registered protected route missing from `RouteAccessPolicy`).
+- [x] **Presentation Permissions**: `ViewPermissions` wrapping `RouteAccessPolicy`. Templates evaluate `$can($method, $path)` and fail closed if permissions are missing or route is unmapped.
 - [x] **Login & Logout**: Full HTTP flow with CSRF protection, secure redirection validation (preventing open redirects), and session regeneration upon login.
 
 ### C. Product Catalog Module (`src/Modules/Inventory/`)

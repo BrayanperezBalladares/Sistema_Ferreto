@@ -128,15 +128,16 @@ Authorization is governed by a **single canonical authority**:
                  v                                     v
        Server Enforcement                      UI Presentation
         (RoleGuard: 403)                      (ViewPermissions)
-                                                       |
-                                                       v
-                                            Template Helper: $can()
-                                                       |
-                          +----------------------------+----------------------------+
-                          | If ViewPermissions exists: | If ViewPermissions is null |
-                          | Queries RouteAccessPolicy  | or invalid:                |
-                          | return $policy->isAllowed  | FAILS CLOSED (return false)|
-                          +----------------------------+----------------------------+
+                 |                                     |
+                 v                                     v
+         FAIL-CLOSED PIPELINE               Template Helper: $can()
+   - Allowed role: proceeds                            |
+   - Disallowed role: 403 ---------------+-------------+-------------+
+   - Missing policy: 403                 |                           |
+                                         v                           v
+                             If ViewPermissions exists:   If ViewPermissions is null
+                             Queries RouteAccessPolicy    or invalid:
+                             return $policy->isAllowed    FAILS CLOSED (return false)
 ```
 
 ### Template Usage Pattern
@@ -154,10 +155,22 @@ $can = $permissions instanceof \App\Modules\Access\ViewPermissions
 <?php endif; ?>
 ```
 
-> [!WARNING]
-> **Route Policy Registration Invariant & Known Latent Gap:**
-> `App\Modules\Access\RouteAccessPolicy` is the single canonical authorization matrix for all business routes. All 17 current R1 routes are either explicitly exempt or mapped in `RouteAccessPolicy::MATRIX`.
-> However, `RoleGuard::check()` currently returns `null` (skipping role evaluation) if a registered route is missing from `RouteAccessPolicy::MATRIX`. Therefore, **every newly registered business route MUST receive an explicit entry in `RouteAccessPolicy`** to prevent unintended access. A dedicated hardening task on branch `fix/role-policy-fail-closed` is recommended to enforce strict server-side fail-closed rejection for unmapped routes.
+### Server Authorization Enforcement & Fail-Closed Invariant
+`App\Modules\Access\RouteAccessPolicy` is the single canonical authorization matrix for all business routes. All 17 current R1 routes are either explicitly exempt or mapped in `RouteAccessPolicy::MATRIX`.
+
+`RoleGuard` enforces a strictly **fail-closed** architecture:
+- **Public / Exempt Route** (`/login`, `/health`, `/logout`, `/assets/*`): Handled according to explicit exemption or infrastructure policy (`HealthAccessPolicy`).
+- **Protected Mapped Route + Allowed Role**: Request proceeds to handler.
+- **Protected Mapped Route + Disallowed Role**: Rejected with HTTP `403 Forbidden`.
+- **Protected Registered Route + NO RouteAccessPolicy Entry**: Rejected by default with HTTP `403 Forbidden` (fail-closed).
+- **Unregistered Route**: `Router` returns `404 Not Found` or `405 Method Not Allowed` before any guard executes.
+- **Anonymous Protected Request**: Handled by `AuthGuard` (standard browser request redirects 303 to `/login`; HTMX request receives 200 with `HX-Redirect: /login`).
+
+> [!IMPORTANT]
+> **Route Registration Invariant & Agent Guidance:**
+> Every newly registered business route in `config/routes.php` **MUST** have an explicit entry in `RouteAccessPolicy::MATRIX`.
+> If an agent or developer omits the policy entry, the route is denied by default with HTTP `403 Forbidden`.
+> This is a **development/configuration error**, NOT an authorization bypass. Agents must **never** "fix" such a 403 by weakening or modifying `RoleGuard`; they must define the intended role policy explicitly in `RouteAccessPolicy`.
 
 ---
 

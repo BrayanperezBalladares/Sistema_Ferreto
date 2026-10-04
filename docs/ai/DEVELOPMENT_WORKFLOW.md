@@ -30,7 +30,7 @@
 [3. TDD Implementation] -------------> RED (failing test) -> GREEN (implementation) -> REFACTOR
        |
        v
-[4. Quality Validation] -------------> composer test (380+) + composer analyse (max) + git diff --check
+[4. Quality Validation] -------------> composer test (382+) + composer analyse (max) + git diff --check
        |
        v
 [5. Conventional Commit] ------------> type(scope): description (NO AI trailers)

@@ -53,7 +53,7 @@ When evaluating requirements, constraints, or code changes, follow this strict p
 - **ViewContext**: Shared layout and user data are encapsulated in `App\Foundation\ViewContext` and injected into `Renderer`.
 - **HTMX Partial Updates**: Endpoints support full navigation and partial HTML fragments. In HTMX requests (`hx-request: true`), return only the target fragment.
 - **Route Authorization Authority**: `App\Modules\Access\RouteAccessPolicy` is the single canonical authorization matrix for all routes and roles.
-- **Route Policy Registration Invariant**: Every newly registered business route in `config/routes.php` must have an explicit mapping in `RouteAccessPolicy`. (RoleGuard skips role evaluation for routes absent from the matrix; hardening tracked separately).
+- **Route Policy Registration Invariant**: Every newly registered business route in `config/routes.php` must have an explicit mapping in `RouteAccessPolicy`. `RoleGuard` is structurally **fail-closed**: any registered non-exempt route without a policy entry is denied by default with HTTP 403 Forbidden. Never bypass `RoleGuard` to resolve an authorization error; always update `RouteAccessPolicy::MATRIX` intentionally when adding routes.
 - **UI Permissions**: Templates evaluate capability through `App\Modules\Access\ViewPermissions` (which wraps `RouteAccessPolicy`). If `ViewPermissions` is missing, templates **fail closed** (`static fn(): bool => false`).
 - **Physical Count Invariant**: Counts in `conteo_inventario` are purely observational. They **MUST NEVER** mutate `inventario_stock.cantidad`.
 - **Decimal Precision**: Monetary values use `DECIMAL(12,2)`. Stock quantities use `DECIMAL(12,3)`. **NEVER** parse or calculate monetary values using floating-point types (`float`). Store and format as strings/exact decimals.
@@ -69,7 +69,7 @@ When evaluating requirements, constraints, or code changes, follow this strict p
 - **Timing Attack Mitigation**: When authenticating missing or empty usernames, verify against `Authenticator::DUMMY_HASH`. Existing non-active accounts verify against their stored hash.
 - **Account Lockout**: 6th failed attempt within a fixed 10-minute window locks the account (`bloqueado`). Unlocking is strictly administrative via `scripts/console.php unlock-user`.
 - **Session Authority**: Server-side sessions via `App\Foundation\NativeSession`. Revalidated against the database row on every protected request. Inactivity timeout: 20 minutes for `cajero`, 30 minutes for others.
-- **Never Weaken Middleware**: Never disable `AuthGuard`, `RoleGuard`, or `Csrf` to make tests pass.
+- **Never Weaken Middleware**: Never disable or bypass `AuthGuard`, `RoleGuard`, or `Csrf` to make tests or routes pass. If a route returns 403 due to missing policy, explicitly declare its allowed roles in `RouteAccessPolicy`.
 - **Sensitive Logging Prohibition**: Never log plaintext passwords, password hashes, session IDs, or CSRF tokens.
 
 ---

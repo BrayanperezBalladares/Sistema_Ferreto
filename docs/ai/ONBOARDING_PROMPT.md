@@ -21,6 +21,7 @@ CRITICAL DIRECTIVES:
    - Physical counts (conteo_inventario) NEVER mutate inventario_stock.
 4. SECURITY & PERMISSIONS:
    - Single route authorization authority: App\Modules\Access\RouteAccessPolicy.
+   - RoleGuard is fail-closed: registered protected routes missing policy return 403 Forbidden.
    - Templates use ViewPermissions and FAIL CLOSED if missing or unauthorized.
    - Never weaken AuthGuard, RoleGuard, or Csrf to make tests pass.
    - Never commit passwords or hardcoded seeds for users.
