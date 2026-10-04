@@ -757,4 +757,54 @@ final class RoleGuardHttpTest extends TestCase
         self::assertSame(200, $response->status);
         self::assertSame(1, $clockCalls, 'AuthSession::user() must be invoked exactly once during protected request dispatch.');
     }
+
+    public function testCheckDeniesAuthenticatedRequestWhenNonExemptRouteHasNoPolicyEntry(): void
+    {
+        $policy = new RouteAccessPolicy();
+        $guard = new RoleGuard($policy);
+
+        $principal = [
+            'id_usuario' => 1,
+            'username'   => 'admin_user',
+            'rol'        => 'administrador',
+            'estado'     => 'activo',
+        ];
+
+        // Route is non-exempt and has NO entry in RouteAccessPolicy
+        $res = $guard->check(new Request('GET', '/unmapped/protected/route'), $principal);
+
+        self::assertNotNull($res, 'RoleGuard must fail closed when a non-exempt route has no RouteAccessPolicy entry.');
+        self::assertSame(403, $res->status);
+        self::assertSame('Forbidden', $res->body);
+    }
+
+    public function testRegisteredNonExemptRouteMissingFromPolicyFailsClosedWith403InKernel(): void
+    {
+        $userId = $this->createUser('admin_unmapped', 'administrador');
+        $session = new NativeSession(false);
+        $this->establishSession($userId, $session);
+
+        $actualCsrf = new Csrf($session);
+        $actualCsrf->token();
+
+        $userQuery   = new UserQuery(self::$testDb);
+        $authSession = new AuthSession($session, $userQuery);
+        $routePolicy = new RouteAccessPolicy();
+
+        $routes = [
+            ['GET', '/unmapped-registered-route', static fn (): Response => new Response(200, [], 'Unmapped Handler Hit')],
+        ];
+
+        $kernel = new Kernel(
+            new Router($routes),
+            $actualCsrf,
+            new ErrorMapper(new Logger(), self::$renderer),
+            new AuthGuard($authSession),
+            new RoleGuard($routePolicy)
+        );
+
+        $res = $kernel->handle(new Request('GET', '/unmapped-registered-route'));
+        self::assertSame(403, $res->status, 'Kernel must deny registered non-exempt route missing from RouteAccessPolicy with 403 Forbidden.');
+        self::assertSame('Forbidden', $res->body);
+    }
 }
