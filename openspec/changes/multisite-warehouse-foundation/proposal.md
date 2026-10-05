@@ -2,76 +2,137 @@
 
 ## Intent
 
-Establish the core multisite physical hierarchy for **Ferreterías El Constructor**, modeling commercial branches (`sucursales`) and storage warehouses (`almacenes`), and associating physical storage locations (`ubicaciones`) with specific warehouses. Currently, storage locations and stock positions exist in an unpartitioned space independent of company facilities. This change introduces explicit facility boundaries (`Sucursal -> Almacen -> Ubicacion`), while strictly preserving the relational 3NF stock grain `(id_producto, id_ubicacion)` and deterministic audit trails.
+Establish the core physical and organizational facility hierarchy for **Ferreterías El Constructor**, defining commercial branches (`sucursales`) and storage warehouses (`almacenes`), and associating physical storage locations (`ubicaciones`) with specific warehouses. This change introduces explicit facility boundaries (`Sucursal -> Almacen -> Ubicacion`) governed by an **Expand → Adapt → Contract** migration lifecycle that strictly preserves all existing development and production data without fabricating artificial business entities.
 
 ## Why
 
-In the operational reality of **Ferreterías El Constructor**, goods, counters, and stock positions do not exist in an abstract space; they reside in distinct physical facilities (such as Central, branch stores, yard storage, or damage quarantine). 
+In the operational reality of **Ferreterías El Constructor**, inventory items and physical storage locations do not exist in an unpartitioned space; they reside within specific physical facilities (commercial branches, general warehouses, sales counters, yard storage, or damage quarantine areas).
 
-Before implementing Point of Sale (which sells from branch-specific counters), Purchasing (which receives into specific warehouses), or Logistics Transfers (which moves inventory between branches and warehouses), the software must model the physical organizational hierarchy. Furthermore, transitioning from independent locations to warehouse-owned locations is an architectural foundation: delaying it increases the cost of retrofitting inventory queries, transactional boundaries, and multi-location visibility.
+Establishing facility boundaries is an architectural prerequisite before introducing:
+1. Point of Sale (POS), which sells items directly from branch-specific counter storage.
+2. Purchasing, which receives goods from vendors into specific receiving warehouses.
+3. Logistics Transfers, which coordinates the movement of goods between branches and warehouses.
+
+Transitioning physical locations from unpartitioned entities to warehouse-owned entities under an Expand → Adapt → Contract strategy ensures that existing stock positions and observational physical-count history remain completely intact with zero data loss or speculative assignments.
 
 ## Scope
 
 ### In Scope
-- **Branch Entity (`sucursal`)**: Relational model for physical enterprise branches, including unique `codigo`, `nombre`, optional `direccion` and `telefono`, and boolean/enum lifecycle `estado_activo`.
-- **Warehouse Entity (`almacen`)**: Relational model for storage areas inside a branch, including unique `codigo`, `nombre`, functional `tipo` (`bodega`, `mostrador`, `patio`, `merma`), branch reference `id_sucursal`, and `estado_activo`.
-- **Location Reparenting to Warehouse**: Update `ubicacion` schema to enforce warehouse ownership via `id_almacen` (Foreign Key `RESTRICT`).
-- **Global Location Code Invariant**: Retention of global uniqueness on `ubicacion.codigo` across the entire enterprise to avoid scanning ambiguity.
-- **Location Integrity Guards**: Strict deletion restriction when stock or historical count records reference a location; prohibition or strict constraints on location reparenting to protect audit trail integrity.
-- **Stock Roll-Up Queries**: Read-only queries computing aggregate stock per warehouse (`SUM(cantidad) GROUP BY id_almacen, id_producto`) and per branch (`SUM(cantidad) GROUP BY id_sucursal, id_producto`) derived from canonical location stock without data duplication.
-- **Database Migration & Backfill Strategy**: Additive migration introducing `sucursal` and `almacen`, establishing a canonical initial branch/warehouse to backfill existing development/production locations, and establishing foreign key integrity.
-- **CQS Persistence**: Dedicated query and command classes for `Sucursal` and `Almacen` in `App\Modules\Inventory` (or dedicated multisite sub-namespace).
-- **Route Authorization & Access Policy**: Register branch and warehouse management routes in `RouteAccessPolicy` adhering to fail-closed `RoleGuard` (administrador full access, bodeguero read/operational access where appropriate, cajero/compras restricted).
-- **Server-Rendered UI**: Responsive Bulma 1.0.4 management interfaces for branches and warehouses, with HTMX partials and location creation forms tied to active warehouses.
+- **Commercial Branch Entity (`sucursal`)**: Relational model for physical enterprise branches, including surrogate primary key `id_sucursal`, unique alphanumeric business code `codigo`, required `nombre`, city `ciudad`, optional street address `direccion`, optional telephone `telefono`, and independent lifecycle status `estado_activo`.
+- **Warehouse Storage Facility Entity (`almacen`)**: Relational model for storage areas inside a branch, including surrogate primary key `id_almacen`, parent branch foreign key `id_sucursal`, unique alphanumeric business code `codigo`, required `nombre`, functional storage type `tipo` restricted to `('bodega', 'mostrador', 'patio', 'merma')`, and independent lifecycle status `estado_activo`.
+- **Expand → Adapt → Contract Migration Architecture**:
+  - **EXPAND**: Additive schema migrations executed by `MigrationRunner` (one DDL statement per file, no multi-statement files) creating `sucursal`, `almacen`, and adding nullable `ubicacion.id_almacen` with foreign key constraint (`ON DELETE RESTRICT`).
+  - **ADAPT**: Runtime capabilities for creating branches and warehouses, coupled with a controlled administrative CLI tool (`scripts/console.php map-location`) to explicitly assign existing legacy locations to verified real warehouses without inventing placeholder entities.
+  - **CONTRACT**: Final migration enforcing `NOT NULL` on `ubicacion.id_almacen` once all locations have been explicitly assigned and verified via preflight checks (`scripts/console.php verify-locations-mapped`).
+- **Data & Historical Integrity Preservation**:
+  - Existing `ubicacion` IDs and codes (`codigo`) are preserved.
+  - Existing `inventario_stock` positions, IDs, and quantities are preserved.
+  - Existing `conteo_inventario` observational count records, system quantities, counted quantities, and discrepancies are preserved.
+  - No default, placeholder, or legacy branches or warehouses are fabricated.
+- **Location Parent Immutability**:
+  - Once a location is created or assigned to a warehouse under the final contract, its parent warehouse (`id_almacen`) is immutable through normal application operations. Changing `id_almacen` via HTTP/UI is not supported to protect the integrity of historical stock and observational count attributions.
+  - Likewise, a warehouse's parent branch (`id_sucursal`) is immutable after creation.
+- **Global Location Code Invariant**: Retention of global uniqueness on `ubicacion.codigo` across the entire enterprise (`UNIQUE(codigo)`).
+- **Referential Integrity & Deletion Guards**:
+  - `ON DELETE RESTRICT` protects `sucursal -> almacen`, `almacen -> ubicacion`, and `ubicacion -> inventario_stock`.
+  - Physical deletion of locations holding any stock position records (even with zero balance) or historical count records is prohibited.
+  - Lifecycle management uses explicit logical deactivation (`estado_activo = 0`).
+- **Independent Lifecycle & Structural Creation Guards**:
+  - Inactivating a parent branch does not automatically cascade to child warehouses or locations.
+  - Inactivating a parent warehouse does not automatically cascade to child locations.
+  - Structural creation guard: new warehouses cannot be created under an inactive branch; new locations cannot be created under an inactive warehouse.
+  - Historical visibility: existing stock positions and observational counts under inactive facilities remain fully visible and included in aggregate queries.
+- **Dynamic Stock Roll-Up Aggregations (Strict 3NF)**:
+  - Aggregate warehouse stock and branch stock are computed dynamically via SQL queries joining `inventario_stock` with `ubicacion` and `almacen`.
+  - Stock quantity remains strictly at the position grain `(id_producto, id_ubicacion)`. No redundant `id_almacen` or `id_sucursal` columns are added to `inventario_stock`.
+- **Route Authorization Policy**:
+  - Register `/branches` and `/warehouses` in `RouteAccessPolicy` and `config/routes.php`.
+  - Enforce fail-closed authorization via `RoleGuard` (authenticated requests to registered non-exempt routes lacking an explicit policy return HTTP 403 Forbidden; unauthenticated requests redirect to `/login`; unknown routes return 404; unsupported methods return 405).
+  - Conservative role grants: `administrador` holds mutation rights; `bodeguero` holds read access to warehouses; `cajero` and `compras` are denied access.
+- **Server-Rendered UI**:
+  - Register `pages/branches.php` and `pages/warehouses.php` in `Renderer::ALLOWED_TEMPLATES`.
+  - Pure PHP templates with Bulma 1.0.4 design tokens (`docs/ui/DESIGN.md`) and HTMX partials.
 
 ### Out of Scope
-- **User-Branch Scoping (`usuario.id_sucursal`)**: Assigning users or cashiers to specific branches is deferred to a future access-control / POS change.
-- **Transit Warehouses (`tipo = 'transito'`)**: In-transit stock semantics are deferred to the inter-branch transfer specification (Logistics / Transfers change), as goods in transit are governed by transfer order state rather than physical locations.
-- **Point of Sale (POS) / Sales Orders**: Checkout and counter sales remain in R2.
-- **Direct Stock Grain Changes**: Stock quantity remains strictly at `(id_producto, id_ubicacion)`. No redundant `id_almacen` or `id_sucursal` columns will be added to `inventario_stock`.
-- **Automated Rebalancing or Transfers**: Moving stock between warehouses or branches remains part of the transfer module.
+To ensure strict boundary discipline, this foundation change explicitly does **NOT** implement:
+- User-to-branch assignment (`usuario.id_sucursal` or `usuario_sucursal` persistence)
+- Object-level or branch-scoped user authorization matrices
+- Multibranch user membership or switching
+- Point of Sale (POS) checkout, sales, or cash register operations
+- Customer accounts or credit management
+- Payment processing or fiscal invoicing
+- Supplier catalog, terms, or contact management
+- Purchase orders, purchasing workflows, or vendor receiving
+- Inter-branch transfer requests, approvals, dispatch, or receipts
+- Virtual transit inventory or in-transit warehouse tracking (transit warehouse semantics are intentionally deferred to the future transfer capability)
+- Product batch tracking, lot numbers, or expiration dates
+- First-In, First-Out (FIFO) consumption engines
+- Automated replenishment or minimum stock reorder workflows
+- Barcode scanner hardware integration or continuous keyboard-wedge listeners
+- Product selling price audit logs or price history tables
+- General transactional audit subsystem (`REGISTRO_ACCION_LOG`)
+- Analytics, Data Warehouse schemas, or ETL synchronization routines
 
 ## Capabilities
 
 ### New Capabilities
-- `multisite-foundation`: Commercial branch and warehouse relational management, lifecycle toggles, and hierarchical validation.
+- `multisite-foundation`: Commercial branch and warehouse storage facility entity management, independent operational lifecycles, and structural creation guards.
 
 ### Modified Capabilities
-- `inventory-locations-stock`: Physical storage locations require warehouse association (`id_almacen`), and queries provide aggregated stock views per warehouse and branch while maintaining base position grain.
+- `inventory-locations-stock`: Physical storage locations require warehouse association (`id_almacen`), enforce parent immutability and referential deletion guards, and provide dynamic warehouse and branch stock rollups.
 
 ## Approach
 
-1. **Schema & Migration**:
-   - Create table `sucursal` with `id_sucursal`, `codigo` (UNIQUE), `nombre`, `direccion`, `telefono`, `estado_activo`, timestamps.
-   - Create table `almacen` with `id_almacen`, `id_sucursal` (FK), `codigo` (UNIQUE), `nombre`, `tipo` (CHECK: `bodega`, `mostrador`, `patio`, `merma`), `estado_activo`, timestamps.
-   - Migration for existing databases: insert canonical initial branch (`SUC-01`, "Sucursal Central") and warehouse (`ALM-CENTRAL`, "Bodega Central", tipo `bodega`), update existing `ubicacion` rows setting `id_almacen = 1`, then alter `ubicacion` to add `id_almacen INT UNSIGNED NOT NULL` and FK constraint `FOREIGN KEY (id_almacen) REFERENCES almacen(id_almacen) ON DELETE RESTRICT`.
-2. **CQS Domain Operations**:
-   - Implement `SucursalQuery`, `SucursalCommand`, `AlmacenQuery`, `AlmacenCommand`.
-   - Update `LocationQuery` and `LocationCommand` to require and filter by `id_almacen`.
-   - Add aggregation queries in `StockQuery` for warehouse and branch totals.
-3. **Route Policy & Guards**:
-   - Register `/branches` and `/warehouses` in `config/routes.php` and `App\Modules\Access\RouteAccessPolicy::MATRIX`.
-   - Ensure `RoleGuard` fail-closed compliance.
-4. **UI Presentation**:
-   - Bulma 1.0.4 views for branch and warehouse catalogs and modals.
-   - Update location management view to group/filter by branch and warehouse.
+The delivery follows a disciplined three-stage rollout:
+
+```
+EXPAND: Additive single-statement DDL migrations
+        (create sucursal, create almacen, add nullable ubicacion.id_almacen)
+   │
+   ▼
+ADAPT:  Deploy runtime management (Branches, Warehouses, updated Locations)
+        + Run controlled mapping CLI (scripts/console.php map-location)
+        + Run completeness verification (scripts/console.php verify-locations-mapped)
+   │
+   ▼
+CONTRACT: Final single-statement migration enforcing NOT NULL on ubicacion.id_almacen
+```
+
+> [!IMPORTANT]
+> The Expand → Adapt → Contract sequence represents distinct deployment and operational boundaries. In production and persistent development environments, the CONTRACT migration cannot execute until an operator explicitly provisions legitimate branches/warehouses and maps all existing locations. The migration runner is single-statement and fail-stop: if CONTRACT runs while unmapped locations exist, the database engine aborts execution and the runner halts without recording the migration.
+
+1. **Migration Runner Compatibility**:
+   - Every `.up.sql` and `.down.sql` file contains exactly **one executable DDL statement**, honoring `MigrationRunner`'s single-statement contract and MariaDB's `Mysql::ATTR_MULTI_STATEMENTS = false`.
+   - Applied migration checksums and history are strictly preserved.
+2. **Explicit Mapping Workflow**:
+   - Existing locations (such as `CENTRAL` and `bod-a2` in local development) remain unmodified during EXPAND.
+   - An administrator executes `scripts/console.php map-location <location-identifier> <warehouse-identifier>` to explicitly establish ownership.
+   - The verification command `scripts/console.php verify-locations-mapped` confirms that zero unmapped locations remain before applying CONTRACT.
+3. **Domain & Route Access**:
+   - `SucursalQuery`, `SucursalCommand`, `AlmacenQuery`, and `AlmacenCommand` encapsulate CQS domain logic.
+   - Routes are mapped in `RouteAccessPolicy` conforming to fail-closed authorization.
+4. **Renderer Integration**:
+   - New templates are registered in `Renderer::ALLOWED_TEMPLATES` to satisfy the strict template allowlist.
 
 ## Affected Areas
 
 | Area | Impact | Description |
 |---|---|---|
-| `database/migrations/` | New | Additive migrations for `sucursal`, `almacen`, and `ubicacion` foreign key backfill. |
+| `database/migrations/` | New | Single-statement migrations for EXPAND (`0008`, `0009`, `0010`) and CONTRACT (`0011`), with compensating `.down.sql` reversals. |
+| `src/Foundation/Renderer.php` | Modified | Register new template names in `Renderer::TEMPLATES` allowlist. |
 | `src/Modules/Inventory/` | New/Modified | New `Sucursal*` and `Almacen*` CQS classes; update `Location*` and `StockQuery`. |
-| `src/Modules/Access/RouteAccessPolicy.php` | Modified | Add route policy entries for branches and warehouses. |
-| `config/routes.php` | Modified | Register HTTP routes for branch and warehouse handlers. |
-| `templates/pages/`, `templates/fragments/` | New/Modified | Templates for branches, warehouses, and updated location selector. |
-| `tests/Integration/` | New/Modified | Integration tests for multisite persistence, warehouse hierarchy, and stock rollups. |
+| `src/Modules/Access/RouteAccessPolicy.php` | Modified | Declare exact route authorization rules for branches and warehouses. |
+| `config/routes.php` | Modified | Register HTTP routes for branch and warehouse endpoints. |
+| `scripts/console.php` | Modified | Add `map-location` and `verify-locations-mapped` CLI commands. |
+| `templates/pages/` | New/Modified | New templates `branches.php` and `warehouses.php`; update `locations.php`. |
+| `tests/Integration/` | New/Modified | Integration suites for single-statement migrations, mapping CLI, parent immutability, rollups, and route guards. |
 
 ## Risks
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Existing location data orphaned or broken during migration | Medium | Migration script automatically creates default branch and warehouse to backfill existing records before applying NOT NULL constraint. |
-| Denormalization temptation (adding `id_almacen` to `inventario_stock`) | High | Enforce 3NF strictly: stock exists only at `(id_producto, id_ubicacion)`; warehouse stock is computed dynamically via indexed JOIN. |
-| Location reparenting corrupting physical count audit trails | Medium | Prohibit reparenting location to another warehouse when stock or counts exist; enforce validation in `LocationCommand`. |
-| Route authorization bypass on new routes | Low | `RoleGuard` is structurally fail-closed; test suite mandates explicit policy in `RouteAccessPolicy`. |
+| Premature CONTRACT execution on unmapped database | Medium | Preflight check in deployment and MariaDB `MODIFY COLUMN ... NOT NULL` failure aborts migration cleanly without corrupting schema history. |
+| Multi-statement migration rejection | High | Strictly author exactly one DDL statement per migration file, validated by automated migration tests. |
+| Arbitrary location reparenting corrupting observational count history | Medium | Enforce parent immutability at the domain layer: reject any HTTP/UI request attempting to modify `id_almacen` on existing locations. |
+| Route authorization bypass on new routes | Low | `RoleGuard` is structurally fail-closed; integration tests mandate explicit declarations in `RouteAccessPolicy`. |
+| Fabricating placeholder business data | High | Prohibit automatic migration seeds; require human operators to provision real branches and map locations explicitly. |
