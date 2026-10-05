@@ -116,9 +116,7 @@ final class MultisiteMigrationTest extends TestCase
         // Run migrations up to 0007 using a temp directory or subset
         // Let's create an isolated populated state before 0008-0010
         // We can run 0001 to 0007 first
-        $tempDir = sys_get_temp_dir() . '/ferreto_pop_' . bin2hex(random_bytes(4));
-        mkdir($tempDir, 0777, true);
-
+        $tempDir = $this->createFixtureDir([]);
         for ($i = 1; $i <= 7; $i++) {
             $prefix = sprintf('%04d', $i);
             $files = glob(self::$migrationsPath . "/{$prefix}_*.sql") ?: [];
@@ -176,13 +174,6 @@ final class MultisiteMigrationTest extends TestCase
         self::assertSame('300.000', $counts[0]['cantidad_sistema']);
         self::assertSame('250.000', $counts[0]['cantidad_contada']);
         self::assertSame('-50.000', $counts[0]['diferencia']);
-
-        // Cleanup temp dir
-        $files = glob($tempDir . '/*') ?: [];
-        foreach ($files as $f) {
-            unlink($f);
-        }
-        rmdir($tempDir);
     }
 
     public function testRepeatMigrationIsIdempotent(): void

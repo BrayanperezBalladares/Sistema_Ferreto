@@ -507,6 +507,52 @@ final class MultisiteHttpTest extends TestCase
         }
     }
 
+    public function testRoleAwareUiRenderingForAdministradorAndBodeguero(): void
+    {
+        $sucId = self::$sucCmd->create('SUC-ROLE-UI', 'Sucursal Rol UI', 'Managua');
+        $almId = self::$almCmd->create($sucId, 'ALM-ROLE-UI', 'Almacen Rol UI', 'bodega');
+
+        // 1. Administrador on /branches:
+        // - status 200
+        // - can see 'Nueva sucursal' modal trigger
+        // - can see toggle status action button
+        $adminBranch = $this->dispatchKernel(new Request('GET', '/branches'), role: 'administrador');
+        self::assertSame(200, $adminBranch->status);
+        self::assertStringContainsString('Nueva sucursal', $adminBranch->body);
+        self::assertStringContainsString('data-modal-open="modal-branch"', $adminBranch->body);
+        self::assertStringContainsString('/branches/toggle-active', $adminBranch->body);
+        self::assertStringContainsString('btn-action-toggle', $adminBranch->body);
+
+        // 2. Administrador on /warehouses:
+        // - status 200
+        // - can see 'Nuevo almacén' modal trigger
+        // - can see toggle status action button
+        $adminWh = $this->dispatchKernel(new Request('GET', '/warehouses'), role: 'administrador');
+        self::assertSame(200, $adminWh->status);
+        self::assertStringContainsString('Nuevo almacén', $adminWh->body);
+        self::assertStringContainsString('data-modal-open="modal-warehouse"', $adminWh->body);
+        self::assertStringContainsString('/warehouses/toggle-active', $adminWh->body);
+        self::assertStringContainsString('btn-action-toggle', $adminWh->body);
+
+        // 3. Bodeguero on /branches:
+        // - structurally denied (403 Forbidden)
+        $bodegueroBranch = $this->dispatchKernel(new Request('GET', '/branches'), role: 'bodeguero');
+        self::assertSame(403, $bodegueroBranch->status);
+        self::assertSame('Forbidden', $bodegueroBranch->body);
+
+        // 4. Bodeguero on /warehouses:
+        // - status 200
+        // - can view warehouse list
+        // - CANNOT see 'Nuevo almacén' modal trigger
+        // - CANNOT see toggle status action button
+        $bodegueroWh = $this->dispatchKernel(new Request('GET', '/warehouses'), role: 'bodeguero');
+        self::assertSame(200, $bodegueroWh->status);
+        self::assertStringContainsString('ALM-ROLE-UI', $bodegueroWh->body);
+        self::assertStringNotContainsString('data-modal-open="modal-warehouse"', $bodegueroWh->body);
+        self::assertStringNotContainsString('/warehouses/toggle-active', $bodegueroWh->body);
+        self::assertStringNotContainsString('btn-action-toggle', $bodegueroWh->body);
+    }
+
     public function testRoleGuardCajeroAndComprasForbiddenOnAllBranchAndWarehouseRoutes(): void
     {
         $sucId = self::$sucCmd->create('SUC-CC', 'Sucursal CC', 'Chinandega');
@@ -650,6 +696,15 @@ final class MultisiteHttpTest extends TestCase
         $stockId = self::$stockCmd->createPosition($prodId, $locId, '150.000');
         $countId = self::$countCmd->record($stockId, '150.000', 'Conteo original');
 
+        // Snapshot before forged reparent attempt
+        $stmtStock = self::$testDb->pdo()->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtStock->execute([':id' => $stockId]);
+        $stockBefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+
+        $stmtCount = self::$testDb->pdo()->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+        $stmtCount->execute([':id' => $countId]);
+        $countBefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
         // Post to /locations with code of existing location attempting to reparent to whB
         $res = $this->post('/locations', [
             'codigo'      => 'LOC-IMM-1',
@@ -668,21 +723,14 @@ final class MultisiteHttpTest extends TestCase
         self::assertSame('Ubicacion Fija A', $loc['descripcion']);
         self::assertSame($whA, $loc['id_almacen'], 'Location id_almacen must remain immutable in Warehouse A.');
 
-        // Assert stock position is completely intact
-        $stmtStock = self::$testDb->pdo()->prepare('SELECT * FROM inventario_stock WHERE id_stock = :id');
+        // Assert stock position and count history are byte-for-byte identical to before-snapshot
         $stmtStock->execute([':id' => $stockId]);
-        $stockRow = $stmtStock->fetch(PDO::FETCH_ASSOC);
-        self::assertIsArray($stockRow);
-        self::assertSame($locId, (int) $stockRow['id_ubicacion']);
-        self::assertSame('150.000', $stockRow['cantidad']);
+        $stockAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockBefore, $stockAfter, 'Stock row must be identical before and after forged reparent attempt.');
 
-        // Assert count record is completely intact
-        $stmtCount = self::$testDb->pdo()->prepare('SELECT * FROM conteo_inventario WHERE id_conteo = :id');
         $stmtCount->execute([':id' => $countId]);
-        $countRow = $stmtCount->fetch(PDO::FETCH_ASSOC);
-        self::assertIsArray($countRow);
-        self::assertSame($stockId, (int) $countRow['id_stock']);
-        self::assertSame('150.000', $countRow['cantidad_contada']);
+        $countAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countBefore, $countAfter, 'Count history row must be identical before and after forged reparent attempt.');
     }
 
     public function testLocationRegistrationFloatWarehouseIdRejectedWith422(): void
@@ -708,6 +756,15 @@ final class MultisiteHttpTest extends TestCase
         $prodId = self::$prodCmd->register('Lija de agua #100', '1.50');
         $stockId = self::$stockCmd->createPosition($prodId, $locId, '80.000');
         $countId = self::$countCmd->record($stockId, '80.000', 'Conteo inicial');
+
+        // Snapshot before forged reparent attempts
+        $stmtStock = self::$testDb->pdo()->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtStock->execute([':id' => $stockId]);
+        $stockBefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+
+        $stmtCount = self::$testDb->pdo()->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+        $stmtCount->execute([':id' => $countId]);
+        $countBefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
 
         // 1. Forged id_sucursal in toggle-active has zero effect
         $resToggle = $this->post('/warehouses/toggle-active', [
@@ -740,18 +797,13 @@ final class MultisiteHttpTest extends TestCase
         self::assertNotNull($loc);
         self::assertSame($whId, $loc['id_almacen']);
 
-        $stmtStock = self::$testDb->pdo()->prepare('SELECT * FROM inventario_stock WHERE id_stock = :id');
         $stmtStock->execute([':id' => $stockId]);
-        $stockRow = $stmtStock->fetch(PDO::FETCH_ASSOC);
-        self::assertIsArray($stockRow);
-        self::assertSame($locId, (int) $stockRow['id_ubicacion']);
-        self::assertSame('80.000', $stockRow['cantidad']);
+        $stockAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockBefore, $stockAfter, 'Descendant stock row must be identical before and after forged reparent attempts.');
 
-        $stmtCount = self::$testDb->pdo()->prepare('SELECT * FROM conteo_inventario WHERE id_conteo = :id');
         $stmtCount->execute([':id' => $countId]);
-        $countRow = $stmtCount->fetch(PDO::FETCH_ASSOC);
-        self::assertIsArray($countRow);
-        self::assertSame($stockId, (int) $countRow['id_stock']);
+        $countAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countBefore, $countAfter, 'Descendant count history row must be identical before and after forged reparent attempts.');
     }
 
     public function testFullPageVsHtmxResponseContractOnMutations(): void
@@ -905,6 +957,11 @@ final class MultisiteHttpTest extends TestCase
             '<script>alert("l")</script>'
         );
 
+        // 0. Verify CSS touch target definitions (>= 44px)
+        $cssContent = (string) file_get_contents(dirname(__DIR__, 2) . '/public/assets/ferreto.css');
+        self::assertMatchesRegularExpression('/\.btn-action-toggle\s*\{[^}]*min-height:\s*44px/s', $cssContent);
+        self::assertMatchesRegularExpression('/\.btn-action-toggle\s*\{[^}]*min-width:\s*44px/s', $cssContent);
+
         $endpoints = ['/branches', '/warehouses', '/locations'];
 
         foreach ($endpoints as $ep) {
@@ -919,6 +976,9 @@ final class MultisiteHttpTest extends TestCase
 
             // 3. Touch target sizing classes present
             self::assertMatchesRegularExpression('/class="[^"]*(?:btn-primary|btn-secondary|ferreto-btn|button|drawer-close)[^"]*"/i', $res->body);
+            if ($ep !== '/locations') {
+                self::assertStringContainsString('btn-action-toggle', $res->body);
+            }
         }
 
         // 4. Output escaping verification across facility pages
@@ -965,9 +1025,12 @@ final class MultisiteHttpTest extends TestCase
         $authGuard = new AuthGuard($authSession);
         $roleGuard = new RoleGuard($routePolicy);
 
-        $branchHandler = new BranchHandler(self::$renderer, self::$sucQuery, self::$sucCmd, $actualCsrf);
-        $warehouseHandler = new WarehouseHandler(self::$renderer, self::$almQuery, self::$almCmd, self::$sucQuery, $actualCsrf);
-        $locationHandler = new LocationHandler(self::$renderer, self::$locQuery, self::$locCmd, self::$almQuery, $actualCsrf);
+        $viewContext = new ViewContext();
+        $renderer = new Renderer(dirname(__DIR__, 2), $viewContext);
+
+        $branchHandler = new BranchHandler($renderer, self::$sucQuery, self::$sucCmd, $actualCsrf);
+        $warehouseHandler = new WarehouseHandler($renderer, self::$almQuery, self::$almCmd, self::$sucQuery, $actualCsrf);
+        $locationHandler = new LocationHandler($renderer, self::$locQuery, self::$locCmd, self::$almQuery, $actualCsrf);
 
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
@@ -989,10 +1052,10 @@ final class MultisiteHttpTest extends TestCase
         $kernel = new Kernel(
             new Router($routes),
             $actualCsrf,
-            new ErrorMapper(new Logger(), self::$renderer),
+            new ErrorMapper(new Logger(), $renderer),
             $authGuard,
             $roleGuard,
-            viewContext: new ViewContext(),
+            viewContext: $viewContext,
             routePolicy: $routePolicy
         );
 
