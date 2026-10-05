@@ -418,6 +418,26 @@ final class ConsoleMultisiteMappingTest extends TestCase
         rewind($err);
         self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
 
+        // map-location rejecting options starting with '-'
+        ftruncate($err, 0);
+        rewind($err);
+        self::assertSame(64, $handler->handleMapLocation(['--help', 'WH']));
+        rewind($err);
+        self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
+
+        ftruncate($err, 0);
+        rewind($err);
+        self::assertSame(64, $handler->handleMapLocation(['LOC', '--option']));
+        rewind($err);
+        self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
+
+        // map-location strictly checks integer IDs and does not parse float '1.5' as int 1
+        ftruncate($err, 0);
+        rewind($err);
+        self::assertSame(1, $handler->handleMapLocation(['1.5', 'WH']));
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '1.5' no existe.", stream_get_contents($err));
+
         // verify-locations-mapped with 1 arg
         ftruncate($err, 0);
         rewind($err);

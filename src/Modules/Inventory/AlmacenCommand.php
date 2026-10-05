@@ -33,6 +33,10 @@ final readonly class AlmacenCommand
             throw new InvalidArgumentException('El código y el nombre del almacén son obligatorios.');
         }
 
+        if (mb_strlen($codigo) > 30 || !preg_match('/^[A-Za-z0-9_-]+$/', $codigo)) {
+            throw new InvalidArgumentException('El código de almacén no es válido.');
+        }
+
         if (!in_array($tipo, self::ALLOWED_TYPES, true)) {
             throw new InvalidArgumentException('Tipo de almacén no válido.');
         }

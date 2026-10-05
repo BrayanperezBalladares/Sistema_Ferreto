@@ -359,6 +359,93 @@ final class MultisiteDomainTest extends TestCase
         self::assertSame($wId2, $byCode['id_almacen']);
     }
 
+    public function testBranchCodeFormatValidation(): void
+    {
+        // Positive tests
+        $id1 = self::$sucursalCmd->create('SUC-01', 'Sucursal Uno', 'Managua');
+        self::assertGreaterThan(0, $id1);
+
+        $id2 = self::$sucursalCmd->create('suc_dos', 'Sucursal Dos', 'Leon');
+        self::assertGreaterThan(0, $id2);
+
+        $id3 = self::$sucursalCmd->create('S12345678901234567890123456789', 'Sucursal Max', 'Granada'); // 30 chars
+        self::assertGreaterThan(0, $id3);
+
+        // Negative tests: spaces, !, @, punctuation, over-length
+        $invalidCodes = [
+            'SUC 01',
+            'SUC CENTRAL',
+            'SUC!',
+            'SUC@01',
+            'SUC#1',
+            'SUC.01',
+            'SUC/01',
+            str_repeat('A', 31),
+        ];
+
+        foreach ($invalidCodes as $badCode) {
+            try {
+                self::$sucursalCmd->create($badCode, 'Nombre Valido', 'Ciudad');
+                self::fail("Expected InvalidArgumentException for invalid branch code: '{$badCode}'");
+            } catch (InvalidArgumentException $e) {
+                self::assertSame('El código de sucursal no es válido.', $e->getMessage());
+            }
+
+            $validation = \App\Modules\Inventory\BranchValidator::validateBranch([
+                'codigo' => $badCode,
+                'nombre' => 'Nombre Valido',
+                'ciudad' => 'Ciudad',
+            ]);
+            self::assertFalse($validation->valid(), "BranchValidator should reject code: '{$badCode}'");
+            self::assertArrayHasKey('codigo', $validation->fieldErrors);
+        }
+    }
+
+    public function testWarehouseCodeFormatValidation(): void
+    {
+        $branchId = self::$sucursalCmd->create('SUC-WH-TEST', 'Sucursal WH Test', 'Esteli');
+
+        // Positive tests
+        $wId1 = self::$almacenCmd->create($branchId, 'ALM-01', 'Almacen Uno');
+        self::assertGreaterThan(0, $wId1);
+
+        $wId2 = self::$almacenCmd->create($branchId, 'alm_dos', 'Almacen Dos');
+        self::assertGreaterThan(0, $wId2);
+
+        $wId3 = self::$almacenCmd->create($branchId, 'W12345678901234567890123456789', 'Almacen Max'); // 30 chars
+        self::assertGreaterThan(0, $wId3);
+
+        // Negative tests
+        $invalidCodes = [
+            'ALM 01',
+            'ALM CENTRAL',
+            'ALM!',
+            'ALM@01',
+            'ALM#1',
+            'ALM.01',
+            'ALM/01',
+            str_repeat('W', 31),
+        ];
+
+        foreach ($invalidCodes as $badCode) {
+            try {
+                self::$almacenCmd->create($branchId, $badCode, 'Nombre Valido', 'bodega');
+                self::fail("Expected InvalidArgumentException for invalid warehouse code: '{$badCode}'");
+            } catch (InvalidArgumentException $e) {
+                self::assertSame('El código de almacén no es válido.', $e->getMessage());
+            }
+
+            $validation = \App\Modules\Inventory\WarehouseValidator::validateWarehouse([
+                'id_sucursal' => $branchId,
+                'codigo'      => $badCode,
+                'nombre'      => 'Nombre Valido',
+                'tipo'        => 'bodega',
+            ]);
+            self::assertFalse($validation->valid(), "WarehouseValidator should reject code: '{$badCode}'");
+            self::assertArrayHasKey('codigo', $validation->fieldErrors);
+        }
+    }
+
     public function testDevelopmentDatabaseRemainsUntouched(): void
     {
         self::assertTestDatabaseIsolated(self::$testDb, self::$testConfig);

@@ -33,6 +33,10 @@ final readonly class SucursalCommand
             throw new InvalidArgumentException('El código, nombre y ciudad son obligatorios.');
         }
 
+        if (mb_strlen($codigo) > 30 || !preg_match('/^[A-Za-z0-9_-]+$/', $codigo)) {
+            throw new InvalidArgumentException('El código de sucursal no es válido.');
+        }
+
         return $this->tx->run(function (PDO $pdo) use ($codigo, $nombre, $ciudad, $direccion, $telefono): int {
             try {
                 $stmt = $pdo->prepare(

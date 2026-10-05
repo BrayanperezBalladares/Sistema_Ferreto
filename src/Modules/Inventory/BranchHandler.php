@@ -90,13 +90,14 @@ final readonly class BranchHandler implements Handler
 
     private function toggleActive(Request $request): Response
     {
-        $idSucursal = isset($request->body['id_sucursal']) && is_numeric($request->body['id_sucursal'])
-            ? (int) $request->body['id_sucursal']
-            : 0;
+        $rawId = $request->body['id_sucursal'] ?? null;
+        $isValidId = is_string($rawId) && ctype_digit(trim($rawId)) && (int) trim($rawId) > 0;
 
-        if ($idSucursal <= 0) {
+        if (!$isValidId) {
             return $this->renderWithErrors(['general' => 'Identificador de sucursal no válido.'], []);
         }
+
+        $idSucursal = (int) $rawId;
 
         $branch = $this->sucursalQuery->findById($idSucursal);
         if ($branch === null) {

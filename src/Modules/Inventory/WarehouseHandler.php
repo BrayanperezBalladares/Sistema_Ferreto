@@ -42,9 +42,25 @@ final readonly class WarehouseHandler implements Handler
 
     private function browse(Request $request): Response
     {
-        $idSucursal = isset($request->query['sucursal']) && is_numeric($request->query['sucursal'])
-            ? (int) $request->query['sucursal']
-            : null;
+        $rawSucursal = $request->query['sucursal'] ?? null;
+        $idSucursal = null;
+        if ($rawSucursal !== null && $rawSucursal !== '') {
+            if (!ctype_digit(trim($rawSucursal)) || (int) trim($rawSucursal) <= 0) {
+                return new Response(422, [
+                    'Content-Type'  => 'text/html; charset=UTF-8',
+                    'Vary'          => 'HX-Request',
+                    'Cache-Control' => 'no-store',
+                ], $this->renderer->render('page.warehouses', [
+                    'warehouses'       => [],
+                    'branches'         => $this->sucursalQuery->all(),
+                    'activeBranches'   => $this->sucursalQuery->findActive(),
+                    'selectedSucursal' => null,
+                    'csrf'             => $this->csrf->token(),
+                    'errors'           => ['general' => 'Identificador de sucursal no válido.'],
+                ]));
+            }
+            $idSucursal = (int) $rawSucursal;
+        }
 
         return new Response(200, [
             'Content-Type'  => 'text/html; charset=UTF-8',
@@ -106,13 +122,14 @@ final readonly class WarehouseHandler implements Handler
 
     private function toggleActive(Request $request): Response
     {
-        $idAlmacen = isset($request->body['id_almacen']) && is_numeric($request->body['id_almacen'])
-            ? (int) $request->body['id_almacen']
-            : 0;
+        $rawId = $request->body['id_almacen'] ?? null;
+        $isValidId = is_string($rawId) && ctype_digit(trim($rawId)) && (int) trim($rawId) > 0;
 
-        if ($idAlmacen <= 0) {
+        if (!$isValidId) {
             return $this->renderWithErrors(['almacen' => 'Identificador de almacén no válido.'], []);
         }
+
+        $idAlmacen = (int) $rawId;
 
         $warehouse = $this->almacenQuery->findById($idAlmacen);
         if ($warehouse === null) {

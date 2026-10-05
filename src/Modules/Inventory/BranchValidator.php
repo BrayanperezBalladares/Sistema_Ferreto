@@ -21,6 +21,8 @@ final class BranchValidator
             $errors['codigo'] = 'El código de la sucursal es obligatorio.';
         } elseif (mb_strlen($codigo) > 30) {
             $errors['codigo'] = 'El código de la sucursal no debe exceder los 30 caracteres.';
+        } elseif (!preg_match('/^[A-Za-z0-9_-]+$/', $codigo)) {
+            $errors['codigo'] = 'El código de la sucursal solo puede contener letras, números, guiones y guiones bajos.';
         }
         $safe['codigo'] = $codigo;
 

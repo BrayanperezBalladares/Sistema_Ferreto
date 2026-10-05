@@ -36,7 +36,13 @@ final class MultisiteCliHandler
         $locInput = trim($arguments[0]);
         $whInput  = trim($arguments[1]);
 
-        $location = (ctype_digit($locInput) || (is_numeric($locInput) && (int) $locInput > 0))
+        if (str_starts_with($locInput, '-') || str_starts_with($whInput, '-')) {
+            $this->writeErr("Usage: php scripts/console.php map-location <location> <warehouse>" . PHP_EOL);
+            return 64;
+        }
+
+        $isLocId = ctype_digit($locInput) && (int) $locInput > 0;
+        $location = $isLocId
             ? ($this->locationQuery->findById((int) $locInput) ?? $this->locationQuery->findByCode($locInput))
             : $this->locationQuery->findByCode($locInput);
 
@@ -45,7 +51,8 @@ final class MultisiteCliHandler
             return 1;
         }
 
-        $warehouse = (ctype_digit($whInput) || (is_numeric($whInput) && (int) $whInput > 0))
+        $isWhId = ctype_digit($whInput) && (int) $whInput > 0;
+        $warehouse = $isWhId
             ? ($this->almacenQuery->findById((int) $whInput) ?? $this->almacenQuery->findByCode($whInput))
             : $this->almacenQuery->findByCode($whInput);
 

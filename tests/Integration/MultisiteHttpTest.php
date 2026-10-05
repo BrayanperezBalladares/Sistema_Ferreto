@@ -212,6 +212,15 @@ final class MultisiteHttpTest extends TestCase
         self::assertSame(422, $resInvalid->status);
     }
 
+    public function testBranchToggleActiveNonIntegerIdReturns422(): void
+    {
+        foreach (['1.5', 'abc', '0', '-1'] as $badId) {
+            $res = $this->post('/branches/toggle-active', ['id_sucursal' => $badId]);
+            self::assertSame(422, $res->status);
+            self::assertStringContainsString('Identificador de sucursal no válido.', $res->body);
+        }
+    }
+
     public function testWarehousesPageReturns200AndRendersCanonicalHtml(): void
     {
         $response = $this->dispatch(new Request('GET', '/warehouses'));
@@ -248,6 +257,15 @@ final class MultisiteHttpTest extends TestCase
         self::assertStringNotContainsString('ALM-B1', $resFilterA->body);
     }
 
+    public function testWarehouseBrowseInvalidSucursalQueryReturns422(): void
+    {
+        foreach (['1.5', 'abc', '0', '-1'] as $badSucursal) {
+            $res = $this->dispatch(new Request('GET', '/warehouses', query: ['sucursal' => $badSucursal]));
+            self::assertSame(422, $res->status);
+            self::assertStringContainsString('Identificador de sucursal no válido.', $res->body);
+        }
+    }
+
     public function testWarehouseRegistrationValidationErrorsReturn422(): void
     {
         $response = $this->post('/warehouses', [
@@ -262,6 +280,20 @@ final class MultisiteHttpTest extends TestCase
         self::assertStringContainsString('El código del almacén es obligatorio.', $response->body);
         self::assertStringContainsString('El nombre del almacén es obligatorio.', $response->body);
         self::assertStringContainsString('Tipo de almacén no válido.', $response->body);
+        self::assertCount(0, self::$almQuery->all());
+    }
+
+    public function testWarehouseRegistrationFloatBranchIdRejectedWith422(): void
+    {
+        $response = $this->post('/warehouses', [
+            'id_sucursal' => '1.5',
+            'codigo'      => 'ALM-FLOAT',
+            'nombre'      => 'Almacen Float',
+            'tipo'        => 'bodega',
+        ]);
+
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('La sucursal seleccionada no es válida.', $response->body);
         self::assertCount(0, self::$almQuery->all());
     }
 
@@ -357,6 +389,15 @@ final class MultisiteHttpTest extends TestCase
         self::assertSame(0, $whStillInactive['estado_activo']);
     }
 
+    public function testWarehouseToggleActiveNonIntegerIdReturns422(): void
+    {
+        foreach (['1.5', 'abc', '0', '-1'] as $badId) {
+            $res = $this->post('/warehouses/toggle-active', ['id_almacen' => $badId]);
+            self::assertSame(422, $res->status);
+            self::assertStringContainsString('Identificador de almacén no válido.', $res->body);
+        }
+    }
+
     public function testWarehouseForgedParentBranchHasZeroEffect(): void
     {
         $suc1 = self::$sucCmd->create('SUC-ORIG', 'Sucursal Original', 'Jinotepe');
@@ -377,8 +418,8 @@ final class MultisiteHttpTest extends TestCase
 
     public function testHtmlEscapingInBranchesAndWarehouses(): void
     {
-        $sId = self::$sucCmd->create('SUC-<XSS>', '<script>alert("suc")</script>', '<img src=x onerror=alert(1)>', '<p>dir</p>', '<b>tel</b>');
-        self::$almCmd->create($sId, 'ALM-<XSS>', '<script>alert("alm")</script>', 'bodega');
+        $sId = self::$sucCmd->create('SUC-XSS', '<script>alert("suc")</script>', '<img src=x onerror=alert(1)>', '<p>dir</p>', '<b>tel</b>');
+        self::$almCmd->create($sId, 'ALM-XSS', '<script>alert("alm")</script>', 'bodega');
 
         $resBranch = $this->dispatch(new Request('GET', '/branches'));
         self::assertSame(200, $resBranch->status);
@@ -642,6 +683,19 @@ final class MultisiteHttpTest extends TestCase
         self::assertIsArray($countRow);
         self::assertSame($stockId, (int) $countRow['id_stock']);
         self::assertSame('150.000', $countRow['cantidad_contada']);
+    }
+
+    public function testLocationRegistrationFloatWarehouseIdRejectedWith422(): void
+    {
+        $response = $this->post('/locations', [
+            'id_almacen'  => '1.5',
+            'codigo'      => 'LOC-FLOAT-WH',
+            'descripcion' => 'Ubicacion Float Wh',
+        ]);
+
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('El almacén seleccionado no es válido.', $response->body);
+        self::assertNull(self::$locQuery->findByCode('LOC-FLOAT-WH'));
     }
 
     public function testWarehouseParentImmutabilityForgedParentChangeHasZeroEffect(): void

@@ -20,11 +20,15 @@ final class WarehouseValidator
         if ($idSucursal === null || $idSucursal === '' || (is_string($idSucursal) && trim($idSucursal) === '')) {
             $errors['id_sucursal'] = 'La sucursal es obligatoria.';
             $safe['id_sucursal'] = '';
-        } elseif ((!is_int($idSucursal) && !is_string($idSucursal)) || !is_numeric($idSucursal) || (int) $idSucursal <= 0) {
-            $errors['id_sucursal'] = 'La sucursal seleccionada no es válida.';
-            $safe['id_sucursal'] = is_scalar($idSucursal) ? (string) $idSucursal : '';
         } else {
-            $safe['id_sucursal'] = (string) (int) $idSucursal;
+            $isValidSucursal = (is_int($idSucursal) && $idSucursal > 0)
+                || (is_string($idSucursal) && ctype_digit(trim($idSucursal)) && (int) trim($idSucursal) > 0);
+            if (!$isValidSucursal) {
+                $errors['id_sucursal'] = 'La sucursal seleccionada no es válida.';
+                $safe['id_sucursal'] = is_scalar($idSucursal) ? (string) $idSucursal : '';
+            } else {
+                $safe['id_sucursal'] = (string) (int) $idSucursal;
+            }
         }
 
         $codigo = is_string($input['codigo'] ?? null) ? trim($input['codigo']) : '';
@@ -32,6 +36,8 @@ final class WarehouseValidator
             $errors['codigo'] = 'El código del almacén es obligatorio.';
         } elseif (mb_strlen($codigo) > 30) {
             $errors['codigo'] = 'El código del almacén no debe exceder los 30 caracteres.';
+        } elseif (!preg_match('/^[A-Za-z0-9_-]+$/', $codigo)) {
+            $errors['codigo'] = 'El código del almacén solo puede contener letras, números, guiones y guiones bajos.';
         }
         $safe['codigo'] = $codigo;
 
