@@ -2,8 +2,10 @@
 
 use App\Foundation\Renderer;
 
-/** @var list<array{id_ubicacion: int, codigo: string, descripcion: ?string, estado_activo: int, created_at: string, updated_at: string}> $locations */
+/** @var list<array{id_ubicacion: int, id_almacen: ?int, codigo: string, descripcion: ?string, estado_activo: int, created_at: string, updated_at: string, almacen_codigo: ?string, almacen_nombre: ?string, almacen_tipo: ?string, almacen_activo: ?int, id_sucursal: ?int, sucursal_codigo: ?string, sucursal_nombre: ?string}> $locations */
 $locations = $data['locations'] ?? [];
+/** @var list<array<string, mixed>> $warehouses */
+$warehouses = isset($data['warehouses']) && is_array($data['warehouses']) ? $data['warehouses'] : [];
 $csrf = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : '';
 /** @var array<string, string> $input */
 $input = isset($data['input']) && is_array($data['input']) ? $data['input'] : [];
@@ -91,6 +93,24 @@ ob_start();
       <form method="post" action="/locations">
         <section class="modal-card-body">
           <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
+          <div class="field mb-3">
+            <label class="label is-small">Almacén <span class="has-text-danger">*</span></label>
+            <div class="control">
+              <div class="select is-small is-fullwidth <?= isset($errors['id_almacen']) ? 'is-danger' : '' ?>">
+                <select name="id_almacen" required>
+                  <option value="">-- Seleccionar almacén --</option>
+                  <?php foreach ($warehouses as $wh): ?>
+                    <option value="<?= (int) $wh['id_almacen'] ?>" <?= (string) ($input['id_almacen'] ?? '') === (string) $wh['id_almacen'] ? 'selected' : '' ?>>
+                      <?= Renderer::escape((string) $wh['nombre']) ?> (<?= Renderer::escape((string) $wh['codigo']) ?>)
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <?php if (isset($errors['id_almacen'])): ?>
+              <p class="help is-danger"><?= Renderer::escape($errors['id_almacen']) ?></p>
+            <?php endif; ?>
+          </div>
           <div class="field mb-3">
             <label class="label is-small">Código <span class="has-text-danger">*</span></label>
             <div class="control">

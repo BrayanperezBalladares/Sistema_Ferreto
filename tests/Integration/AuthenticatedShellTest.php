@@ -27,6 +27,7 @@ use App\Modules\Access\RoleGuard;
 use App\Modules\Access\RouteAccessPolicy;
 use App\Modules\Access\UserCommand;
 use App\Modules\Access\UserQuery;
+use App\Modules\Inventory\AlmacenQuery;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
 use App\Modules\Inventory\CategoryQuery;
@@ -140,6 +141,7 @@ final class AuthenticatedShellTest extends TestCase
             self::$renderer,
             $locationQuery,
             new LocationCommand($tx),
+            new AlmacenQuery(self::$testDb),
             $actualCsrf
         );
         $inventoryHandler = new InventoryHandler(

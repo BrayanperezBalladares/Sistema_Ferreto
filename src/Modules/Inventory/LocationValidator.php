@@ -24,6 +24,17 @@ final class LocationValidator
         }
         $safe['codigo'] = $codigo;
 
+        $idAlmacen = $input['id_almacen'] ?? null;
+        if ($idAlmacen === null || $idAlmacen === '' || (is_string($idAlmacen) && trim($idAlmacen) === '')) {
+            $errors['id_almacen'] = 'El almacén es obligatorio.';
+            $safe['id_almacen'] = '';
+        } elseif ((!is_int($idAlmacen) && !is_string($idAlmacen)) || !is_numeric($idAlmacen) || (int) $idAlmacen <= 0) {
+            $errors['id_almacen'] = 'El almacén seleccionado no es válido.';
+            $safe['id_almacen'] = is_scalar($idAlmacen) ? (string) $idAlmacen : '';
+        } else {
+            $safe['id_almacen'] = (string) (int) $idAlmacen;
+        }
+
         $descripcion = is_string($input['descripcion'] ?? null) ? trim($input['descripcion']) : '';
         $safe['descripcion'] = $descripcion;
 

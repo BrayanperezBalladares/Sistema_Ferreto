@@ -22,16 +22,16 @@
   - `update`: Update name and type.
   - `toggleActive`: Toggle `estado_activo`, rejecting activation if parent branch is inactive.
   - Enforce warehouse parent immutability: prohibit updating `id_sucursal` after creation.
-- [ ] B.5 Update `src/Modules/Inventory/LocationQuery.php`:
+- [x] B.5 Update `src/Modules/Inventory/LocationQuery.php`:
   - Implement nullable-safe queries (`LEFT JOIN almacen` and `LEFT JOIN sucursal`), ensuring legacy unmapped locations (`id_almacen IS NULL`) remain visible.
   - For unmapped rows, return warehouse/branch status as unassigned / pending mapping without fabricating placeholder labels.
   - Support warehouse filtering when specified.
-- [ ] B.6 Update `src/Modules/Inventory/LocationCommand.php`:
+- [x] B.6 Update `src/Modules/Inventory/LocationCommand.php`:
   - `create`: Require valid, active `id_almacen` at application/domain layer (rejecting null/missing warehouse), preventing any new NULL rows from being created even while the column is temporarily nullable in the database.
   - Enforce structural creation guard: reject location creation if parent warehouse is inactive.
   - Enforce location parent immutability: prohibit updating `id_almacen` on existing locations.
   - Enforce referential deletion guard: prohibit deletion if any stock records or count history reference this location.
-- [ ] B.7 Extend `src/Modules/Inventory/StockQuery.php` with dynamic roll-up queries:
+- [x] B.7 Extend `src/Modules/Inventory/StockQuery.php` with dynamic roll-up queries:
   - `getWarehouseStock(int $productId, int $warehouseId): string`
   - `getBranchStock(int $productId, int $branchId): string`
   - `getStockBreakdownByWarehouse(int $productId): array`
@@ -72,7 +72,7 @@
   - `'page.warehouses' => 'pages/warehouses.php'`
 - [ ] E.2 Implement `src/Modules/Inventory/BranchHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection, input validation, and redirect/error responses.
 - [ ] E.3 Implement `src/Modules/Inventory/WarehouseHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection and type validation.
-- [ ] E.4 Update `src/Modules/Inventory/LocationHandler.php` to require and process warehouse selection on creation.
+- [x] E.4 Update `src/Modules/Inventory/LocationHandler.php` to require and process warehouse selection on creation.
 - [ ] E.5 Register routes in `config/routes.php` and wire handler dependencies in `public/index.php`.
 
 ### Phase F: Templates & User Interface (Release 1)
@@ -93,7 +93,7 @@
 
 ### Phase G: Test Suite & Fixture Adaptation (Release 1)
 
-- [ ] G.1 Inspect and adapt all affected test fixtures and reset helpers to establish parent branch and warehouse records before inserting locations:
+- [x] G.1 Inspect and adapt all affected test fixtures and reset helpers to establish parent branch and warehouse records before inserting locations:
   - Update `StockTest.php` fixtures.
   - Update `CountTest.php` fixtures.
   - Update `LocationHttpTest.php` fixtures.

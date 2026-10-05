@@ -27,6 +27,8 @@ use App\Modules\Access\RoleGuard;
 use App\Modules\Access\RouteAccessPolicy;
 use App\Modules\Access\UserCommand;
 use App\Modules\Access\UserQuery;
+use App\Modules\Inventory\AlmacenCommand;
+use App\Modules\Inventory\AlmacenQuery;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
 use App\Modules\Inventory\CategoryQuery;
@@ -40,6 +42,7 @@ use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\ProductQuery;
 use App\Modules\Inventory\StockCommand;
 use App\Modules\Inventory\StockQuery;
+use App\Modules\Inventory\SucursalCommand;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -93,7 +96,7 @@ final class AuthenticatedUiTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria', 'usuario'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'almacen', 'sucursal', 'producto', 'categoria', 'usuario'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE `{$tbl}`");
             }
@@ -373,8 +376,13 @@ final class AuthenticatedUiTest extends TestCase
         $prodCmd = new ProductCommand(self::$tx);
         $pId = $prodCmd->register('Pintura Blanca 1G', '45.00');
 
+        $sucursalCmd = new SucursalCommand(self::$tx);
+        $bId = $sucursalCmd->create('SUC-UI', 'Sucursal UI', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand(self::$tx);
+        $wId = $almacenCmd->create($bId, 'ALM-UI', 'Almacén UI');
+
         $locCmd = new LocationCommand(self::$tx);
-        $lId = $locCmd->create('BOD-C1');
+        $lId = $locCmd->create('BOD-C1', $wId);
 
         $stockCmd = new StockCommand(self::$tx);
         $sId = $stockCmd->createPosition($pId, $lId, '20.000');
@@ -620,6 +628,7 @@ final class AuthenticatedUiTest extends TestCase
             self::$renderer,
             $locationQuery,
             new LocationCommand($tx),
+            new AlmacenQuery(self::$testDb),
             $actualCsrf
         );
         $inventoryHandler = new InventoryHandler(
