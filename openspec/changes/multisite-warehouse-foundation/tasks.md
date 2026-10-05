@@ -100,7 +100,7 @@
   - Update any catalog/migration reset tests performing raw `INSERT INTO ubicacion`.
   - Update any test reversing `0004`/`0005`/`0006` to honor dependency-aware order (reversing `0010` before `0004`).
   - Prove: reset -> migration history consistent -> rerun -> correct final schema.
-- [ ] G.2 Add comprehensive migration lifecycle tests (`tests/Integration/MultisiteMigrationTest.php`) covering:
+- [x] G.2 Add comprehensive migration lifecycle tests (`tests/Integration/MultisiteMigrationTest.php`) covering:
   - Test A: Fresh database execution of Release 1 migrations (`0008`..`0010`).
   - Test B: Populated database upgrade to Release 1 (existing locations acquire `id_almacen = NULL`).
   - Test C: Repeat migration execution (idempotent; no duplicate execution or drift).
@@ -110,7 +110,7 @@
   - Test G: `verify-locations-mapped` success when all rows are mapped (exit code 0).
   - Test J: Migration reset and history consistency.
   - Test K: Reverse dependency behavior (`0010.down`, `0009.down`, `0008.down`).
-- [ ] G.3 Add persistence & CLI integration tests (`tests/Integration/MultisitePersistenceTest.php`, `tests/Integration/ConsoleMultisiteMappingTest.php`) verifying:
+- [x] G.3 Add persistence & CLI integration tests (`tests/Integration/MultisitePersistenceTest.php`, `tests/Integration/ConsoleMultisiteMappingTest.php`) verifying:
   - Branch and warehouse CRUD, code uniqueness, city persistence.
   - Structural creation guards: inactive branch rejects warehouse; inactive warehouse rejects location.
   - Reactivation guard: inactive branch prohibits warehouse reactivation.
@@ -120,7 +120,7 @@
   - One-time atomic mapping: `map-location` updates `id_almacen IS NULL` row; rejects already-mapped location; rejects repeated mapping.
   - Preservation of all IDs, codes, quantities, and count records during mapping.
   - Stock roll-up queries returning exact expected sums; historical stock under inactive facilities remains visible.
-- [ ] G.4 Add HTTP, security, and UI integration tests (`tests/Integration/MultisiteHttpTest.php`, `tests/Integration/MultisiteUiTest.php`):
+- [x] G.4 Add HTTP, security, and UI integration tests (`tests/Integration/MultisiteHttpTest.php`, `tests/Integration/MultisiteUiTest.php`):
   - Route matrix verification: `administrador` full access, `bodeguero` warehouse read-only, `cajero` and `compras` 403 Forbidden across all facility endpoints.
   - Structural fail-closed regression: authenticated requests to any registered route lacking explicit policy return 403 Forbidden.
   - CSRF validation: valid token succeeds; missing or invalid token returns 403 Forbidden without mutating state.
@@ -138,7 +138,7 @@
     - Authenticated HTMX requests (`HX-Request: true`):
       - Successful mutation: returns HTTP 200 OK with `HX-Redirect` header pointing to the respective catalog path and `HX-Trigger` containing a JSON success notification payload.
       - Validation failure: returns HTTP 422 Unprocessable Entity with full-page HTML re-rendered displaying field validation feedback; verify that endpoints do not invent fragment responses; verify zero unintended persistence side effects (relationships, stock, and counts remain unchanged).
-- [ ] G.5 Run full regression suite (`composer test`, `composer analyse`, `git diff --check`, `openspec validate`).
+- [x] G.5 Run full regression suite (`composer test`, `composer analyse`, `git diff --check`, `openspec validate`).
 
 ---
 

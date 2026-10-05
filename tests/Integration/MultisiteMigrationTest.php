@@ -7,8 +7,16 @@ namespace Tests\Integration;
 use App\Foundation\Config;
 use App\Foundation\Database;
 use App\Foundation\MigrationRunner;
+use App\Foundation\Transaction;
+use App\Modules\Inventory\AlmacenCommand;
+use App\Modules\Inventory\AlmacenQuery;
+use App\Modules\Inventory\LocationCommand;
+use App\Modules\Inventory\LocationQuery;
+use App\Modules\Inventory\MultisiteCliHandler;
+use App\Modules\Inventory\SucursalCommand;
 use PDO;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 final class MultisiteMigrationTest extends TestCase
 {
@@ -17,6 +25,9 @@ final class MultisiteMigrationTest extends TestCase
     private static Config $testConfig;
     private static Database $testDb;
     private static string $migrationsPath;
+
+    /** @var list<string> */
+    private array $tempDirs = [];
 
     public static function setUpBeforeClass(): void
     {
@@ -40,6 +51,14 @@ final class MultisiteMigrationTest extends TestCase
     protected function tearDown(): void
     {
         $this->dropAllTestTables();
+        foreach ($this->tempDirs as $dir) {
+            $files = glob($dir . '/*') ?: [];
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            rmdir($dir);
+        }
+        $this->tempDirs = [];
     }
 
     public function testFreshDatabaseReleaseOneExecution(): void
@@ -208,6 +227,317 @@ final class MultisiteMigrationTest extends TestCase
         $runner->run(self::$migrationsPath);
         self::assertSame('sucursal', $pdo->query("SHOW TABLES LIKE 'sucursal'")->fetchColumn());
         self::assertSame('almacen', $pdo->query("SHOW TABLES LIKE 'almacen'")->fetchColumn());
+    }
+
+    public function testPartialMigrationFailureAndRetryBehavior(): void
+    {
+        $tempDir = $this->createFixtureDir([]);
+        for ($i = 1; $i <= 8; $i++) {
+            $prefix = sprintf('%04d', $i);
+            $files = glob(self::$migrationsPath . "/{$prefix}_*.sql") ?: [];
+            foreach ($files as $f) {
+                copy($f, $tempDir . '/' . basename($f));
+            }
+        }
+        file_put_contents($tempDir . '/0009_create_almacen.up.sql', 'THIS IS NOT VALID SQL FOR ALMACEN;');
+
+        $runner = new MigrationRunner(self::$testDb);
+        $threw = false;
+        try {
+            $runner->run($tempDir);
+        } catch (Throwable) {
+            $threw = true;
+        }
+        self::assertTrue($threw, 'MigrationRunner must throw on invalid migration SQL.');
+
+        $pdo = self::$testDb->pdo();
+        $history = $pdo->query('SELECT identifier FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+        self::assertContains('0008_create_sucursal', $history);
+        self::assertNotContains('0009_create_almacen', $history, 'Failed migration 0009 must not be recorded.');
+        self::assertSame('sucursal', $pdo->query("SHOW TABLES LIKE 'sucursal'")->fetchColumn());
+        self::assertFalse($pdo->query("SHOW TABLES LIKE 'almacen'")->fetchColumn());
+
+        // Fix 0009 and add 0010
+        $files9 = glob(self::$migrationsPath . '/0009_*.sql') ?: [];
+        foreach ($files9 as $f) {
+            copy($f, $tempDir . '/' . basename($f));
+        }
+        $files10 = glob(self::$migrationsPath . '/0010_*.sql') ?: [];
+        foreach ($files10 as $f) {
+            copy($f, $tempDir . '/' . basename($f));
+        }
+
+        // Retry migration runner: succeeds without throwing
+        $runner->run($tempDir);
+
+        $newHistory = $pdo->query('SELECT identifier FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+        self::assertContains('0009_create_almacen', $newHistory);
+        self::assertContains('0010_add_ubicacion_almacen_nullable', $newHistory);
+        self::assertSame('almacen', $pdo->query("SHOW TABLES LIKE 'almacen'")->fetchColumn());
+        $ubicacionCols = $pdo->query('SHOW COLUMNS FROM ubicacion')->fetchAll(PDO::FETCH_COLUMN);
+        self::assertContains('id_almacen', $ubicacionCols);
+    }
+
+    public function testMixedMappedAndUnmappedAdaptState(): void
+    {
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run(self::$migrationsPath);
+
+        $tx = new Transaction(self::$testDb);
+        $sucCmd = new SucursalCommand($tx);
+        $almCmd = new AlmacenCommand($tx);
+        $locCmd = new LocationCommand($tx);
+        $locQuery = new LocationQuery(self::$testDb);
+
+        $sucId = $sucCmd->create('SUC-ADAPT', 'Sucursal Adapt', 'Granada');
+        $almId = $almCmd->create($sucId, 'ALM-ADAPT', 'Almacen Adapt', 'bodega');
+
+        // Unmapped legacy location: id_almacen is NULL
+        $pdo = self::$testDb->pdo();
+        $pdo->exec(
+            "INSERT INTO ubicacion (codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) "
+            . "VALUES ('LOC-LEGACY', 'Ubicacion Antigua', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())"
+        );
+        $legacyId = (int) $pdo->lastInsertId();
+
+        // Mapped location: id_almacen is $almId
+        $mappedId = $locCmd->create('LOC-MODERN', $almId, 'Ubicacion Nueva');
+
+        // Query all locations
+        $all = $locQuery->all();
+        self::assertCount(2, $all);
+
+        $unmappedRow = null;
+        $mappedRow = null;
+        foreach ($all as $loc) {
+            if ($loc['codigo'] === 'LOC-LEGACY') {
+                $unmappedRow = $loc;
+            } elseif ($loc['codigo'] === 'LOC-MODERN') {
+                $mappedRow = $loc;
+            }
+        }
+
+        self::assertNotNull($unmappedRow);
+        self::assertSame($legacyId, $unmappedRow['id_ubicacion']);
+        self::assertNull($unmappedRow['id_almacen']);
+        self::assertNull($unmappedRow['almacen_codigo']);
+        self::assertNull($unmappedRow['almacen_nombre']);
+        self::assertNull($unmappedRow['sucursal_codigo']);
+        self::assertNull($unmappedRow['sucursal_nombre']);
+
+        self::assertNotNull($mappedRow);
+        self::assertSame($mappedId, $mappedRow['id_ubicacion']);
+        self::assertSame($almId, $mappedRow['id_almacen']);
+        self::assertSame('ALM-ADAPT', $mappedRow['almacen_codigo']);
+        self::assertSame('Almacen Adapt', $mappedRow['almacen_nombre']);
+        self::assertSame('SUC-ADAPT', $mappedRow['sucursal_codigo']);
+        self::assertSame('Sucursal Adapt', $mappedRow['sucursal_nombre']);
+
+        // Test findById nullable safety
+        $foundLegacy = $locQuery->findById($legacyId);
+        self::assertNotNull($foundLegacy);
+        self::assertNull($foundLegacy['id_almacen']);
+        self::assertNull($foundLegacy['almacen_codigo']);
+
+        $foundMapped = $locQuery->findById($mappedId);
+        self::assertNotNull($foundMapped);
+        self::assertSame($almId, $foundMapped['id_almacen']);
+        self::assertSame('ALM-ADAPT', $foundMapped['almacen_codigo']);
+    }
+
+    public function testVerifyLocationsMappedFailsWhenUnmappedRowsExist(): void
+    {
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run(self::$migrationsPath);
+
+        $pdo = self::$testDb->pdo();
+        $pdo->exec(
+            "INSERT INTO ubicacion (codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) "
+            . "VALUES ('LOC-UNMAP-1', 'Legacy 1', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())"
+        );
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+
+        $handler = new MultisiteCliHandler(
+            self::$testDb,
+            new LocationQuery(self::$testDb),
+            new AlmacenQuery(self::$testDb),
+            $out,
+            $err
+        );
+
+        $exitCode = $handler->handleVerifyLocationsMapped([]);
+        self::assertSame(1, $exitCode);
+
+        rewind($err);
+        $stderr = stream_get_contents($err);
+        self::assertIsString($stderr);
+        self::assertStringContainsString('Error: Se encontraron 1 ubicación(es) sin asignar a un almacén:', $stderr);
+        self::assertStringContainsString('LOC-UNMAP-1', $stderr);
+    }
+
+    public function testVerifyLocationsMappedSucceedsWhenAllRowsAreMapped(): void
+    {
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run(self::$migrationsPath);
+
+        $tx = new Transaction(self::$testDb);
+        $sucCmd = new SucursalCommand($tx);
+        $almCmd = new AlmacenCommand($tx);
+        $locCmd = new LocationCommand($tx);
+
+        $sucId = $sucCmd->create('SUC-MAP-ALL', 'Sucursal All', 'Managua');
+        $almId = $almCmd->create($sucId, 'ALM-MAP-ALL', 'Almacen All');
+        $locCmd->create('LOC-MAP-1', $almId, 'Ubicacion 1');
+        $locCmd->create('LOC-MAP-2', $almId, 'Ubicacion 2');
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+
+        $handler = new MultisiteCliHandler(
+            self::$testDb,
+            new LocationQuery(self::$testDb),
+            new AlmacenQuery(self::$testDb),
+            $out,
+            $err
+        );
+
+        $exitCode = $handler->handleVerifyLocationsMapped([]);
+        self::assertSame(0, $exitCode);
+
+        rewind($out);
+        $stdout = stream_get_contents($out);
+        self::assertIsString($stdout);
+        self::assertStringContainsString('Verificación exitosa: Todas las ubicaciones están mapeadas a un almacén.', $stdout);
+    }
+
+    public function testMigrationResetAndHistoryConsistency(): void
+    {
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run(self::$migrationsPath);
+
+        $pdo = self::$testDb->pdo();
+        /** @var list<string> $baselineTables */
+        $baselineTables = $pdo->query('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"')->fetchAll(PDO::FETCH_COLUMN);
+
+        /** @var array<string, list<array<string, mixed>>> $baselineColumns */
+        $baselineColumns = [];
+        foreach ($baselineTables as $tbl) {
+            if ($tbl !== 'schema_migrations') {
+                /** @var list<array<string, mixed>> $cols */
+                $cols = $pdo->query("SHOW COLUMNS FROM `{$tbl}`")->fetchAll(PDO::FETCH_ASSOC);
+                $baselineColumns[$tbl] = $cols;
+            }
+        }
+
+        // Revert all migrations in dependency order
+        $downOrder = [
+            '0010_add_ubicacion_almacen_nullable',
+            '0009_create_almacen',
+            '0008_create_sucursal',
+            '0007_create_usuario',
+            '0006_create_conteo_inventario',
+            '0005_create_inventario_stock',
+            '0004_create_ubicacion',
+            '0003_create_producto',
+            '0002_create_categoria',
+            '0001_probe',
+        ];
+        foreach ($downOrder as $id) {
+            $runner->revert($id, self::$migrationsPath);
+        }
+
+        // schema_migrations must be empty
+        $count = (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn();
+        self::assertSame(0, $count);
+
+        // Only schema_migrations should remain
+        $remainingTables = $pdo->query('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"')->fetchAll(PDO::FETCH_COLUMN);
+        self::assertSame(['schema_migrations'], $remainingTables);
+
+        // Re-run all migrations
+        $runner->run(self::$migrationsPath);
+
+        /** @var list<string> $reappliedTables */
+        $reappliedTables = $pdo->query('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"')->fetchAll(PDO::FETCH_COLUMN);
+        self::assertSame($baselineTables, $reappliedTables);
+
+        foreach ($baselineTables as $tbl) {
+            if ($tbl !== 'schema_migrations') {
+                /** @var list<array<string, mixed>> $cols */
+                $cols = $pdo->query("SHOW COLUMNS FROM `{$tbl}`")->fetchAll(PDO::FETCH_ASSOC);
+                self::assertSame($baselineColumns[$tbl], $cols, "Table {$tbl} schema must match baseline after reset.");
+            }
+        }
+    }
+
+    public function testReleaseTwoContractCheckFailsWithUnmappedRowsAndSucceedsWhenMapped(): void
+    {
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run(self::$migrationsPath);
+
+        $pdo = self::$testDb->pdo();
+        $tx = new Transaction(self::$testDb);
+        $sucCmd = new SucursalCommand($tx);
+        $almCmd = new AlmacenCommand($tx);
+
+        $sucId = $sucCmd->create('SUC-C2', 'Sucursal Contract', 'Managua');
+        $almId = $almCmd->create($sucId, 'ALM-C2', 'Almacen Contract');
+
+        // Insert unmapped location with id_almacen IS NULL
+        $pdo->exec(
+            "INSERT INTO ubicacion (codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) "
+            . "VALUES ('LOC-C2-UNMAP', 'Unmapped Contract', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())"
+        );
+
+        // In-memory test execution: ALTER TABLE to NOT NULL must fail due to unmapped row
+        $threw = false;
+        try {
+            $pdo->exec('ALTER TABLE ubicacion MODIFY COLUMN id_almacen INT UNSIGNED NOT NULL');
+        } catch (\PDOException $e) {
+            $threw = true;
+            self::assertNotEmpty($e->getMessage());
+        }
+        self::assertTrue($threw, 'Release 2 contract DDL must fail when unmapped rows (NULL) exist.');
+
+        // Verify column remains nullable
+        $colBefore = $pdo->query("SHOW COLUMNS FROM ubicacion WHERE Field = 'id_almacen'")->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($colBefore);
+        self::assertSame('YES', $colBefore['Null']);
+
+        // Now map the location to $almId
+        $pdo->exec("UPDATE ubicacion SET id_almacen = {$almId} WHERE id_almacen IS NULL");
+
+        // Release 2 contract DDL now succeeds
+        $pdo->exec('ALTER TABLE ubicacion MODIFY COLUMN id_almacen INT UNSIGNED NOT NULL');
+
+        // Verify column is now NOT NULL
+        $colAfter = $pdo->query("SHOW COLUMNS FROM ubicacion WHERE Field = 'id_almacen'")->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($colAfter);
+        self::assertSame('NO', $colAfter['Null'], 'Column id_almacen must be NOT NULL after successful Release 2 contract execution.');
+
+        // Revert in-memory for clean state
+        $pdo->exec('ALTER TABLE ubicacion MODIFY COLUMN id_almacen INT UNSIGNED NULL');
+        $colRevert = $pdo->query("SHOW COLUMNS FROM ubicacion WHERE Field = 'id_almacen'")->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($colRevert);
+        self::assertSame('YES', $colRevert['Null']);
+    }
+
+    /** @param array<string, string> $files */
+    private function createFixtureDir(array $files): string
+    {
+        $dir = sys_get_temp_dir() . '/ferreto_msmig_' . bin2hex(random_bytes(6));
+        mkdir($dir, 0777, true);
+        $this->tempDirs[] = $dir;
+        foreach ($files as $name => $content) {
+            file_put_contents($dir . '/' . $name, $content);
+        }
+        return $dir;
     }
 
     private function dropAllTestTables(): void
