@@ -1,0 +1,25 @@
+---
+description: UI/UX design and template styling rules for Sistema Ferreto
+globs: templates/**/*, public/assets/**/*
+---
+
+# UI & Presentation Rules
+
+When modifying templates or CSS:
+
+1. **Design Authority**:
+   - `docs/ui/DESIGN.md` is the canonical design specification.
+   - Target identity: *Industrial Precision Workspace*.
+2. **Assets & Tooling**:
+   - Zero-build pipeline: No Node.js runtime, no npm, no Tailwind, no CSS preprocessors.
+   - Vendored Bulma 1.0.4 and custom `public/assets/ferreto.css`.
+   - Never import external CDNs or Google Fonts.
+   - If `public/assets/ferreto.css` is modified, recompute its SHA-256 hash in `assets/provenance.json` and run `php scripts/console.php verify-assets`.
+3. **Escaping & Security**:
+   - All dynamic output in PHP templates must be escaped: `App\Foundation\Renderer::escape($val)`.
+   - Use tabular numeric font styling for financial and quantity cells: `font-variant-numeric: tabular-nums`.
+4. **Permissions in Views**:
+   - Use `$can($method, $path)` derived from `ViewPermissions`.
+   - If `$permissions` is missing or invalid, fail closed (`static fn(): bool => false`).
+5. **Accessibility**:
+   - Enforce WCAG 2.1 AA standards: minimum 44px touch targets on buttons, explicit labels on inputs, skip-link to `#main-content`, and `:focus-visible` styling.

@@ -23,7 +23,7 @@
 > DESIGN.md must never be used to invent unsupported functionality.
 
 ### Current Implementation Status Note
-The Product & Inventory Catalog UI currently exists functionally but has not yet undergone visual refinement to this canonical design system. The provisional dark/unstyled layout must **NOT** be treated as a visual authority. All visual refinement work must align strictly with the rules defined herein on the dedicated refinement branch: `feature/product-inventory-ui-refinement`.
+The Product & Inventory Catalog UI, warehouse locations, physical counts, and the authenticated application shell have completed full visual refinement to this canonical design system (*Industrial Precision Workspace*). They now represent the approved, active visual authority in production templates.
 
 ---
 
@@ -60,7 +60,7 @@ The desktop workspace follows a persistent, high-efficiency two-column split she
 │  (#111827)       │ Title & Operational Context Subtitle                                   │
 │                  │                                                                        │
 │  Branding        ├────────────────────────────────────────────────────────────────────────┤
-│  Navigation      │ Filter / Search Bar (Live HTMX search, category/status filters)        │
+│  Navigation      │ Search / Filter Bar (Live HTMX search; category/status filters future) │
 │  Active Amber    ├────────────────────────────────────────────────────────────────────────┤
 │  Indicator       │                                                                        │
 │                  │ Primary Operational Content / High-Density Data Table                  │
@@ -305,7 +305,7 @@ The approved catalog screen (`/products`) unites the shell, controls, and data g
 ### 2. Search & Filter Bar
 - A unified card directly above the table containing:
   - **Live Search Input:** Placeholder `Buscar por nombre de producto...` with HTMX debounced triggers (`hx-get="/products"`, `hx-trigger="keyup changed delay:300ms, search"`).
-  - **Filter Controls:** Category select and active status select where behavior is supported.
+  - **Filter Controls:** Category select and active status select (future UI design intent; `ProductQuery` supports filtering internally, but current `CatalogHandler` and `products.php` template wire and render live text search only).
   - **Active Swapping:** Targets `#product-table-container` using `outerHTML` swaps.
 
 ### 3. Product Table Columns
