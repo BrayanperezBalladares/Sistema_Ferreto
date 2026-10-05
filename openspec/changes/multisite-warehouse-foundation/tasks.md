@@ -11,13 +11,13 @@
 
 ### Phase B: Domain Persistence & CQS Layer (Release 1)
 
-- [ ] B.1 Implement `src/Modules/Inventory/SucursalQuery.php` (`findAll`, `findActive`, `findById`, `findByCode`) using prepared PDO statements returning associative arrays.
-- [ ] B.2 Implement `src/Modules/Inventory/SucursalCommand.php`:
+- [x] B.1 Implement `src/Modules/Inventory/SucursalQuery.php` (`findAll`, `findActive`, `findById`, `findByCode`) using prepared PDO statements returning associative arrays.
+- [x] B.2 Implement `src/Modules/Inventory/SucursalCommand.php`:
   - `create`: Insert branch with validated unique code, required name, required city, optional address/phone, active status.
   - `update`: Update name, city, address, phone.
   - `toggleActive`: Toggle `estado_activo` between 1 and 0.
-- [ ] B.3 Implement `src/Modules/Inventory/AlmacenQuery.php` (`findAll`, `findActive`, `findById`, `findByBranch`, `findByCode`) returning associative arrays.
-- [ ] B.4 Implement `src/Modules/Inventory/AlmacenCommand.php`:
+- [x] B.3 Implement `src/Modules/Inventory/AlmacenQuery.php` (`findAll`, `findActive`, `findById`, `findByBranch`, `findByCode`) returning associative arrays.
+- [x] B.4 Implement `src/Modules/Inventory/AlmacenCommand.php`:
   - `create`: Insert warehouse with validated unique code, name, type in allowed set (`bodega`, `mostrador`, `patio`, `merma`), and branch FK. Enforce structural creation guard (reject if parent branch is inactive).
   - `update`: Update name and type.
   - `toggleActive`: Toggle `estado_activo`, rejecting activation if parent branch is inactive.
