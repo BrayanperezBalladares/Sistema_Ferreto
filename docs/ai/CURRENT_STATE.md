@@ -39,7 +39,7 @@
 - [x] **Categories**: Category creation via modal, uniqueness validation on name (`uk_categoria_nombre`), unclassified category fallback.
 - [x] **Products**: Product registration (name, optional description, optional category, selling price `DECIMAL(12,2)` stored in `precio_actual`, active/inactive state toggle). Per canonical specification, SKU and barcode identifiers are explicitly NOT required or implemented. Product name is not uniquely constrained.
 - [x] **Real-time Search**: HTMX-powered live search by product name with 300ms debounce. (`ProductQuery` supports optional category and status filtering at the query layer, but `CatalogHandler` and `products.php` currently wire and render text search only).
-- [x] **Price Updates**: Dedicated endpoint `POST /products/{id}/price` with strict decimal formatting and audit trail.
+- [x] **Price Updates**: Dedicated endpoint `POST /products/{id}/price` with strict decimal formatting. Updates current selling price (`precio_actual`) and `updated_at`. Historical price tracking / price audit history is explicitly not implemented per canonical spec.
 
 ### D. Inventory & Locations Module (`src/Modules/Inventory/`)
 - [x] **Warehouse Locations**: Registration of physical storage spaces (`codigo` with unique constraint `uk_ubicacion_codigo`, `descripcion`, `estado_activo`).
