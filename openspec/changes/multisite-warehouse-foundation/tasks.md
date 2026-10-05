@@ -121,12 +121,23 @@
   - Preservation of all IDs, codes, quantities, and count records during mapping.
   - Stock roll-up queries returning exact expected sums; historical stock under inactive facilities remains visible.
 - [ ] G.4 Add HTTP, security, and UI integration tests (`tests/Integration/MultisiteHttpTest.php`, `tests/Integration/MultisiteUiTest.php`):
-  - Route matrix verification: `administrador` full access, `bodeguero` warehouse read-only, `cajero` and `compras` 403 Forbidden.
-  - Missing policy fail-closed regression (403 Forbidden).
-  - CSRF validation (valid token succeeds, missing/invalid token rejected).
-  - Unauthenticated browser 303 redirect vs HTMX `HX-Redirect: /login`.
-  - Output escaping (`Renderer::escape`) and viewport responsiveness down to 360px.
-  - Production entrypoint GET route testing (`tests/Integration/ProductionEntrypointTest.php`).
+  - Route matrix verification: `administrador` full access, `bodeguero` warehouse read-only, `cajero` and `compras` 403 Forbidden across all facility endpoints.
+  - Structural fail-closed regression: authenticated requests to any registered route lacking explicit policy return 403 Forbidden.
+  - CSRF validation: valid token succeeds; missing or invalid token returns 403 Forbidden without mutating state.
+  - Output escaping (`Renderer::escape`) preventing XSS in rendered tables and modal inputs; viewport responsiveness down to 360px without horizontal overflow.
+  - Production entrypoint GET route testing (`tests/Integration/ProductionEntrypointTest.php`) verifying all facility routes return HTTP 200 for authorized sessions.
+  - **Forged Parent-Change HTTP Regression Tests**:
+    - Location parent immutability: Given an existing location assigned to warehouse A (with stock and observational count records), test that submitting or forging `id_almacen = warehouse B` in any location endpoint (e.g. `POST /locations`) is rejected or ignored according to endpoint validation without side effects; assert `ubicacion.id_almacen` remains warehouse A, with zero reparenting, and location ID, stock IDs, stock quantities, count IDs, and count payloads remain completely unchanged.
+    - Warehouse parent immutability: Given an existing warehouse assigned to branch A, test that submitting or forging `id_sucursal = branch B` in any warehouse endpoint (e.g. `POST /warehouses`, `POST /warehouses/toggle-active`) is rejected or ignored according to endpoint validation without side effects; assert `almacen.id_sucursal` remains branch A, with zero reparenting, and descendant location relationships, stock, and count attribution remain completely unchanged.
+    - Invariant: Do NOT introduce new edit/reparent endpoints to test this; verify that existing endpoints reject or ignore unexpected parent fields without persistence side effects.
+  - **Authenticated Full-Page vs HTMX Response Tests**:
+    - Explicit contract: Endpoints `/branches`, `/warehouses`, and `/locations` intentionally have NO special authenticated fragment responses by design; creation forms are modals rendered directly on their full pages (`page.branches`, `page.warehouses`, `page.locations`).
+    - Ordinary full-page requests:
+      - Successful mutation: returns HTTP 303 redirect with `Location` header to the respective catalog path (`/branches`, `/warehouses`, `/locations`).
+      - Validation failure: returns HTTP 422 Unprocessable Entity with full-page HTML re-rendered displaying field validation feedback; verify zero unintended persistence side effects (relationships, stock, and counts remain unchanged).
+    - Authenticated HTMX requests (`HX-Request: true`):
+      - Successful mutation: returns HTTP 200 OK with `HX-Redirect` header pointing to the respective catalog path and `HX-Trigger` containing a JSON success notification payload.
+      - Validation failure: returns HTTP 422 Unprocessable Entity with full-page HTML re-rendered displaying field validation feedback; verify that endpoints do not invent fragment responses; verify zero unintended persistence side effects (relationships, stock, and counts remain unchanged).
 - [ ] G.5 Run full regression suite (`composer test`, `composer analyse`, `git diff --check`, `openspec validate`).
 
 ---
