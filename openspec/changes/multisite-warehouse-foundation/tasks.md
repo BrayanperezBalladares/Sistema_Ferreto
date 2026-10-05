@@ -39,15 +39,15 @@
 
 ### Phase C: Administrative CLI Tooling for Legacy Mapping (Release 1)
 
-- [ ] C.1 Wire CLI commands `map-location` and `verify-locations-mapped` into `src/Foundation/Console.php`.
-- [ ] C.2 Implement `scripts/console.php map-location <location> <warehouse>`:
+- [x] C.1 Wire CLI commands `map-location` and `verify-locations-mapped` into `src/Foundation/Console.php`.
+- [x] C.2 Implement `scripts/console.php map-location <location> <warehouse>`:
   - Accept ID or unique code for location and warehouse.
   - Validate location exists and warehouse exists and is active.
   - Execute atomic assignment: `UPDATE ubicacion SET id_almacen = :warehouse_id WHERE id_ubicacion = :location_id AND id_almacen IS NULL`.
   - Assert exactly 1 row affected; throw and abort if location already has an assigned warehouse.
   - Reject repeated mapping or remapping to another warehouse.
   - Strictly preserve `id_ubicacion`, `codigo`, `descripcion`, associated `inventario_stock` positions/quantities, and `conteo_inventario` records without alteration.
-- [ ] C.3 Implement `scripts/console.php verify-locations-mapped`:
+- [x] C.3 Implement `scripts/console.php verify-locations-mapped`:
   - Execute `SELECT COUNT(*) FROM ubicacion WHERE id_almacen IS NULL`.
   - If count > 0, output unmapped location details and exit with status 1.
   - If count === 0, output verification confirmation and exit with status 0.
