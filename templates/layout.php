@@ -44,13 +44,25 @@ $can = $permissions instanceof \App\Modules\Access\ViewPermissions
     : static fn (string $method, string $path): bool => false;
 ?>
       <nav class="sidebar-nav" aria-label="Navegación principal">
-        <?php if ($can('GET', '/products') || $can('GET', '/locations')): ?>
+        <?php if ($can('GET', '/products') || $can('GET', '/branches') || $can('GET', '/warehouses') || $can('GET', '/locations')): ?>
         <div class="nav-section-label">Catálogo</div>
         <?php endif; ?>
         <?php if ($can('GET', '/products')): ?>
         <a href="/products" class="nav-item <?= $activeNav === 'products' ? 'is-active' : '' ?>"<?= $activeNav === 'products' ? ' aria-current="page"' : '' ?>>
           <span class="nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></span>
           <span class="nav-label">Productos</span>
+        </a>
+        <?php endif; ?>
+        <?php if ($can('GET', '/branches')): ?>
+        <a href="/branches" class="nav-item <?= $activeNav === 'branches' ? 'is-active' : '' ?>"<?= $activeNav === 'branches' ? ' aria-current="page"' : '' ?>>
+          <span class="nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-3"></path></svg></span>
+          <span class="nav-label">Sucursales</span>
+        </a>
+        <?php endif; ?>
+        <?php if ($can('GET', '/warehouses')): ?>
+        <a href="/warehouses" class="nav-item <?= $activeNav === 'warehouses' ? 'is-active' : '' ?>"<?= $activeNav === 'warehouses' ? ' aria-current="page"' : '' ?>>
+          <span class="nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path></svg></span>
+          <span class="nav-label">Almacenes</span>
         </a>
         <?php endif; ?>
         <?php if ($can('GET', '/locations')): ?>
@@ -106,6 +118,14 @@ $can = $permissions instanceof \App\Modules\Access\ViewPermissions
             <span class="topbar-crumb">Inventario</span>
             <span class="topbar-sep" aria-hidden="true">/</span>
             <span class="topbar-current">Existencias por ubicación</span>
+          <?php elseif ($activeNav === 'branches'): ?>
+            <span class="topbar-crumb">Catálogo</span>
+            <span class="topbar-sep" aria-hidden="true">/</span>
+            <span class="topbar-current">Sucursales</span>
+          <?php elseif ($activeNav === 'warehouses'): ?>
+            <span class="topbar-crumb">Catálogo</span>
+            <span class="topbar-sep" aria-hidden="true">/</span>
+            <span class="topbar-current">Almacenes</span>
           <?php elseif ($activeNav === 'locations'): ?>
             <span class="topbar-crumb">Catálogo</span>
             <span class="topbar-sep" aria-hidden="true">/</span>

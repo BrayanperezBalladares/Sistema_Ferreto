@@ -88,7 +88,7 @@ final class CountHttpTest extends TestCase
         self::assertStringContainsString('<span class="topbar-crumb">Inventario</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Conteos físicos</span>', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }

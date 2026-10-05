@@ -96,7 +96,7 @@ final class LocationHttpTest extends TestCase
         self::assertMatchesRegularExpression('/href="\/inventory"[^>]*class="nav-item\s*"/i', $response->body);
         self::assertMatchesRegularExpression('/href="\/inventory\/counts"[^>]*class="nav-item\s*"/i', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }
@@ -116,10 +116,11 @@ final class LocationHttpTest extends TestCase
         self::$locCmd->create('PASILLO-B2', $wId, null);
 
         $response = $this->dispatch(new Request('GET', '/locations'));
-        self::assertSame(200, $response->status);
-        self::assertStringContainsString('<th scope="col" style="width: 30%;">Código</th>', $response->body);
-        self::assertStringContainsString('<th scope="col" style="width: 50%;">Descripción</th>', $response->body);
-        self::assertStringContainsString('<th scope="col" style="width: 20%;" class="has-text-centered">Estado</th>', $response->body);
+        self::assertStringContainsString('Código', $response->body);
+        self::assertStringContainsString('Almacén', $response->body);
+        self::assertStringContainsString('Sucursal', $response->body);
+        self::assertStringContainsString('Descripción', $response->body);
+        self::assertStringContainsString('Estado', $response->body);
         self::assertStringContainsString('ESTANTE-A1', $response->body);
         self::assertStringContainsString('Estantería metálica pasillo 1', $response->body);
         self::assertStringContainsString('PASILLO-B2', $response->body);

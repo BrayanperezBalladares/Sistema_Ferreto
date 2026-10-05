@@ -55,15 +55,31 @@ ob_start();
           <table class="ferreto-table ferreto-table-tabular">
             <thead>
               <tr>
-                <th scope="col" style="width: 30%;">Código</th>
-                <th scope="col" style="width: 50%;">Descripción</th>
-                <th scope="col" style="width: 20%;" class="has-text-centered">Estado</th>
+                <th scope="col" style="width: 20%;">Código</th>
+                <th scope="col" style="width: 20%;">Almacén</th>
+                <th scope="col" style="width: 20%;">Sucursal</th>
+                <th scope="col" style="width: 25%;">Descripción</th>
+                <th scope="col" style="width: 15%;" class="has-text-centered">Estado</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($locations as $loc): ?>
                 <tr>
                   <td class="cell-location-code"><span class="has-text-weight-semibold"><?= Renderer::escape($loc['codigo']) ?></span></td>
+                  <td>
+                    <?php if (!empty($loc['almacen_nombre'])): ?>
+                      <?= Renderer::escape($loc['almacen_nombre']) ?>
+                    <?php else: ?>
+                      <span class="badge-unclassified">Sin asignar</span>
+                    <?php endif; ?>
+                  </td>
+                  <td>
+                    <?php if (!empty($loc['sucursal_nombre'])): ?>
+                      <?= Renderer::escape($loc['sucursal_nombre']) ?>
+                    <?php else: ?>
+                      <span class="has-text-grey">Pendiente de mapeo</span>
+                    <?php endif; ?>
+                  </td>
                   <td class="cell-location-desc">
                     <?php if (!empty($loc['descripcion'])): ?>
                       <span><?= Renderer::escape($loc['descripcion']) ?></span>

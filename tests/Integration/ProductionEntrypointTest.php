@@ -57,7 +57,7 @@ final class ProductionEntrypointTest extends TestCase
 
     public function testAnonymousProtectedRoutesRedirectToLogin(): void
     {
-        $protectedRoutes = ['/products', '/locations', '/inventory', '/inventory/counts'];
+        $protectedRoutes = ['/products', '/locations', '/inventory', '/inventory/counts', '/branches', '/warehouses'];
 
         foreach ($protectedRoutes as $route) {
             $res = $this->runEntrypointRequest('GET', $route);
@@ -113,5 +113,35 @@ final class ProductionEntrypointTest extends TestCase
         self::assertSame(200, $res['status']);
         self::assertSame(0, $res['exitCode']);
         self::assertStringContainsString('Foundation health', $res['stdout']);
+    }
+
+    public function testAuthenticatedAdminCanAccessBranchesAndWarehouses(): void
+    {
+        $adminId = $this->createAuthUser(self::$testDb, 'admin_facility_ep', 'administrador', 'activo');
+
+        $branchesRes = $this->runEntrypointRequest('GET', '/branches', $adminId);
+        self::assertSame(200, $branchesRes['status']);
+        self::assertSame(0, $branchesRes['exitCode']);
+        self::assertStringContainsString('Sucursales', $branchesRes['stdout']);
+
+        $warehousesRes = $this->runEntrypointRequest('GET', '/warehouses', $adminId);
+        self::assertSame(200, $warehousesRes['status']);
+        self::assertSame(0, $warehousesRes['exitCode']);
+        self::assertStringContainsString('Almacenes', $warehousesRes['stdout']);
+    }
+
+    public function testAuthenticatedBodegueroCanAccessWarehousesDeniedBranches(): void
+    {
+        $bodegueroId = $this->createAuthUser(self::$testDb, 'bod_facility_ep', 'bodeguero', 'activo');
+
+        $warehousesRes = $this->runEntrypointRequest('GET', '/warehouses', $bodegueroId);
+        self::assertSame(200, $warehousesRes['status']);
+        self::assertSame(0, $warehousesRes['exitCode']);
+        self::assertStringContainsString('Almacenes', $warehousesRes['stdout']);
+
+        $branchesRes = $this->runEntrypointRequest('GET', '/branches', $bodegueroId);
+        self::assertSame(403, $branchesRes['status']);
+        self::assertSame(0, $branchesRes['exitCode']);
+        self::assertStringContainsString('Forbidden', $branchesRes['stdout']);
     }
 }

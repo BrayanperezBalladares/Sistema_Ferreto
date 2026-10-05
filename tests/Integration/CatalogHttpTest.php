@@ -78,7 +78,6 @@ final class CatalogHttpTest extends TestCase
         self::assertStringContainsString('Ferreterías El Constructor', $response->body);
         self::assertStringContainsString('app-sidebar', $response->body);
         self::assertStringNotContainsString('Product Catalog', $response->body);
-        self::assertStringNotContainsString('Sucursales', $response->body);
         self::assertStringNotContainsString('Sincronización', $response->body);
         self::assertStringNotContainsString('Usuarios', $response->body);
         self::assertStringContainsString('id="product-table-container"', $response->body);

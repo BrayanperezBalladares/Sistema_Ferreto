@@ -27,7 +27,9 @@ use App\Modules\Access\RoleGuard;
 use App\Modules\Access\RouteAccessPolicy;
 use App\Modules\Access\UserCommand;
 use App\Modules\Access\UserQuery;
+use App\Modules\Inventory\AlmacenCommand;
 use App\Modules\Inventory\AlmacenQuery;
+use App\Modules\Inventory\BranchHandler;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
 use App\Modules\Inventory\CategoryQuery;
@@ -41,6 +43,9 @@ use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\ProductQuery;
 use App\Modules\Inventory\StockCommand;
 use App\Modules\Inventory\StockQuery;
+use App\Modules\Inventory\SucursalCommand;
+use App\Modules\Inventory\SucursalQuery;
+use App\Modules\Inventory\WarehouseHandler;
 use Closure;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -155,10 +160,18 @@ final class AuthenticatedShellTest extends TestCase
             new CountCommand($tx)
         );
 
+        $sucursalQuery = new SucursalQuery(self::$testDb);
+        $sucursalCommand = new SucursalCommand($tx);
+        $almacenCommand = new AlmacenCommand($tx);
+        $branchHandler = new BranchHandler(self::$renderer, $sucursalQuery, $sucursalCommand, $actualCsrf);
+        $warehouseHandler = new WarehouseHandler(self::$renderer, new AlmacenQuery(self::$testDb), $almacenCommand, $sucursalQuery, $actualCsrf);
+
         $handlers = [
             'health'    => $healthHandler->handle(...),
             'access'    => $accessHandler->handle(...),
             'catalog'   => $catalogHandler->handle(...),
+            'branch'    => $branchHandler->handle(...),
+            'warehouse' => $warehouseHandler->handle(...),
             'location'  => $locationHandler->handle(...),
             'inventory' => $inventoryHandler->handle(...),
         ];

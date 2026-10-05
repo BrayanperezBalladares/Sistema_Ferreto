@@ -102,7 +102,7 @@ final class InventoryHttpTest extends TestCase
         self::assertStringContainsString('<span class="topbar-crumb">Inventario</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Existencias por ubicación</span>', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }

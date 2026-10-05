@@ -54,7 +54,7 @@
 
 ### Phase D: Access Control & Route Authorization Policy (Release 1)
 
-- [ ] D.1 Update `src/Modules/Access/RouteAccessPolicy.php` registering exact route policies:
+- [x] D.1 Update `src/Modules/Access/RouteAccessPolicy.php` registering exact route policies:
   - `/branches` [GET] -> `['administrador']`
   - `/branches` [POST] -> `['administrador']`
   - `/branches/toggle-active` [POST] -> `['administrador']`
@@ -63,33 +63,33 @@
   - `/warehouses/toggle-active` [POST] -> `['administrador']`
   - `/locations` [GET] -> `['administrador', 'bodeguero']`
   - `/locations` [POST] -> `['administrador', 'bodeguero']`
-- [ ] D.2 Update `src/Modules/Access/ViewPermissions.php` adding permission helpers `canManageBranches(): bool` and `canManageWarehouses(): bool`.
+- [x] D.2 Update `src/Modules/Access/ViewPermissions.php` adding permission helpers `canManageBranches(): bool` and `canManageWarehouses(): bool`.
 
 ### Phase E: HTTP Handlers, Application Wiring & Renderer Registration (Release 1)
 
-- [ ] E.1 Register new template views in `src/Foundation/Renderer.php` (`Renderer::TEMPLATES` allowlist):
+- [x] E.1 Register new template views in `src/Foundation/Renderer.php` (`Renderer::TEMPLATES` allowlist):
   - `'page.branches' => 'pages/branches.php'`
   - `'page.warehouses' => 'pages/warehouses.php'`
-- [ ] E.2 Implement `src/Modules/Inventory/BranchHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection, input validation, and redirect/error responses.
-- [ ] E.3 Implement `src/Modules/Inventory/WarehouseHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection and type validation.
+- [x] E.2 Implement `src/Modules/Inventory/BranchHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection, input validation, and redirect/error responses.
+- [x] E.3 Implement `src/Modules/Inventory/WarehouseHandler.php` (`index`, `create`, `toggleActive`) with CSRF protection and type validation.
 - [x] E.4 Update `src/Modules/Inventory/LocationHandler.php` to require and process warehouse selection on creation.
-- [ ] E.5 Register routes in `config/routes.php` and wire handler dependencies in `public/index.php`.
+- [x] E.5 Register routes in `config/routes.php` and wire handler dependencies in `public/index.php`.
 
 ### Phase F: Templates & User Interface (Release 1)
 
-- [ ] F.1 Create `templates/pages/branches.php` conforming to Bulma 1.0.4 design tokens (`docs/ui/DESIGN.md`):
+- [x] F.1 Create `templates/pages/branches.php` conforming to Bulma 1.0.4 design tokens (`docs/ui/DESIGN.md`):
   - Responsive table (Code, Name, City, Address, Phone, Warehouses count, Status badge).
   - "Nueva Sucursal" modal with required code, name, city, optional address, phone, CSRF token, and minimum 44px touch targets.
   - Active/Inactive toggle buttons.
-- [ ] F.2 Create `templates/pages/warehouses.php`:
+- [x] F.2 Create `templates/pages/warehouses.php`:
   - Branch filter dropdown.
   - Responsive table (Branch, Code, Name, Type badge, Locations count, Status badge).
   - "Nuevo Almacén" modal with branch selector, code, name, type selector (`bodega`, `mostrador`, `patio`, `merma`), and CSRF token.
   - Active/Inactive toggle buttons.
-- [ ] F.3 Update `templates/pages/locations.php`:
+- [x] F.3 Update `templates/pages/locations.php`:
   - Display Branch and Warehouse columns using nullable-safe rendering (showing "Sin asignar" / "Pendiente de mapeo" for unmapped legacy rows).
   - Update creation modal with required active warehouse dropdown.
-- [ ] F.4 Update `templates/layout.php` navigation drawer and topbar to render "Sucursales" and "Almacenes" links gated by `ViewPermissions`.
+- [x] F.4 Update `templates/layout.php` navigation drawer and topbar to render "Sucursales" and "Almacenes" links gated by `ViewPermissions`.
 
 ### Phase G: Test Suite & Fixture Adaptation (Release 1)
 

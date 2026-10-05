@@ -13,6 +13,8 @@ final readonly class Renderer
         'page.login' => 'pages/login.php',
         'page.products' => 'pages/products.php',
         'fragment.product_table' => 'fragments/product_table.php',
+        'page.branches' => 'pages/branches.php',
+        'page.warehouses' => 'pages/warehouses.php',
         'page.locations' => 'pages/locations.php',
         'page.inventory' => 'pages/inventory.php',
         'page.counts' => 'pages/counts.php',
