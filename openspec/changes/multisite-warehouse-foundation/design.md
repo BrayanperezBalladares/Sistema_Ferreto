@@ -2,7 +2,7 @@
 
 ## 1. System Architecture & Relational Hierarchy
 
-This design establishes the core physical and organizational facility hierarchy for **Ferreterías El Constructor**, defining commercial branches (`sucursales`) and storage warehouses (`almacenes`), and associating physical storage locations (`ubicaciones`) with specific warehouses under an **Expand → Adapt → Contract** architectural lifecycle.
+This design establishes the core physical and organizational facility hierarchy for **Ferreterías El Constructor**, defining commercial branches (`sucursales`) and storage warehouses (`almacenes`), and associating physical storage locations (`ubicaciones`) with specific warehouses under an **Expand → Adapt → Contract** architectural lifecycle structured across **two deployable releases (PRs)**.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -52,7 +52,7 @@ Stock in Sistema Ferreto represents the physical quantity of a specific product 
   - If `id_almacen` or `id_sucursal` were added directly to `inventario_stock`, we would introduce the transitive functional dependency:
     $$\text{id\_stock} \longrightarrow \text{id\_ubicacion} \longrightarrow \text{id\_almacen} \longrightarrow \text{id\_sucursal}$$
   - This violates **Third Normal Form (3NF)** ($X \to Y$ where $Y$ is not part of a candidate key and $X$ is not a superkey).
-  - Storing `id_almacen` on `inventario_stock` would also create a serious update anomaly: if data were inserted or modified directly, `inventario_stock.id_almacen` could conflict with `ubicacion.id_almacen`, corrupting warehouse stock reporting.
+  - Storing `id_almacen` on `inventario_stock` would also create an update anomaly: if data were inserted or modified directly, `inventario_stock.id_almacen` could conflict with `ubicacion.id_almacen`, corrupting warehouse stock reporting.
 - **Dynamic Roll-Up Computation**:
   - Warehouse stock is computed dynamically from canonical location stock:
     ```sql
@@ -77,7 +77,7 @@ Stock in Sistema Ferreto represents the physical quantity of a specific product 
 
 ## 2. Schema Definition & Traceability Analysis
 
-To maintain architectural transparency, every table, column, and constraint is explicitly classified:
+Every table, column, and constraint is explicitly classified:
 - **SUPPORTED**: Directly mandated by original business requirements (`especificacion_requerimientos_sistema_ferretero.md`, `mod_cuentas_accesos.md`, `mod_inventarios_catalogo.md`).
 - **DERIVED**: Logically inferred from operational workflows described in requirements.
 - **AMBIGUOUS**: Underspecified in original documents, resolved by explicit maintainer decision.
@@ -117,34 +117,26 @@ To maintain architectural transparency, every table, column, and constraint is e
 
 | Column | Type | Classification | Rationale & Evidence |
 |---|---|---|---|
-| `id_almacen` | `INT UNSIGNED NULL` (during EXPAND) / `NOT NULL` (after CONTRACT) | SUPPORTED | Foreign key to `almacen(id_almacen)` with `ON DELETE RESTRICT`. |
+| `id_almacen` | `INT UNSIGNED NULL` (Release 1) / `NOT NULL` (Release 2) | SUPPORTED | Foreign key to `almacen(id_almacen)` with `ON DELETE RESTRICT`. |
 
 ---
 
-## 3. Migration Runner Compatibility & MariaDB Implicit Commits
+## 3. MigrationRunner Contract & MariaDB Implicit Commits
 
 The implementation strictly obeys the design contracts of `src/Foundation/MigrationRunner.php` and `src/Foundation/Database.php`:
 1. **Single-Statement Rule**: Exactly **one executable DDL statement** per `.up.sql` and `.down.sql` file. `Pdo\Mysql::ATTR_MULTI_STATEMENTS` is disabled (`false`). Combining multiple DDL statements causes execution to throw a fatal error.
-2. **MariaDB Implicit Commits**: In MariaDB, DDL statements (`CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`) trigger an implicit transaction commit. The migration runner is therefore **fail-stop and non-transactional**. History (`schema_migrations`) is recorded ONLY after the statement executes successfully.
-3. **Reversibility**: Every `.down.sql` file is a compensating reversal executing a single DDL statement.
-4. **Checksum Drift**: Existing migrations (`0001` through `0007`) are immutable. Their checksums must not change.
+2. **MariaDB Implicit Commits**: In MariaDB, DDL statements (`CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`) trigger an implicit transaction commit. The migration runner is non-transactional. Execution of `$this->pdo->exec($sql)` throws on failure; `MigrationRunner` releases its advisory lock in `finally`, and the caller (`Console` or test runner) catches the exception and returns failure.
+3. **Sequential Execution Without Pauses**: `MigrationRunner` discovers and executes **all pending `*.up.sql` migrations in sorted order**. It has no supported mechanism to stop midway. Therefore, a contract enforcement migration (`0011`) **cannot coexist in the migration folder** with the expand migrations (`0008`..`0010`) on a populated database awaiting operator mapping. Fail-stop is not a valid deployment boundary; the boundary must be established across separate releases.
 
 ---
 
-## 4. Expand → Adapt → Contract Migration Strategy
+## 4. Two-Release Deployment Architecture & Operator Boundary
 
-### 4.1 Current Development Database Evidence
-Inspection of the active development database confirms:
-- Location 1: `id_ubicacion = 1`, `codigo = 'CENTRAL'`, `descripcion = 'Bodega Central'`, referenced by `inventario_stock` row 1 (`id_stock = 1`, `id_producto = 2`, `cantidad = 2000.000`), with zero count records.
-- Location 2: `id_ubicacion = 2`, `codigo = 'bod-a2'`, `descripcion = 'Bodega calle 2'`, referenced by `inventario_stock` row 2 (`id_stock = 2`, `id_producto = 2`, `cantidad = 300.000`), with observational count record 1 (`id_conteo = 1`, `cantidad_sistema = 300.000`, `cantidad_contada = 250.000`, `diferencia = -50.000`).
+### 4.1 Release 1: EXPAND + ADAPT (PR 1)
 
-These facts prove existing relational dependencies. They do **not** prove business warehouse ownership. Therefore, **no artificial branches or warehouses will be seeded in migrations**, and no speculative mapping will be performed.
+Release 1 introduces the schema additions and runtime tooling while intentionally withholding migration `0011`.
 
-### 4.2 Three-Stage Migration Sequencing
-
-#### Stage 1: EXPAND (Schema Additions)
-Executes additive, non-breaking schema definitions compatible with existing code and tests:
-
+#### Migrations Included:
 1. `database/migrations/0008_create_sucursal.up.sql`:
    ```sql
    CREATE TABLE sucursal (
@@ -184,48 +176,52 @@ Executes additive, non-breaking schema definitions compatible with existing code
    ```
    *Reversal (`0009_create_almacen.down.sql`)*: `DROP TABLE almacen;`
 
-3. `database/migrations/0010_add_ubicacion_almacen.up.sql`:
+3. `database/migrations/0010_add_ubicacion_almacen_nullable.up.sql`:
    ```sql
    ALTER TABLE ubicacion
        ADD COLUMN id_almacen INT UNSIGNED NULL AFTER id_ubicacion,
        ADD CONSTRAINT fk_ubicacion_almacen FOREIGN KEY (id_almacen) REFERENCES almacen (id_almacen) ON DELETE RESTRICT;
    ```
-   *Reversal (`0010_add_ubicacion_almacen.down.sql`)*:
+   *Reversal (`0010_add_ubicacion_almacen_nullable.down.sql`)*:
    ```sql
    ALTER TABLE ubicacion DROP FOREIGN KEY fk_ubicacion_almacen, DROP COLUMN id_almacen;
    ```
 
-At the completion of EXPAND:
-- The database schema supports branches, warehouses, and location warehouse foreign keys.
-- Existing location rows remain completely untouched with `id_almacen IS NULL`.
-- All existing queries and tests continue functioning without interruption.
+#### Application Runtime Behavior (ADAPT):
+- **Domain Guard on Location Creation**: Even though `ubicacion.id_almacen` is nullable in the database, `LocationCommand::create` strictly requires a valid, active warehouse. No newly created location can have `id_almacen = NULL`.
+- **Nullable-Safe Visibility**: `LocationQuery` and inventory views use `LEFT JOIN` on `almacen` and `sucursal`. Existing unmapped rows (`id_almacen IS NULL`) remain visible and are displayed with warehouse/branch status "Sin asignar" / "Pendiente de mapeo". No rows are silently dropped by `INNER JOIN`.
+- **Template Registration**: Register `page.branches` and `page.warehouses` in `Renderer::TEMPLATES`.
 
-#### Stage 2: ADAPT (Runtime Enablement & Explicit Mapping)
-1. **Application Deployment**: The application is deployed with support for Branch and Warehouse management (`BranchHandler`, `WarehouseHandler`), and new location creation forms require selecting an active warehouse.
-2. **Explicit Administrative Mapping**:
-   - An administrator provisions legitimate commercial branches and storage warehouses using the web UI or database console.
-   - An administrative CLI tool is provided to map legacy locations explicitly:
-     ```powershell
-     php scripts/console.php map-location <location-id-or-code> <warehouse-id-or-code>
-     ```
-     This command:
-     - Verifies the location exists.
-     - Verifies the warehouse exists and is active.
-     - Sets `ubicacion.id_almacen = :warehouse_id`.
-     - Preserves `id_ubicacion`, `codigo`, `descripcion`, and all associated stock and count records.
-3. **Completeness Verification Tool**:
-   - An automated preflight command verifies readiness:
-     ```powershell
-     php scripts/console.php verify-locations-mapped
-     ```
-     This executes:
-     ```sql
-     SELECT COUNT(*) FROM ubicacion WHERE id_almacen IS NULL;
-     ```
-     If the count is greater than 0, it outputs the unmapped location IDs and codes and exits with status 1.
+### 4.2 Operator Transition Boundary (Between Releases)
 
-#### Stage 3: CONTRACT (Enforcement)
-Once all locations in the environment have been mapped:
+After deploying Release 1:
+1. Operator creates legitimate real commercial branches via the UI (`POST /branches`).
+2. Operator creates legitimate real storage warehouses via the UI (`POST /warehouses`).
+3. Operator maps each existing legacy location using the atomic CLI command:
+   ```powershell
+   php scripts/console.php map-location <location-identifier> <warehouse-identifier>
+   ```
+   **Atomic Contract**:
+   ```sql
+   UPDATE ubicacion
+   SET id_almacen = :warehouse_id
+   WHERE id_ubicacion = :location_id
+     AND id_almacen IS NULL;
+   ```
+   - Must affect exactly 1 row (`rowCount() === 1`).
+   - If the location already has an assigned warehouse, or if the warehouse is inactive/missing, the command throws and aborts without mutating data.
+   - Preserves `id_ubicacion`, `codigo`, `descripcion`, associated `inventario_stock` positions/quantities, and `conteo_inventario` records without alteration.
+4. Operator verifies mapping completeness:
+   ```powershell
+   php scripts/console.php verify-locations-mapped
+   ```
+   - Checks `SELECT COUNT(*) FROM ubicacion WHERE id_almacen IS NULL`.
+   - Exits with status 0 only when the count is exactly 0.
+   - Exits with non-zero status if any unmapped rows remain.
+
+### 4.3 Release 2: CONTRACT (PR 2)
+
+Deployed ONLY after `verify-locations-mapped` confirms 0 unmapped rows remain:
 
 1. `database/migrations/0011_enforce_ubicacion_almacen_not_null.up.sql`:
    ```sql
@@ -236,39 +232,51 @@ Once all locations in the environment have been mapped:
    ALTER TABLE ubicacion MODIFY COLUMN id_almacen INT UNSIGNED NULL;
    ```
 
-#### Fail-Stop & Deployment Boundary Invariants:
-- If `0011` is attempted on a database where unmapped locations exist, MariaDB rejects the DDL with `Error 1138: Invalid use of NULL value`.
-- `MigrationRunner` catches the exception and halts immediately without recording `0011` in `schema_migrations`.
-- In fresh test environments (`*_test`), `0008` through `0011` execute sequentially in automated test runs because `ubicacion` starts empty, satisfying the `NOT NULL` constraint immediately.
+---
+
+## 5. Dual Database Execution Paths
+
+### 5.1 Fresh Database Path (CI / Fresh Install)
+- Release 1 executes migrations `0008`, `0009`, `0010`. `ubicacion` starts empty.
+- Tests/fixtures create branches, warehouses, and locations with explicit warehouse IDs.
+- Release 2 executes migration `0011`. Since no NULL rows exist, `0011` succeeds immediately.
+
+### 5.2 Populated Database Path (Existing Development / Production)
+- Database has existing locations (e.g. `id_ubicacion = 1` "CENTRAL", `id_ubicacion = 2` "bod-a2").
+- Release 1 executes `0008`, `0009`, `0010`. Existing locations acquire `id_almacen = NULL`.
+- Existing locations remain fully visible and operational via nullable-safe queries.
+- Operator explicitly maps locations 1 and 2 to verified real warehouses via `map-location`.
+- Operator runs `verify-locations-mapped` (exits 0).
+- Release 2 is deployed and executes `0011`, locking in the `NOT NULL` constraint without failure.
 
 ---
 
-## 5. Lifecycle & Parent Immutability Contracts
+## 6. Lifecycle & Parent Immutability Contracts
 
-### 5.1 Operational Lifecycle Rules
+### 6.1 Operational Lifecycle Rules
 
 | Entity | Active State (`estado_activo = 1`) | Inactive State (`estado_activo = 0`) |
 |---|---|---|
 | `sucursal` | Normal operation. Permitted to create child warehouses. | Closed branch. **Prohibits** creating new warehouses under this branch. Does **not** cascade inactive status to child warehouses. |
-| `almacen` | Normal operation. Permitted to create child locations. | Closed warehouse. **Prohibits** creating new physical locations under this warehouse. Does **not** cascade inactive status to child locations. |
+| `almacen` | Normal operation. Permitted to create child locations. | Closed warehouse. **Prohibits** creating new physical locations under this warehouse. Prohibits reactivation if parent branch is inactive. Does **not** cascade inactive status to child locations. |
 | `ubicacion` | Normal operation. Available for establishing new stock positions. | Closed location. Prohibits selecting this location when establishing new stock positions. |
 
-- **Historical Visibility**: Deactivating a branch or warehouse does **not** hide or delete historical stock positions or observational counts. Aggregate stock rollups continue to accurately reflect existing stock until future business workflows (e.g. transfers) relocate items.
-- **Reactivation**: An administrator may toggle an inactive branch or warehouse back to active status at any time, provided the parent entity is active.
+- **Creation & Reactivation Guards**: Requiring an active parent is a check performed during creation and reactivation operations, not a continuous invariant that would invalidate independent statuses if a parent is deactivated later.
+- **Historical Visibility**: Deactivating a branch or warehouse does not hide or delete historical stock positions or observational counts. Aggregate stock rollups continue to accurately reflect existing stock.
 
-### 5.2 Parent Immutability Invariant
+### 6.2 Parent Immutability Invariant
 
 To preserve the auditability of physical counts and stock history:
-1. **Location Warehouse Immutability**: Once a location is created or assigned to a warehouse under the final contract, its `id_almacen` **cannot be modified** through normal application operations. Changing `id_almacen` via HTTP/UI is rejected with a validation error (`422 Unprocessable Entity`).
+1. **Location Warehouse Immutability**: Once a location is created or assigned to a warehouse, its `id_almacen` **cannot be modified** through normal application operations. Changing `id_almacen` via HTTP/UI is rejected with a validation error (`422 Unprocessable Entity`).
 2. **Warehouse Branch Immutability**: Once a warehouse is created, its parent branch reference (`id_sucursal`) **cannot be modified** through normal application operations.
-3. **No Reparenting Operation**: No HTTP endpoint or UI form will expose a reparenting action in this capability.
+3. **No Reparenting Operation**: No HTTP endpoint or UI form will expose a reparenting action in this capability. `map-location` only updates rows where `id_almacen IS NULL`.
 4. **Physical Deletion Prohibition**: Physical deletion of locations holding any stock records (even with zero quantity) is prohibited by foreign key `RESTRICT` and domain pre-checks.
 
 ---
 
-## 6. Access Control & Route Authorization Policy
+## 7. Access Control & Route Authorization Policy
 
-### 6.1 Route Access Matrix
+### 7.1 Route Access Matrix
 In accordance with `AGENTS.md` and `RouteAccessPolicy`, all new routes are explicitly mapped with conservative authorization:
 
 | HTTP Method | Route Path | Handler & Action | Allowed Roles | Exemption |
@@ -283,9 +291,9 @@ In accordance with `AGENTS.md` and `RouteAccessPolicy`, all new routes are expli
 | `POST` | `/locations` | `LocationHandler::create` | `administrador`, `bodeguero` | No (Existing) |
 
 > [!NOTE]
-> `POST /locations/toggle-active` was removed from the scope of this change to keep the capability tightly focused on the facility foundation.
+> `POST /locations/toggle-active` is excluded from the scope of this change to maintain bounded scope.
 
-### 6.2 Fail-Closed Authorization Semantics
+### 7.2 Fail-Closed Authorization Semantics
 - **Authenticated requests** to registered non-exempt routes lacking an explicit entry in `RouteAccessPolicy::MATRIX` return **HTTP 403 Forbidden**.
 - **Unauthenticated requests** to protected routes are redirected by `AuthGuard` to `/login` (HTTP 303 for standard browser navigation, HTTP 200 with `HX-Redirect: /login` and empty body for HTMX requests).
 - **Unregistered routes** return **HTTP 404 Not Found** from `Router`.
@@ -293,16 +301,16 @@ In accordance with `AGENTS.md` and `RouteAccessPolicy`, all new routes are expli
 
 ---
 
-## 7. UI, Templates & Renderer Allowlist
+## 8. UI, Templates & Renderer Allowlist
 
-### 7.1 Template Allowlist Registration
-`src/Foundation/Renderer.php` enforces a strict allowlist in `Renderer::TEMPLATES`. The new management views must be registered:
+### 8.1 Template Allowlist Registration
+`src/Foundation/Renderer.php` enforces an explicit template allowlist in `Renderer::TEMPLATES`. The new views must be registered:
 ```php
 'page.branches' => 'pages/branches.php',
 'page.warehouses' => 'pages/warehouses.php',
 ```
 
-### 7.2 UI Design System Conformance
+### 8.2 UI Design System Conformance
 All templates conform strictly to `docs/ui/DESIGN.md`:
 - Pure PHP templates, Bulma 1.0.4 CSS tokens, and HTMX 2.0.10 interactions.
 - Responsive layout supporting viewports down to 360px without horizontal clipping.
@@ -313,27 +321,35 @@ All templates conform strictly to `docs/ui/DESIGN.md`:
 
 ---
 
-## 8. Verification & Testing Strategy
+## 9. Verification & Testing Strategy
 
 The test plan exercises every architectural boundary:
 1. **Migration Isolation & Lifecycle (`tests/Integration/MultisiteMigrationTest.php`)**:
-   - Single-statement execution of `0008`, `0009`, `0010`, `0011`.
-   - Compensating reversals `0011.down` through `0008.down`.
+   - Fresh DB: single-statement execution of `0008`, `0009`, `0010`.
+   - Populated DB upgrade: existing rows acquire NULL.
+   - Repeated migration execution leaves schema intact.
+   - Partial failure / retry behavior.
    - Checksum drift validation across migrations.
-   - Populated test DB: verify that `0011` fails stop when unmapped locations exist, and succeeds once mapped.
+   - Dependency-aware reversal `0010.down`, `0009.down`, `0008.down`.
+   - Release 2: verify `0011` fails if unmapped rows exist, and succeeds when fully mapped.
 2. **Administrative Mapping CLI (`tests/Integration/ConsoleMultisiteTest.php`)**:
-   - Exercise `map-location` with valid and invalid IDs.
-   - Verify `verify-locations-mapped` returns non-zero when unmapped rows exist.
+   - Exercise `map-location` atomically updating `id_almacen IS NULL` rows.
+   - Verify rejection of already-mapped locations, repeated mappings, and nonexistent entities.
+   - Verify `verify-locations-mapped` returns non-zero when unmapped rows exist, and 0 when clean.
    - Verify existing stock and count records remain unchanged after mapping.
 3. **CQS Persistence & Immutability (`tests/Integration/MultisitePersistenceTest.php`)**:
    - Branch and warehouse CRUD, code uniqueness, and active toggles.
-   - Structural creation guards (inactive branch rejects warehouse; inactive warehouse rejects location).
+   - Structural creation guards (inactive branch rejects warehouse; inactive warehouse rejects location; inactive branch rejects warehouse reactivation).
    - Parent immutability (prohibit changing location's `id_almacen` and warehouse's `id_sucursal`).
    - Location deletion restriction with stock positions.
    - Dynamic stock rollups matching exact expected sums.
+   - Mixed-state visibility: unmapped legacy locations remain visible alongside mapped locations.
 4. **HTTP & Authorization (`tests/Integration/MultisiteHttpTest.php`)**:
    - RoleGuard matrix verification: `administrador` full access, `bodeguero` warehouse read-only, `cajero` and `compras` 403 Forbidden.
    - Fail-closed regression for missing policy entries.
+   - CSRF protection: valid token succeeds, missing/invalid token rejected.
+   - Unauthenticated browser 303 redirect vs HTMX `HX-Redirect` behavior.
    - Public entrypoint GET route testing (`tests/Integration/ProductionEntrypointTest.php`).
-5. **UI & Template Verification (`tests/Integration/MultisiteUiTest.php`)**:
-   - Rendered HTML structure, touch target sizing, CSRF token presence, and role control suppression.
+5. **Fixture Adaptation & Reset Consistency**:
+   - Update `StockTest`, `CountTest`, `LocationHttpTest`, and migration reset helpers to create parent warehouses/branches.
+   - Prove reset -> migration history consistent -> rerun -> correct final schema.
