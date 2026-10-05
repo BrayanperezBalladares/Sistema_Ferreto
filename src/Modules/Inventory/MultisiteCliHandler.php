@@ -41,23 +41,15 @@ final class MultisiteCliHandler
             return 64;
         }
 
-        $isLocId = ctype_digit($locInput) && (int) $locInput > 0;
-        $location = $isLocId
-            ? ($this->locationQuery->findById((int) $locInput) ?? $this->locationQuery->findByCode($locInput))
-            : $this->locationQuery->findByCode($locInput);
-
-        if ($location === null) {
-            $this->writeErr("Error: La ubicación '{$locInput}' no existe." . PHP_EOL);
+        [$location, $locError] = $this->resolveLocation($locInput);
+        if ($locError !== null || $location === null) {
+            $this->writeErr(($locError ?? "Error: La ubicación '{$locInput}' no existe.") . PHP_EOL);
             return 1;
         }
 
-        $isWhId = ctype_digit($whInput) && (int) $whInput > 0;
-        $warehouse = $isWhId
-            ? ($this->almacenQuery->findById((int) $whInput) ?? $this->almacenQuery->findByCode($whInput))
-            : $this->almacenQuery->findByCode($whInput);
-
-        if ($warehouse === null) {
-            $this->writeErr("Error: El almacén '{$whInput}' no existe." . PHP_EOL);
+        [$warehouse, $whError] = $this->resolveWarehouse($whInput);
+        if ($whError !== null || $warehouse === null) {
+            $this->writeErr(($whError ?? "Error: El almacén '{$whInput}' no existe.") . PHP_EOL);
             return 1;
         }
 
@@ -136,6 +128,109 @@ final class MultisiteCliHandler
 
         $this->writeOut("Verificación exitosa: Todas las ubicaciones están mapeadas a un almacén." . PHP_EOL);
         return 0;
+    }
+
+    /**
+     * @return array{
+     *     0: array{
+     *         id_ubicacion: int,
+     *         id_almacen: ?int,
+     *         codigo: string,
+     *         descripcion: ?string,
+     *         estado_activo: int,
+     *         created_at: string,
+     *         updated_at: string,
+     *         almacen_codigo: ?string,
+     *         almacen_nombre: ?string,
+     *         almacen_tipo: ?string,
+     *         almacen_activo: ?int,
+     *         id_sucursal: ?int,
+     *         sucursal_codigo: ?string,
+     *         sucursal_nombre: ?string
+     *     }|null,
+     *     1: string|null
+     * }
+     */
+    private function resolveLocation(string $input): array
+    {
+        if (preg_match('/^[1-9][0-9]*$/', $input) === 1) {
+            $byPk   = $this->locationQuery->findById((int) $input);
+            $byCode = $this->locationQuery->findByCode($input);
+
+            if ($byPk !== null && $byCode !== null) {
+                if ($byPk['id_ubicacion'] !== $byCode['id_ubicacion']) {
+                    return [null, "Error: El identificador de ubicación '{$input}' es ambiguo: coincide con el ID {$byPk['id_ubicacion']} y el código '{$byCode['codigo']}'."];
+                }
+                return [$byPk, null];
+            }
+
+            if ($byPk !== null) {
+                return [$byPk, null];
+            }
+
+            if ($byCode !== null) {
+                return [$byCode, null];
+            }
+
+            return [null, "Error: La ubicación '{$input}' no existe."];
+        }
+
+        $byCode = $this->locationQuery->findByCode($input);
+        if ($byCode === null) {
+            return [null, "Error: La ubicación '{$input}' no existe."];
+        }
+
+        return [$byCode, null];
+    }
+
+    /**
+     * @return array{
+     *     0: array{
+     *         id_almacen: int,
+     *         id_sucursal: int,
+     *         codigo: string,
+     *         nombre: string,
+     *         tipo: string,
+     *         estado_activo: int,
+     *         created_at: string,
+     *         updated_at: string,
+     *         sucursal_codigo: string,
+     *         sucursal_nombre: string,
+     *         total_ubicaciones: int
+     *     }|null,
+     *     1: string|null
+     * }
+     */
+    private function resolveWarehouse(string $input): array
+    {
+        if (preg_match('/^[1-9][0-9]*$/', $input) === 1) {
+            $byPk   = $this->almacenQuery->findById((int) $input);
+            $byCode = $this->almacenQuery->findByCode($input);
+
+            if ($byPk !== null && $byCode !== null) {
+                if ($byPk['id_almacen'] !== $byCode['id_almacen']) {
+                    return [null, "Error: El identificador de almacén '{$input}' es ambiguo: coincide con el ID {$byPk['id_almacen']} y el código '{$byCode['codigo']}'."];
+                }
+                return [$byPk, null];
+            }
+
+            if ($byPk !== null) {
+                return [$byPk, null];
+            }
+
+            if ($byCode !== null) {
+                return [$byCode, null];
+            }
+
+            return [null, "Error: El almacén '{$input}' no existe."];
+        }
+
+        $byCode = $this->almacenQuery->findByCode($input);
+        if ($byCode === null) {
+            return [null, "Error: El almacén '{$input}' no existe."];
+        }
+
+        return [$byCode, null];
     }
 
     private function writeOut(string $message): void

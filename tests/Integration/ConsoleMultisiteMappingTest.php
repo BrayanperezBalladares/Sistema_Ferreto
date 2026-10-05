@@ -480,4 +480,318 @@ final class ConsoleMultisiteMappingTest extends TestCase
         $exitVerify = $console->run(['verify-locations-mapped']);
         self::assertSame(0, $exitVerify);
     }
+
+    public function testLocationIdentifierResolutionContract(): void
+    {
+        $branchId = self::$sucursalCmd->create('SUC-LOC-RES', 'Sucursal Loc Res', 'Managua');
+        $whId     = self::$almacenCmd->create($branchId, 'ALM-LOC-RES', 'Almacén Loc Res');
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        $handler = $this->createHandler($out, $err);
+
+        // 1. Ordinary strict ID
+        $locStrictId = $this->insertLegacyLocation('LOC-STRICT-ID');
+        $res1 = $handler->handleMapLocation([(string) $locStrictId, (string) $whId]);
+        self::assertSame(0, $res1);
+        $locRow1 = self::$locationQuery->findById($locStrictId);
+        self::assertNotNull($locRow1);
+        self::assertSame($whId, $locRow1['id_almacen']);
+
+        // 2. Ordinary alphanumeric code
+        $locAlphaId = $this->insertLegacyLocation('LOC-ALPHA-CODE');
+        $res2 = $handler->handleMapLocation(['LOC-ALPHA-CODE', (string) $whId]);
+        self::assertSame(0, $res2);
+        $locRow2 = self::$locationQuery->findById($locAlphaId);
+        self::assertNotNull($locRow2);
+        self::assertSame($whId, $locRow2['id_almacen']);
+
+        // 3. Numeric code where no colliding ID exists
+        $locNumCodeId = $this->insertLegacyLocation('8888');
+        self::assertNull(self::$locationQuery->findById(8888));
+        $res3 = $handler->handleMapLocation(['8888', (string) $whId]);
+        self::assertSame(0, $res3);
+        $locRow3 = self::$locationQuery->findById($locNumCodeId);
+        self::assertNotNull($locRow3);
+        self::assertSame($whId, $locRow3['id_almacen']);
+
+        // 4. Numeric ID where no colliding code exists
+        $locNumId = $this->insertLegacyLocation('LOC-NO-COLLIDE-CODE');
+        self::assertNull(self::$locationQuery->findByCode((string) $locNumId));
+        $res4 = $handler->handleMapLocation([(string) $locNumId, (string) $whId]);
+        self::assertSame(0, $res4);
+        $locRow4 = self::$locationQuery->findById($locNumId);
+        self::assertNotNull($locRow4);
+        self::assertSame($whId, $locRow4['id_almacen']);
+
+        // 5. Numeric token where ID and code resolve to DIFFERENT rows (COLLISION)
+        $pdo = self::$testDb->pdo();
+        $pdo->exec("INSERT INTO ubicacion (id_ubicacion, codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) VALUES (500, 'LOC-ROW-A', 'Row A', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $pdo->exec("INSERT INTO ubicacion (id_ubicacion, codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) VALUES (501, '500', 'Row B', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+
+        $prodId = self::$prodCmd->register('Producto Collision Loc', '10.00');
+        $stockA = self::$stockCmd->createPosition($prodId, 500, '100.000');
+        $stockB = self::$stockCmd->createPosition($prodId, 501, '200.000');
+        $countA = self::$countCmd->record($stockA, '100.000', 'Count A initial');
+        $countB = self::$countCmd->record($stockB, '200.000', 'Count B initial');
+
+        $stmtStock = $pdo->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtCount = $pdo->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+
+        $stmtStock->execute([':id' => $stockA]);
+        $stockABefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        $stmtStock->execute([':id' => $stockB]);
+        $stockBBefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+
+        $stmtCount->execute([':id' => $countA]);
+        $countABefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        $stmtCount->execute([':id' => $countB]);
+        $countBBefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
+        ftruncate($err, 0);
+        rewind($err);
+        $resColl = $handler->handleMapLocation(['500', (string) $whId]);
+        self::assertSame(1, $resColl, 'Collision between location ID and location code must be rejected with non-zero exit code.');
+
+        rewind($err);
+        $errColl = stream_get_contents($err);
+        self::assertIsString($errColl);
+        self::assertStringContainsString("Error: El identificador de ubicación '500' es ambiguo", $errColl);
+
+        // Verify NO id_almacen mutation on either row
+        $rowAAfter = self::$locationQuery->findById(500);
+        $rowBAfter = self::$locationQuery->findById(501);
+        self::assertNotNull($rowAAfter);
+        self::assertNotNull($rowBAfter);
+        self::assertNull($rowAAfter['id_almacen'], 'Row A id_almacen must remain NULL after collision rejection.');
+        self::assertNull($rowBAfter['id_almacen'], 'Row B id_almacen must remain NULL after collision rejection.');
+
+        // Verify stock positions unchanged
+        $stmtStock->execute([':id' => $stockA]);
+        $stockAAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        $stmtStock->execute([':id' => $stockB]);
+        $stockBAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockABefore, $stockAAfter, 'Stock on location A must be unchanged.');
+        self::assertSame($stockBBefore, $stockBAfter, 'Stock on location B must be unchanged.');
+
+        // Verify counts unchanged
+        $stmtCount->execute([':id' => $countA]);
+        $countAAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        $stmtCount->execute([':id' => $countB]);
+        $countBAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countABefore, $countAAfter, 'Count on location A must be unchanged.');
+        self::assertSame($countBBefore, $countBAfter, 'Count on location B must be unchanged.');
+
+        // 6. Both lookups resolving to same row (id == code)
+        $pdo->exec("INSERT INTO ubicacion (id_ubicacion, codigo, descripcion, estado_activo, id_almacen, created_at, updated_at) VALUES (600, '600', 'Same row loc', 1, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $resSame = $handler->handleMapLocation(['600', (string) $whId]);
+        self::assertSame(0, $resSame);
+        $rowSame = self::$locationQuery->findById(600);
+        self::assertNotNull($rowSame);
+        self::assertSame($whId, $rowSame['id_almacen']);
+
+        // 7. Malformed fractional token
+        ftruncate($err, 0);
+        rewind($err);
+        $resFrac = $handler->handleMapLocation(['1.9', (string) $whId]);
+        self::assertSame(1, $resFrac);
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '1.9' no existe.", stream_get_contents($err));
+
+        // 8. Scientific notation
+        ftruncate($err, 0);
+        rewind($err);
+        $resSci = $handler->handleMapLocation(['1e2', (string) $whId]);
+        self::assertSame(1, $resSci);
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '1e2' no existe.", stream_get_contents($err));
+
+        // 9. Zero
+        ftruncate($err, 0);
+        rewind($err);
+        $resZero = $handler->handleMapLocation(['0', (string) $whId]);
+        self::assertSame(1, $resZero);
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '0' no existe.", stream_get_contents($err));
+
+        // 10. Negative
+        ftruncate($err, 0);
+        rewind($err);
+        $resNeg = $handler->handleMapLocation(['-1', (string) $whId]);
+        self::assertSame(64, $resNeg);
+        rewind($err);
+        self::assertStringContainsString("Usage: php scripts/console.php map-location <location> <warehouse>", stream_get_contents($err));
+
+        // 11. Nonexistent identifier
+        ftruncate($err, 0);
+        rewind($err);
+        $resNon = $handler->handleMapLocation(['999999', (string) $whId]);
+        self::assertSame(1, $resNon);
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '999999' no existe.", stream_get_contents($err));
+    }
+
+    public function testWarehouseIdentifierResolutionContract(): void
+    {
+        $branchId = self::$sucursalCmd->create('SUC-WH-RES', 'Sucursal Wh Res', 'Leon');
+
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        $handler = $this->createHandler($out, $err);
+
+        // 1. Ordinary strict ID
+        $whStrictId = self::$almacenCmd->create($branchId, 'ALM-STRICT-ID', 'Almacen Strict ID');
+        $loc1 = $this->insertLegacyLocation('LOC-WH-1');
+        $res1 = $handler->handleMapLocation([(string) $loc1, (string) $whStrictId]);
+        self::assertSame(0, $res1);
+        $locRow1 = self::$locationQuery->findById($loc1);
+        self::assertNotNull($locRow1);
+        self::assertSame($whStrictId, $locRow1['id_almacen']);
+
+        // 2. Ordinary alphanumeric code
+        $whAlphaId = self::$almacenCmd->create($branchId, 'ALM-ALPHA-CODE', 'Almacen Alpha Code');
+        $loc2 = $this->insertLegacyLocation('LOC-WH-2');
+        $res2 = $handler->handleMapLocation([(string) $loc2, 'ALM-ALPHA-CODE']);
+        self::assertSame(0, $res2);
+        $locRow2 = self::$locationQuery->findById($loc2);
+        self::assertNotNull($locRow2);
+        self::assertSame($whAlphaId, $locRow2['id_almacen']);
+
+        // 3. Numeric code where no colliding ID exists
+        $whNumCodeId = self::$almacenCmd->create($branchId, '7777', 'Almacen 7777');
+        self::assertNull(self::$almacenQuery->findById(7777));
+        $loc3 = $this->insertLegacyLocation('LOC-WH-3');
+        $res3 = $handler->handleMapLocation([(string) $loc3, '7777']);
+        self::assertSame(0, $res3);
+        $locRow3 = self::$locationQuery->findById($loc3);
+        self::assertNotNull($locRow3);
+        self::assertSame($whNumCodeId, $locRow3['id_almacen']);
+
+        // 4. Numeric ID where no colliding code exists
+        $whNumId = self::$almacenCmd->create($branchId, 'ALM-NO-COLLIDE-CODE', 'Almacen No Collide');
+        self::assertNull(self::$almacenQuery->findByCode((string) $whNumId));
+        $loc4 = $this->insertLegacyLocation('LOC-WH-4');
+        $res4 = $handler->handleMapLocation([(string) $loc4, (string) $whNumId]);
+        self::assertSame(0, $res4);
+        $locRow4 = self::$locationQuery->findById($loc4);
+        self::assertNotNull($locRow4);
+        self::assertSame($whNumId, $locRow4['id_almacen']);
+
+        // 5. Numeric token where ID and code resolve to DIFFERENT rows (COLLISION)
+        $pdo = self::$testDb->pdo();
+        $pdo->exec("INSERT INTO almacen (id_almacen, id_sucursal, codigo, nombre, tipo, estado_activo, created_at, updated_at) VALUES (700, {$branchId}, 'ALM-ROW-A', 'Wh Row A', 'bodega', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $pdo->exec("INSERT INTO almacen (id_almacen, id_sucursal, codigo, nombre, tipo, estado_activo, created_at, updated_at) VALUES (701, {$branchId}, '700', 'Wh Row B', 'bodega', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+
+        $locColl = $this->insertLegacyLocation('LOC-WH-COLLIDE');
+        $prodId  = self::$prodCmd->register('Producto Collision Wh', '25.00');
+        $stockColl = self::$stockCmd->createPosition($prodId, $locColl, '50.000');
+        $countColl = self::$countCmd->record($stockColl, '50.000', 'Count Coll initial');
+
+        $stmtStock = $pdo->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtCount = $pdo->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+
+        $stmtStock->execute([':id' => $stockColl]);
+        $stockBefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+
+        $stmtCount->execute([':id' => $countColl]);
+        $countBefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
+        ftruncate($err, 0);
+        rewind($err);
+        $resColl = $handler->handleMapLocation([(string) $locColl, '700']);
+        self::assertSame(1, $resColl, 'Collision between warehouse ID and warehouse code must be rejected with non-zero exit code.');
+
+        rewind($err);
+        $errColl = stream_get_contents($err);
+        self::assertIsString($errColl);
+        self::assertStringContainsString("Error: El identificador de almacén '700' es ambiguo", $errColl);
+
+        // Verify NO id_almacen mutation
+        $locCollAfter = self::$locationQuery->findById($locColl);
+        self::assertNotNull($locCollAfter);
+        self::assertNull($locCollAfter['id_almacen'], 'Location id_almacen must remain NULL after collision rejection.');
+
+        // Verify stock unchanged
+        $stmtStock->execute([':id' => $stockColl]);
+        $stockAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockBefore, $stockAfter, 'Stock on location must be unchanged.');
+
+        // Verify counts unchanged
+        $stmtCount->execute([':id' => $countColl]);
+        $countAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countBefore, $countAfter, 'Count on location must be unchanged.');
+
+        // 6. Both lookups resolving to same row (id == code)
+        $pdo->exec("INSERT INTO almacen (id_almacen, id_sucursal, codigo, nombre, tipo, estado_activo, created_at, updated_at) VALUES (800, {$branchId}, '800', 'Same row wh', 'bodega', 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $locSame = $this->insertLegacyLocation('LOC-WH-SAME');
+        $resSame = $handler->handleMapLocation([(string) $locSame, '800']);
+        self::assertSame(0, $resSame);
+        $locSameAfter = self::$locationQuery->findById($locSame);
+        self::assertNotNull($locSameAfter);
+        self::assertSame(800, $locSameAfter['id_almacen']);
+
+        // 7. Malformed fractional token
+        $locFrac = $this->insertLegacyLocation('LOC-WH-FRAC');
+        ftruncate($err, 0);
+        rewind($err);
+        $resFrac = $handler->handleMapLocation([(string) $locFrac, '1.9']);
+        self::assertSame(1, $resFrac);
+        rewind($err);
+        self::assertStringContainsString("Error: El almacén '1.9' no existe.", stream_get_contents($err));
+        $rowFrac = self::$locationQuery->findById($locFrac);
+        self::assertNotNull($rowFrac);
+        self::assertNull($rowFrac['id_almacen']);
+
+        // 8. Scientific notation
+        $locSci = $this->insertLegacyLocation('LOC-WH-SCI');
+        ftruncate($err, 0);
+        rewind($err);
+        $resSci = $handler->handleMapLocation([(string) $locSci, '1e2']);
+        self::assertSame(1, $resSci);
+        rewind($err);
+        self::assertStringContainsString("Error: El almacén '1e2' no existe.", stream_get_contents($err));
+        $rowSci = self::$locationQuery->findById($locSci);
+        self::assertNotNull($rowSci);
+        self::assertNull($rowSci['id_almacen']);
+
+        // 9. Zero
+        $locZero = $this->insertLegacyLocation('LOC-WH-ZERO');
+        ftruncate($err, 0);
+        rewind($err);
+        $resZero = $handler->handleMapLocation([(string) $locZero, '0']);
+        self::assertSame(1, $resZero);
+        rewind($err);
+        self::assertStringContainsString("Error: El almacén '0' no existe.", stream_get_contents($err));
+        $rowZero = self::$locationQuery->findById($locZero);
+        self::assertNotNull($rowZero);
+        self::assertNull($rowZero['id_almacen']);
+
+        // 10. Negative
+        $locNeg = $this->insertLegacyLocation('LOC-WH-NEG');
+        ftruncate($err, 0);
+        rewind($err);
+        $resNeg = $handler->handleMapLocation([(string) $locNeg, '-1']);
+        self::assertSame(64, $resNeg);
+        rewind($err);
+        self::assertStringContainsString("Usage: php scripts/console.php map-location <location> <warehouse>", stream_get_contents($err));
+        $rowNeg = self::$locationQuery->findById($locNeg);
+        self::assertNotNull($rowNeg);
+        self::assertNull($rowNeg['id_almacen']);
+
+        // 11. Nonexistent identifier
+        $locNon = $this->insertLegacyLocation('LOC-WH-NON');
+        ftruncate($err, 0);
+        rewind($err);
+        $resNon = $handler->handleMapLocation([(string) $locNon, '999999']);
+        self::assertSame(1, $resNon);
+        rewind($err);
+        self::assertStringContainsString("Error: El almacén '999999' no existe.", stream_get_contents($err));
+        $rowNon = self::$locationQuery->findById($locNon);
+        self::assertNotNull($rowNon);
+        self::assertNull($rowNon['id_almacen']);
+    }
 }
