@@ -642,10 +642,18 @@ final class AuthenticatedUiTest extends TestCase
             new CountCommand($tx)
         );
 
+        $sucursalQuery = new \App\Modules\Inventory\SucursalQuery(self::$testDb);
+        $sucursalCommand = new \App\Modules\Inventory\SucursalCommand($tx);
+        $almacenCommand = new \App\Modules\Inventory\AlmacenCommand($tx);
+        $branchHandler = new \App\Modules\Inventory\BranchHandler(self::$renderer, $sucursalQuery, $sucursalCommand, $actualCsrf);
+        $warehouseHandler = new \App\Modules\Inventory\WarehouseHandler(self::$renderer, new \App\Modules\Inventory\AlmacenQuery(self::$testDb), $almacenCommand, $sucursalQuery, $actualCsrf);
+
         $handlers = [
             'health'    => $healthHandler->handle(...),
             'access'    => $accessHandler->handle(...),
             'catalog'   => $catalogHandler->handle(...),
+            'branch'    => $branchHandler->handle(...),
+            'warehouse' => $warehouseHandler->handle(...),
             'location'  => $locationHandler->handle(...),
             'inventory' => $inventoryHandler->handle(...),
         ];
