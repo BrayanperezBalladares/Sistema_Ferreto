@@ -84,10 +84,11 @@ ob_start();
           <table class="ferreto-table ferreto-table-tabular">
             <thead>
               <tr>
-                <th scope="col" style="width: 25%;">Sucursal</th>
-                <th scope="col" style="width: 15%;">Código</th>
-                <th scope="col" style="width: 25%;">Nombre</th>
-                <th scope="col" style="width: 15%;">Tipo</th>
+                <th scope="col" style="width: 22%;">Sucursal</th>
+                <th scope="col" style="width: 14%;">Código</th>
+                <th scope="col" style="width: 22%;">Nombre</th>
+                <th scope="col" style="width: 12%;">Tipo</th>
+                <th scope="col" style="width: 10%;" class="has-text-centered">Ubicaciones</th>
                 <th scope="col" style="width: 10%;" class="has-text-centered">Estado</th>
                 <?php if ($can('POST', '/warehouses/toggle-active')): ?>
                 <th scope="col" style="width: 10%;" class="has-text-centered">Acciones</th>
@@ -104,6 +105,9 @@ ob_start();
                     <span class="badge-category"><?= Renderer::escape(ucfirst((string) $wh['tipo'])) ?></span>
                   </td>
                   <td class="has-text-centered">
+                    <?= (int) ($wh['total_ubicaciones'] ?? 0) ?>
+                  </td>
+                  <td class="has-text-centered">
                     <?php if ((int) ($wh['estado_activo'] ?? 1) === 1): ?>
                       <span class="badge-status badge-active">Activo</span>
                     <?php else: ?>
@@ -115,7 +119,7 @@ ob_start();
                     <form method="post" action="/warehouses/toggle-active" style="display:inline;">
                       <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
                       <input type="hidden" name="id_almacen" value="<?= (int) $wh['id_almacen'] ?>">
-                      <button class="btn-sm <?= (int) ($wh['estado_activo'] ?? 1) === 1 ? 'btn-sm-danger' : 'btn-sm-activate' ?>" type="submit">
+                      <button class="btn-sm btn-action-toggle <?= (int) ($wh['estado_activo'] ?? 1) === 1 ? 'btn-sm-danger' : 'btn-sm-activate' ?>" type="submit">
                         <?= (int) ($wh['estado_activo'] ?? 1) === 1 ? 'Desactivar' : 'Activar' ?>
                       </button>
                     </form>

@@ -60,14 +60,15 @@ ob_start();
           <table class="ferreto-table ferreto-table-tabular">
             <thead>
               <tr>
-                <th scope="col" style="width: 15%;">Código</th>
-                <th scope="col" style="width: 25%;">Nombre</th>
-                <th scope="col" style="width: 18%;">Ciudad</th>
-                <th scope="col" style="width: 20%;">Dirección</th>
-                <th scope="col" style="width: 12%;">Teléfono</th>
-                <th scope="col" style="width: 5%;" class="has-text-centered">Estado</th>
+                <th scope="col" style="width: 12%;">Código</th>
+                <th scope="col" style="width: 22%;">Nombre</th>
+                <th scope="col" style="width: 15%;">Ciudad</th>
+                <th scope="col" style="width: 18%;">Dirección</th>
+                <th scope="col" style="width: 10%;">Teléfono</th>
+                <th scope="col" style="width: 8%;" class="has-text-centered">Almacenes</th>
+                <th scope="col" style="width: 7%;" class="has-text-centered">Estado</th>
                 <?php if ($can('POST', '/branches/toggle-active')): ?>
-                <th scope="col" style="width: 5%;" class="has-text-centered">Acciones</th>
+                <th scope="col" style="width: 8%;" class="has-text-centered">Acciones</th>
                 <?php endif; ?>
               </tr>
             </thead>
@@ -92,6 +93,9 @@ ob_start();
                     <?php endif; ?>
                   </td>
                   <td class="has-text-centered">
+                    <?= (int) ($branch['total_almacenes'] ?? 0) ?>
+                  </td>
+                  <td class="has-text-centered">
                     <?php if ((int) ($branch['estado_activo'] ?? 1) === 1): ?>
                       <span class="badge-status badge-active">Activo</span>
                     <?php else: ?>
@@ -103,7 +107,7 @@ ob_start();
                     <form method="post" action="/branches/toggle-active" style="display:inline;">
                       <input type="hidden" name="_csrf" value="<?= Renderer::escape($csrf) ?>">
                       <input type="hidden" name="id_sucursal" value="<?= (int) $branch['id_sucursal'] ?>">
-                      <button class="btn-sm <?= (int) ($branch['estado_activo'] ?? 1) === 1 ? 'btn-sm-danger' : 'btn-sm-activate' ?>" type="submit">
+                      <button class="btn-sm btn-action-toggle <?= (int) ($branch['estado_activo'] ?? 1) === 1 ? 'btn-sm-danger' : 'btn-sm-activate' ?>" type="submit">
                         <?= (int) ($branch['estado_activo'] ?? 1) === 1 ? 'Desactivar' : 'Activar' ?>
                       </button>
                     </form>

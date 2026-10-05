@@ -157,22 +157,6 @@ final class MultisiteLocationTest extends TestCase
         self::$locCmd->create('LOC-NONEXIST', 999999);
     }
 
-    public function testLocationParentImmutability(): void
-    {
-        $bId = self::$sucursalCmd->create('SUC-IMM', 'Sucursal Imm', 'La Ceiba');
-        $wId = self::$almacenCmd->create($bId, 'ALM-IMM', 'Almacén Imm');
-        $locId = self::$locCmd->create('LOC-IMM', $wId, 'Desc Original');
-
-        // Update description only
-        $res = self::$locCmd->update($locId, 'Desc Modificada');
-        self::assertTrue($res);
-
-        $loc = self::$locQuery->findById($locId);
-        self::assertIsArray($loc);
-        self::assertSame('Desc Modificada', $loc['descripcion']);
-        self::assertSame($wId, $loc['id_almacen']); // id_almacen remains untouched
-    }
-
     public function testDeleteLocationRejectedWhenStockPositionsExist(): void
     {
         $bId = self::$sucursalCmd->create('SUC-DEL', 'Sucursal Del', 'Danlí');

@@ -71,33 +71,6 @@ final readonly class LocationCommand
         });
     }
 
-    public function update(int $idUbicacion, ?string $descripcion = null): bool
-    {
-        $descripcion = $descripcion !== null ? trim($descripcion) : null;
-        if ($descripcion === '') {
-            $descripcion = null;
-        }
-
-        // Prohibits updating id_almacen (parent immutability)
-        return $this->tx->run(function (PDO $pdo) use ($idUbicacion, $descripcion): bool {
-            $check = $pdo->prepare('SELECT id_ubicacion FROM ubicacion WHERE id_ubicacion = :id');
-            $check->bindValue(':id', $idUbicacion, PDO::PARAM_INT);
-            $check->execute();
-            if ($check->fetch() === false) {
-                return false;
-            }
-
-            $stmt = $pdo->prepare(
-                'UPDATE ubicacion SET descripcion = :descripcion, updated_at = UTC_TIMESTAMP() WHERE id_ubicacion = :id'
-            );
-            $stmt->bindValue(':id', $idUbicacion, PDO::PARAM_INT);
-            $stmt->bindValue(':descripcion', $descripcion);
-            $stmt->execute();
-
-            return true;
-        });
-    }
-
     public function delete(int $idUbicacion): bool
     {
         return $this->tx->run(function (PDO $pdo) use ($idUbicacion): bool {
