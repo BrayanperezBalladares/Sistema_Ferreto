@@ -232,6 +232,209 @@ final class MigrationTest extends TestCase
         self::assertFalse(in_array('_m2', $tables, true));
     }
 
+    public function testCanonicalizationAcrossLfAndCrlfSource(): void
+    {
+        $sqlLf   = "CREATE TABLE _canon (\n  id INT NOT NULL,\n  nombre VARCHAR(50)\n);";
+        $sqlCrlf = "CREATE TABLE _canon (\r\n  id INT NOT NULL,\r\n  nombre VARCHAR(50)\r\n);";
+
+        $expectedHash = hash('sha256', rtrim($sqlLf));
+
+        // A. LF source produces canonical LF hash
+        $dirLf = $this->createFixtureDir(['0001_canon.up.sql' => $sqlLf]);
+        $runnerLf = new MigrationRunner(self::$testDb);
+        $runnerLf->run($dirLf);
+
+        $pdo = self::$testDb->pdo();
+        $storedLf = $pdo->query("SELECT checksum FROM schema_migrations WHERE identifier = '0001_canon'")->fetchColumn();
+        self::assertSame($expectedHash, $storedLf, 'New migration applied from LF must record canonical LF checksum.');
+
+        // Clean up test table and history
+        $this->dropAllTestTables();
+
+        // B. CRLF source produces the exact same canonical LF hash
+        $dirCrlf = $this->createFixtureDir(['0001_canon.up.sql' => $sqlCrlf]);
+        $runnerCrlf = new MigrationRunner(self::$testDb);
+        $runnerCrlf->run($dirCrlf);
+
+        $storedCrlf = $pdo->query("SELECT checksum FROM schema_migrations WHERE identifier = '0001_canon'")->fetchColumn();
+        self::assertSame($expectedHash, $storedCrlf, 'New migration applied from CRLF must record the identical canonical LF checksum.');
+
+        // D. Repeat validation succeeds regardless of whether file is in LF or CRLF form
+        file_put_contents($dirCrlf . '/0001_canon.up.sql', $sqlLf);
+        $runnerCrlf->run($dirCrlf); // Should not throw
+
+        file_put_contents($dirCrlf . '/0001_canon.up.sql', $sqlCrlf);
+        $runnerCrlf->run($dirCrlf); // Should not throw
+    }
+
+    public function testHistoricalLfAndCrlfMatrix(): void
+    {
+        $sqlLf   = "CREATE TABLE _matrix (\n  id INT NOT NULL\n);";
+        $sqlCrlf = "CREATE TABLE _matrix (\r\n  id INT NOT NULL\r\n);";
+
+        $lfChecksum   = hash('sha256', rtrim($sqlLf));
+        $crlfChecksum = hash('sha256', rtrim($sqlCrlf));
+        self::assertNotSame($lfChecksum, $crlfChecksum, 'Precondition: LF and CRLF raw hashes must differ.');
+
+        $matrix = [
+            'legacy LF checksum + LF checkout'     => [$lfChecksum, $sqlLf],
+            'legacy LF checksum + CRLF checkout'   => [$lfChecksum, $sqlCrlf],
+            'legacy CRLF checksum + LF checkout'   => [$crlfChecksum, $sqlLf],
+            'legacy CRLF checksum + CRLF checkout' => [$crlfChecksum, $sqlCrlf],
+        ];
+
+        foreach ($matrix as $description => [$storedChecksum, $fileContent]) {
+            $this->dropAllTestTables();
+
+            $dir = $this->createFixtureDir(['0001_matrix.up.sql' => $fileContent]);
+            $runner = new MigrationRunner(self::$testDb);
+
+            // Bootstrap schema_migrations and insert legacy record
+            $emptyDir = $this->createFixtureDir([]);
+            $runner->run($emptyDir);
+
+            $stmt = self::$testDb->pdo()->prepare(
+                'INSERT INTO schema_migrations (identifier, checksum, applied_at) VALUES (:id, :cs, UTC_TIMESTAMP())'
+            );
+            $stmt->execute([':id' => '0001_matrix', ':cs' => $storedChecksum]);
+
+            // Execute runner: must accept the legacy checksum without throwing checksum drift
+            try {
+                $runner->run($dir);
+                self::assertTrue(true, "Validation passed for: {$description}");
+            } catch (RuntimeException $e) {
+                self::fail("Validation failed for {$description}: " . $e->getMessage());
+            }
+        }
+    }
+
+    public function testActualHistoricalBaselineCompatibility(): void
+    {
+        $historical = [
+            '0001_probe'                    => 'abe7094f7cd344b1d6abe25e96b627b27afc35370f0f839e6e4413b100b9d7d7', // CRLF
+            '0002_create_categoria'         => '49635f0f1f547cf929163947ef567984728a05d45d57177b359fe143af09f2f4', // CRLF
+            '0003_create_producto'          => '8878a7521973c50ec6ae17e95a298e5d00b32830007d2f9a8144ffd8451d7934', // CRLF
+            '0004_create_ubicacion'         => 'bc6ceeee82b24c391844e3f859e1832314e877bff75e86b9ccfd7fe3041152c7', // CRLF
+            '0005_create_inventario_stock'  => '3886dc3194d6fe94ed7ff5d11e64b2b3a868cf6f612f6f0a306b08d760463180', // CRLF
+            '0006_create_conteo_inventario' => 'ac53c4e7c2e87deed7ad17080ad0e3a89ce2d1c7f9daf76043f5e4b33b6a4931', // CRLF
+            '0007_create_usuario'           => 'a77f1320fb002094bf7f66934dcf2ef5730b7217ef3ca0d33d551a5be2edb514', // LF
+        ];
+
+        $runner = new MigrationRunner(self::$testDb);
+        $emptyDir = $this->createFixtureDir([]);
+        $runner->run($emptyDir); // bootstraps schema_migrations
+
+        $pdo = self::$testDb->pdo();
+        $stmt = $pdo->prepare('INSERT INTO schema_migrations (identifier, checksum, applied_at) VALUES (:id, :cs, UTC_TIMESTAMP())');
+        foreach ($historical as $id => $cs) {
+            $stmt->execute([':id' => $id, ':cs' => $cs]);
+        }
+
+        $repoMigrations = dirname(__DIR__, 2) . '/database/migrations';
+
+        // Validate 0001-0007 directly via reflection without needing to execute pending DDL
+        $refMethod = new \ReflectionMethod(MigrationRunner::class, 'validateChecksums');
+        try {
+            $refMethod->invoke($runner, $repoMigrations);
+            self::assertTrue(true, 'Historical baseline 0001-0007 validated successfully under current working tree files.');
+        } catch (RuntimeException $e) {
+            self::fail('Historical baseline validation failed: ' . $e->getMessage());
+        }
+    }
+
+    public function testTamperDetectionEnforcedForSemanticModifications(): void
+    {
+        $baseSql = "CREATE TABLE _tamper (\n  id INT NOT NULL,\n  codigo VARCHAR(30)\n);";
+        $dir = $this->createFixtureDir(['0001_tamper.up.sql' => $baseSql]);
+
+        $runner = new MigrationRunner(self::$testDb);
+        $runner->run($dir);
+
+        $tamperCases = [
+            'changed table name'      => "CREATE TABLE _tamper_alt (\n  id INT NOT NULL,\n  codigo VARCHAR(30)\n);",
+            'changed column name'     => "CREATE TABLE _tamper (\n  ident INT NOT NULL,\n  codigo VARCHAR(30)\n);",
+            'changed constraint'      => "CREATE TABLE _tamper (\n  id INT NULL,\n  codigo VARCHAR(30)\n);",
+            'changed keyword'         => "CREATE TABLE _tamper (\n  id BIGINT NOT NULL,\n  codigo VARCHAR(30)\n);",
+            'changed internal space'  => "CREATE TABLE  _tamper (\n  id INT NOT NULL,\n  codigo VARCHAR(30)\n);",
+            'changed internal tab'    => "CREATE TABLE\t_tamper (\n  id INT NOT NULL,\n  codigo VARCHAR(30)\n);",
+            'added BOM'               => "\xEF\xBB\xBF" . $baseSql,
+            'comment modification'    => "-- Comment added\n" . $baseSql,
+        ];
+
+        foreach ($tamperCases as $description => $tamperedSql) {
+            file_put_contents($dir . '/0001_tamper.up.sql', $tamperedSql);
+
+            try {
+                $runner->run($dir);
+                self::fail("Expected tamper detection for {$description}, but validation passed.");
+            } catch (RuntimeException $e) {
+                self::assertStringContainsString(
+                    'Checksum drift detected for applied migration: 0001_tamper',
+                    $e->getMessage(),
+                    "Tamper detection must trigger for: {$description}"
+                );
+            }
+        }
+    }
+
+    public function testTrailingWhitespaceContractPreserved(): void
+    {
+        $coreSql = "CREATE TABLE _ws (\n  id INT NOT NULL\n);";
+
+        $variants = [
+            'single LF'                => $coreSql . "\n",
+            'single CRLF'              => $coreSql . "\r\n",
+            'multiple trailing LF'     => $coreSql . "\n\n\n",
+            'multiple trailing CRLF'   => $coreSql . "\r\n\r\n",
+            'trailing spaces'          => $coreSql . "   ",
+            'trailing tabs'            => $coreSql . "\t\t",
+            'trailing mixed space EOL' => $coreSql . "  \r\n\n\t",
+        ];
+
+        $refMethod = new \ReflectionMethod(MigrationRunner::class, 'canonicalChecksum');
+        $runner = new MigrationRunner(self::$testDb);
+
+        $expectedHash = $refMethod->invoke($runner, $coreSql);
+
+        foreach ($variants as $description => $variantSql) {
+            $computed = $refMethod->invoke($runner, $variantSql);
+            self::assertSame(
+                $expectedHash,
+                $computed,
+                "Trailing whitespace variant '{$description}' must produce the identical canonical hash via rtrim."
+            );
+        }
+    }
+
+    public function testMixedEolAndLoneCrLimitationsDocumented(): void
+    {
+        $sql = "CREATE TABLE _limits (id INT NOT NULL);";
+
+        $runner = new MigrationRunner(self::$testDb);
+        $canonicalMethod = new \ReflectionMethod(MigrationRunner::class, 'canonicalChecksum');
+        $candidatesMethod = new \ReflectionMethod(MigrationRunner::class, 'acceptedChecksumCandidates');
+
+        $canonicalHash = $canonicalMethod->invoke($runner, $sql);
+
+        // 1. Lone CR (\r without \n) is NOT normalized to \n
+        $loneCrSql = "CREATE TABLE _limits\r(id INT NOT NULL);";
+        $loneCrCandidates = $candidatesMethod->invoke($runner, $loneCrSql);
+        self::assertNotContains(
+            $canonicalHash,
+            $loneCrCandidates,
+            'Lone CR must not be normalized to LF and must not match canonical hash.'
+        );
+
+        // 2. UTF-8 BOM is NOT stripped
+        $bomSql = "\xEF\xBB\xBF" . $sql;
+        $bomCandidates = $candidatesMethod->invoke($runner, $bomSql);
+        self::assertNotContains(
+            $canonicalHash,
+            $bomCandidates,
+            'UTF-8 BOM must not be stripped and must not match non-BOM canonical hash.'
+        );
+    }
+
     /** @param array<string, string> $files */
     private function createFixtureDir(array $files): string
     {

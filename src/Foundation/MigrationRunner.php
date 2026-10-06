@@ -39,8 +39,9 @@ final class MigrationRunner
             $this->bootstrap();
             $this->validateChecksums($migrationsPath);
             foreach ($this->pendingMigrations($migrationsPath) as $identifier => $file) {
-                $sql      = $this->readSql($file);
-                $checksum = hash('sha256', $sql);
+                $raw      = $this->readRawFile($file);
+                $sql      = rtrim($raw);
+                $checksum = $this->canonicalChecksum($raw);
                 $this->pdo->exec($sql);           // implicit DDL commit; throws on failure
                 $this->record($identifier, $checksum);
             }
@@ -130,8 +131,8 @@ final class MigrationRunner
             $identifier = is_string($row['identifier'] ?? null) ? $row['identifier'] : '';
             $stored     = is_string($row['checksum']   ?? null) ? $row['checksum']   : '';
             $file       = $this->joinPath($migrationsPath, $identifier . '.up.sql');
-            $current    = hash('sha256', $this->readSql($file));
-            if (!hash_equals($stored, $current)) {
+            $raw        = $this->readRawFile($file);
+            if (!$this->matchesAcceptedChecksum($stored, $raw)) {
                 throw new RuntimeException(
                     "Checksum drift detected for applied migration: {$identifier}"
                 );
@@ -185,7 +186,48 @@ final class MigrationRunner
         return rtrim($base, '/\\') . DIRECTORY_SEPARATOR . $filename;
     }
 
-    private function readSql(string $path): string
+    /**
+     * Compare stored checksum against bounded accepted line-ending candidates:
+     *  1. Canonical LF checksum (LF line endings)
+     *  2. Uniform CRLF checksum (historical Windows line endings)
+     *  3. Raw filesystem byte checksum (exact bytes as read)
+     */
+    private function matchesAcceptedChecksum(string $stored, string $raw): bool
+    {
+        foreach ($this->acceptedChecksumCandidates($raw) as $candidate) {
+            if (hash_equals($stored, $candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function acceptedChecksumCandidates(string $raw): array
+    {
+        $canonical = $this->canonicalChecksum($raw);
+        $crlf      = $this->crlfChecksum($raw);
+        $rawHash   = hash('sha256', rtrim($raw));
+
+        return array_values(array_unique([$canonical, $crlf, $rawHash]));
+    }
+
+    private function canonicalChecksum(string $raw): string
+    {
+        $lf = str_replace("\r\n", "\n", $raw);
+        return hash('sha256', rtrim($lf));
+    }
+
+    private function crlfChecksum(string $raw): string
+    {
+        $lf = str_replace("\r\n", "\n", $raw);
+        $crlf = str_replace("\n", "\r\n", $lf);
+        return hash('sha256', rtrim($crlf));
+    }
+
+    private function readRawFile(string $path): string
     {
         if (!is_file($path)) {
             throw new RuntimeException("Migration file not found: {$path}");
@@ -194,7 +236,12 @@ final class MigrationRunner
         if ($content === false) {
             throw new RuntimeException("Cannot read migration file: {$path}");
         }
-        return rtrim($content);
+        return $content;
+    }
+
+    private function readSql(string $path): string
+    {
+        return rtrim($this->readRawFile($path));
     }
 
     private function queryOrFail(string $sql): PDOStatement
