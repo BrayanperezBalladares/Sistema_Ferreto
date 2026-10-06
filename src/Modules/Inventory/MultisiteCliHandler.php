@@ -36,11 +36,6 @@ final class MultisiteCliHandler
         $locInput = trim($arguments[0]);
         $whInput  = trim($arguments[1]);
 
-        if (str_starts_with($locInput, '--') || str_starts_with($whInput, '--')) {
-            $this->writeErr("Usage: php scripts/console.php map-location <location> <warehouse>" . PHP_EOL);
-            return 64;
-        }
-
         [$location, $locError] = $this->resolveLocation($locInput);
         if ($locError !== null || $location === null) {
             $this->writeErr(($locError ?? "Error: La ubicación '{$locInput}' no existe.") . PHP_EOL);

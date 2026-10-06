@@ -418,19 +418,6 @@ final class ConsoleMultisiteMappingTest extends TestCase
         rewind($err);
         self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
 
-        // map-location rejecting options starting with '--'
-        ftruncate($err, 0);
-        rewind($err);
-        self::assertSame(64, $handler->handleMapLocation(['--help', 'WH']));
-        rewind($err);
-        self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
-
-        ftruncate($err, 0);
-        rewind($err);
-        self::assertSame(64, $handler->handleMapLocation(['LOC', '--option']));
-        rewind($err);
-        self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
-
         // map-location strictly checks integer IDs and does not parse float '1.5' as int 1
         ftruncate($err, 0);
         rewind($err);
@@ -669,6 +656,47 @@ final class ConsoleMultisiteMappingTest extends TestCase
         self::assertSame(1, $resNon);
         rewind($err);
         self::assertStringContainsString("Error: La ubicación '999999' no existe.", stream_get_contents($err));
+
+        // 12. Double-hyphen token handling (business code candidate, never cast to ID)
+        // 12a. Nonexistent "--1": rejected without mutation (never cast to integer ID 1)
+        ftruncate($err, 0);
+        rewind($err);
+        $resNonexistentDoubleHyphen = $handler->handleMapLocation(['--1', (string) $whId]);
+        self::assertSame(1, $resNonexistentDoubleHyphen, 'Nonexistent double-hyphen token must return exit code 1, not usage error.');
+        rewind($err);
+        self::assertStringContainsString("Error: La ubicación '--1' no existe.", stream_get_contents($err));
+
+        // Verify location with ID 1 was NOT affected (proves "--1" is never cast to integer ID 1)
+        $loc1RowCheck = self::$locationQuery->findById($locWithId1);
+        self::assertNotNull($loc1RowCheck);
+        self::assertNull($loc1RowCheck['id_almacen'], 'Location with ID 1 must remain unmapped after nonexistent --1 rejection.');
+
+        // Verify stock and count history on location with ID 1 remain completely unchanged
+        $stmtStock->execute([':id' => $stockLoc1]);
+        $stockLoc1AfterCheck = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockLoc1Before, $stockLoc1AfterCheck, 'Stock on location with ID 1 must remain unchanged.');
+
+        $stmtCount->execute([':id' => $countLoc1]);
+        $countLoc1AfterCheck = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countLoc1Before, $countLoc1AfterCheck, 'Count on location with ID 1 must remain unchanged.');
+
+        // 12b. Existing location with codigo = "--1": resolves by exact code
+        $locDoubleHyphenId = $this->insertLegacyLocation('--1', 'Legacy double-hyphen code location');
+        $resDoubleHyphenExist = $handler->handleMapLocation(['--1', (string) $whId]);
+        self::assertSame(0, $resDoubleHyphenExist, 'Existing location with code "--1" must resolve by exact code and map successfully.');
+        $locDoubleHyphenRow = self::$locationQuery->findById($locDoubleHyphenId);
+        self::assertNotNull($locDoubleHyphenRow);
+        self::assertSame($whId, $locDoubleHyphenRow['id_almacen']);
+        self::assertSame('--1', $locDoubleHyphenRow['codigo']);
+
+        // 12c. Option-looking but valid code "--LOC-01": resolves as exact business code
+        $locOptLookingId = $this->insertLegacyLocation('--LOC-01', 'Option-looking legacy location');
+        $resOptLooking = $handler->handleMapLocation(['--LOC-01', (string) $whId]);
+        self::assertSame(0, $resOptLooking, 'Existing location with code "--LOC-01" must resolve by exact code and map successfully.');
+        $locOptLookingRow = self::$locationQuery->findById($locOptLookingId);
+        self::assertNotNull($locOptLookingRow);
+        self::assertSame($whId, $locOptLookingRow['id_almacen']);
+        self::assertSame('--LOC-01', $locOptLookingRow['codigo']);
     }
 
     public function testWarehouseIdentifierResolutionContract(): void
@@ -865,5 +893,58 @@ final class ConsoleMultisiteMappingTest extends TestCase
         $rowNon = self::$locationQuery->findById($locNon);
         self::assertNotNull($rowNon);
         self::assertNull($rowNon['id_almacen']);
+
+        // 12. Double-hyphen token handling (business code candidate, never cast to ID)
+        // 12a. Setup unmapped target location with stock and counts
+        $locTargetDouble = $this->insertLegacyLocation('LOC-WH-DOUBLE-TARGET');
+        $prodWhDouble = self::$prodCmd->register('Producto Wh Double', '35.00');
+        $stockWhDouble = self::$stockCmd->createPosition($prodWhDouble, $locTargetDouble, '60.000');
+        $countWhDouble = self::$countCmd->record($stockWhDouble, '60.000', 'Count Wh Double initial');
+
+        $stmtStock->execute([':id' => $stockWhDouble]);
+        $stockWhDoubleBefore = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        $stmtCount->execute([':id' => $countWhDouble]);
+        $countWhDoubleBefore = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
+        // 12b. Nonexistent "--1": rejected without mutation (never interpreted as ID)
+        ftruncate($err, 0);
+        rewind($err);
+        $resNonexistentDoubleWh = $handler->handleMapLocation([(string) $locTargetDouble, '--1']);
+        self::assertSame(1, $resNonexistentDoubleWh, 'Nonexistent double-hyphen token for warehouse must return exit code 1, not usage error.');
+        rewind($err);
+        self::assertStringContainsString("Error: El almacén '--1' no existe.", stream_get_contents($err));
+
+        // Verify target location remains unmapped
+        $locTargetDoubleRow = self::$locationQuery->findById($locTargetDouble);
+        self::assertNotNull($locTargetDoubleRow);
+        self::assertNull($locTargetDoubleRow['id_almacen'], 'Target location must remain unmapped when warehouse resolution fails.');
+
+        // Verify stock and count on target location remain completely untouched
+        $stmtStock->execute([':id' => $stockWhDouble]);
+        $stockWhDoubleAfter = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockWhDoubleBefore, $stockWhDoubleAfter, 'Stock on target location must remain unchanged.');
+
+        $stmtCount->execute([':id' => $countWhDouble]);
+        $countWhDoubleAfter = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countWhDoubleBefore, $countWhDoubleAfter, 'Count on target location must remain unchanged.');
+
+        // 12c. Existing warehouse with codigo = "--1": resolves by exact code
+        $whDoubleHyphenId = self::$almacenCmd->create($branchId, '--1', 'Almacen Double Hyphen Code');
+        $resWhDoubleExist = $handler->handleMapLocation([(string) $locTargetDouble, '--1']);
+        self::assertSame(0, $resWhDoubleExist, 'Existing warehouse with code "--1" must resolve by exact code and map successfully.');
+        $locTargetDoubleRowAfter = self::$locationQuery->findById($locTargetDouble);
+        self::assertNotNull($locTargetDoubleRowAfter);
+        self::assertSame($whDoubleHyphenId, $locTargetDoubleRowAfter['id_almacen']);
+        self::assertSame('--1', $locTargetDoubleRowAfter['almacen_codigo']);
+
+        // 12d. Option-looking but valid code "--ALM-01": resolves as exact business code
+        $locTargetOpt = $this->insertLegacyLocation('LOC-WH-OPT-TARGET');
+        $whOptCodeId = self::$almacenCmd->create($branchId, '--ALM-01', 'Almacen Option Looking Code');
+        $resWhOpt = $handler->handleMapLocation([(string) $locTargetOpt, '--ALM-01']);
+        self::assertSame(0, $resWhOpt, 'Existing warehouse with code "--ALM-01" must resolve by exact code and map successfully.');
+        $locTargetOptRow = self::$locationQuery->findById($locTargetOpt);
+        self::assertNotNull($locTargetOptRow);
+        self::assertSame($whOptCodeId, $locTargetOptRow['id_almacen']);
+        self::assertSame('--ALM-01', $locTargetOptRow['almacen_codigo']);
     }
 }
