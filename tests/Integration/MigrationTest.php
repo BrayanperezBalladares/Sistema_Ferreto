@@ -725,24 +725,99 @@ final class MigrationTest extends TestCase
 
     public function testDownMigrationExecutesRawBytesPreservingExactContent(): void
     {
-        $upSql = "CREATE TABLE _raw_down (\n  id INT NOT NULL\n);";
-        $downSql = "DROP TABLE IF EXISTS _raw_down;";
+        $upSql   = "CREATE TABLE _raw_down (\n  id INT NOT NULL\n);";
+        $downSql = "DROP TABLE IF EXISTS _raw_down;\r\n-- rollback comment with explicit CRLF line ending\r\n";
 
         $dir = $this->createFixtureDir([
             '0001_raw_down.up.sql'   => $upSql,
             '0001_raw_down.down.sql' => $downSql,
         ]);
-        $runner = new MigrationRunner(self::$testDb);
+
+        // Construct a lightweight PDO spy to capture exact SQL passed to exec() during revert()
+        $realPdo = self::$testDb->pdo();
+        /** @var list<string> $capturedStatements */
+        $capturedStatements = [];
+
+        $spyPdo = new class($realPdo, $capturedStatements) extends PDO {
+            private PDO $inner;
+            /** @var list<string> */
+            private array $captured;
+
+            /**
+             * @param list<string> $captured
+             */
+            public function __construct(PDO $inner, array &$captured)
+            {
+                $this->inner    = $inner;
+                $this->captured = &$captured;
+            }
+
+            public function exec(string $statement): int|false
+            {
+                $this->captured[] = $statement;
+                return $this->inner->exec($statement);
+            }
+
+            public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): \PDOStatement|false
+            {
+                return $this->inner->query($query, ...$fetchModeArgs);
+            }
+
+            /**
+             * @param array<int|string, mixed> $options
+             */
+            public function prepare(string $query, array $options = []): \PDOStatement|false
+            {
+                return $this->inner->prepare($query, $options);
+            }
+        };
+
+        $refClass = new \ReflectionClass(Database::class);
+        $dbSpy    = $refClass->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(Database::class, 'pdo'))->setValue($dbSpy, $spyPdo);
+
+        $runner = new MigrationRunner($dbSpy);
         $runner->run($dir);
 
-        $pdo = self::$testDb->pdo();
-        self::assertSame('_raw_down', $pdo->query("SHOW TABLES LIKE '_raw_down'")->fetchColumn());
+        self::assertSame('_raw_down', self::$testDb->pdo()->query("SHOW TABLES LIKE '_raw_down'")->fetchColumn());
 
-        // Revert executes raw down migration
+        // Capture snapshot before revert
+        $historyBefore = self::$testDb->pdo()
+            ->query("SELECT identifier, checksum FROM schema_migrations WHERE identifier != '0001_raw_down' ORDER BY identifier ASC")
+            ->fetchAll(PDO::FETCH_ASSOC);
+
+        // Revert executes raw down migration via spy
+        $capturedStatements = [];
         $runner->revert('0001_raw_down', $dir);
 
-        self::assertFalse($pdo->query("SHOW TABLES LIKE '_raw_down'")->fetchColumn());
-        self::assertFalse($pdo->query("SELECT * FROM schema_migrations WHERE identifier = '0001_raw_down'")->fetch());
+        // Functional assertions
+        self::assertFalse(self::$testDb->pdo()->query("SHOW TABLES LIKE '_raw_down'")->fetchColumn());
+        self::assertFalse(self::$testDb->pdo()->query("SELECT * FROM schema_migrations WHERE identifier = '0001_raw_down'")->fetch());
+
+        // Unrelated history rows remain strictly intact
+        $historyAfter = self::$testDb->pdo()
+            ->query("SELECT identifier, checksum FROM schema_migrations WHERE identifier != '0001_raw_down' ORDER BY identifier ASC")
+            ->fetchAll(PDO::FETCH_ASSOC);
+        self::assertSame($historyBefore, $historyAfter, 'Unrelated history rows must remain untouched after revert.');
+
+        // Exact byte-sensitive execution assertions
+        self::assertCount(1, $capturedStatements, 'revert() must issue exactly one exec() call for the DOWN file.');
+        $executedSql = $capturedStatements[0];
+
+        self::assertStringContainsString("\r\n", $executedSql, 'Executed DOWN SQL must preserve raw CRLF line endings.');
+        self::assertSame(
+            rtrim($downSql),
+            $executedSql,
+            'Executed DOWN SQL must match rtrim($rawDown) byte-for-byte without newline normalization.'
+        );
+
+        // Counter-factual verification: assert that normalized LF would fail the expectation
+        $mangledLf = str_replace("\r\n", "\n", rtrim($downSql));
+        self::assertNotSame(
+            $mangledLf,
+            $executedSql,
+            'DOWN execution must not have normalized CRLF to LF.'
+        );
     }
 
     /** @return list<array<string, mixed>> */
