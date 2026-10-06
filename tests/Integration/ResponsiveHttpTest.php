@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
-use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
+use App\Modules\Inventory\{AlmacenCommand, CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery, SucursalCommand};
 use PHPUnit\Framework\TestCase;
 
 final class ResponsiveHttpTest extends TestCase
@@ -67,10 +67,19 @@ final class ResponsiveHttpTest extends TestCase
     {
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'categoria'] as $t) {
+        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'almacen', 'sucursal', 'categoria'] as $t) {
             $pdo->exec("TRUNCATE TABLE {$t}");
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    private function createWarehouseFixture(): int
+    {
+        $tx = new Transaction(self::$testDb);
+        $sucursalCmd = new SucursalCommand($tx);
+        $bId = $sucursalCmd->create('SUC-' . uniqid(), 'Sucursal Resp', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand($tx);
+        return $almacenCmd->create($bId, 'ALM-' . uniqid(), 'Almacén Resp');
     }
 
     public function testNavigationDrawerMarkupAndAccessibleAttributesArePresent(): void
@@ -118,8 +127,9 @@ final class ResponsiveHttpTest extends TestCase
 
     public function testInventoryQuantityHasDecimalInputmodeAndTableContainer(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Tubo PVC 1/2', '4.25');
-        $lId = self::$locCmd->create('BOD-A1', 'Bodega A Estante 1');
+        $lId = self::$locCmd->create('BOD-A1', $wId, 'Bodega A Estante 1');
         self::$stockCmd->createPosition($pId, $lId, '50.000');
 
         $response = $this->dispatchInventory(new Request('GET', '/inventory'));
@@ -131,8 +141,9 @@ final class ResponsiveHttpTest extends TestCase
 
     public function testCountsSummaryStacksOnMobileAndInputHasDecimalMode(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Clavos 3in', '2.50');
-        $lId = self::$locCmd->create('BOD-B2', 'Bodega B Pasillo 2');
+        $lId = self::$locCmd->create('BOD-B2', $wId, 'Bodega B Pasillo 2');
         $sId = self::$stockCmd->createPosition($pId, $lId, '100.000');
         self::$countCmd->record($sId, '95.000', 'Conteo inicial');
 

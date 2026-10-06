@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
-use App\Modules\Inventory\{CountCommand, CountQuery, InventoryHandler, LocationCommand, ProductCommand, StockCommand, StockQuery};
+use App\Modules\Inventory\{AlmacenCommand, CountCommand, CountQuery, InventoryHandler, LocationCommand, ProductCommand, StockCommand, StockQuery, SucursalCommand};
 use PHPUnit\Framework\TestCase;
 use Tests\Support\AuthSessionTrait;
 
@@ -57,7 +57,7 @@ final class CountHttpTest extends TestCase
     {
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'categoria', 'usuario'] as $t) {
+        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'almacen', 'sucursal', 'categoria', 'usuario'] as $t) {
             $pdo->exec("TRUNCATE TABLE {$t}");
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
@@ -65,7 +65,13 @@ final class CountHttpTest extends TestCase
 
     private function createStock(string $prod = 'Bombilo', string $loc = 'CENTRAL', string $qty = '2000.000'): int
     {
-        return self::$stockCmd->createPosition(self::$prodCmd->register($prod, '10.00'), self::$locCmd->create($loc), $qty);
+        $tx = new Transaction(self::$testDb);
+        $sucursalCmd = new SucursalCommand($tx);
+        $bId = $sucursalCmd->create('SUC-' . uniqid(), 'Sucursal Cnt', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand($tx);
+        $wId = $almacenCmd->create($bId, 'ALM-' . uniqid(), 'Almacén Cnt');
+
+        return self::$stockCmd->createPosition(self::$prodCmd->register($prod, '10.00'), self::$locCmd->create($loc, $wId), $qty);
     }
 
     public function testCountsPageReturns200AndRendersCanonicalHtmlAndActiveNavigation(): void
@@ -82,7 +88,7 @@ final class CountHttpTest extends TestCase
         self::assertStringContainsString('<span class="topbar-crumb">Inventario</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Conteos físicos</span>', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }

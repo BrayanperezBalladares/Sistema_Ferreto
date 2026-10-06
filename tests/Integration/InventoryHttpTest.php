@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
-use App\Modules\Inventory\{CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
+use App\Modules\Inventory\{AlmacenCommand, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery, SucursalCommand};
 use PHPUnit\Framework\TestCase;
 use Tests\Support\AuthSessionTrait;
 
@@ -61,10 +61,19 @@ final class InventoryHttpTest extends TestCase
     {
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'categoria', 'usuario'] as $t) {
+        foreach (['conteo_inventario', 'inventario_stock', 'producto', 'ubicacion', 'almacen', 'sucursal', 'categoria', 'usuario'] as $t) {
             $pdo->exec("TRUNCATE TABLE {$t}");
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    private function createWarehouseFixture(): int
+    {
+        $tx = new Transaction(self::$testDb);
+        $sucursalCmd = new SucursalCommand($tx);
+        $bId = $sucursalCmd->create('SUC-' . uniqid(), 'Sucursal Inv', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand($tx);
+        return $almacenCmd->create($bId, 'ALM-' . uniqid(), 'Almacén Inv');
     }
 
     public function testInventoryPageReturns200AndRendersCanonicalHtml(): void
@@ -93,7 +102,7 @@ final class InventoryHttpTest extends TestCase
         self::assertStringContainsString('<span class="topbar-crumb">Inventario</span>', $response->body);
         self::assertStringContainsString('<span class="topbar-current">Existencias por ubicación</span>', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }
@@ -108,8 +117,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockListingWithData(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Martillo Galponero 16oz', '18.50');
-        $lId = self::$locCmd->create('ESTANTE-B1', 'Estantería B pasillo 1');
+        $lId = self::$locCmd->create('ESTANTE-B1', $wId, 'Estantería B pasillo 1');
         self::$stockCmd->createPosition($pId, $lId, '45.500');
 
         $response = $this->dispatch(new Request('GET', '/inventory'));
@@ -125,8 +135,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testHtmlEscapingInStockListing(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('<script>alert("prod")</script>', '10.00');
-        $lId = self::$locCmd->create('<img src=x onerror=alert(1)>');
+        $lId = self::$locCmd->create('<img src=x onerror=alert(1)>', $wId);
         self::$stockCmd->createPosition($pId, $lId, '5.000');
 
         $response = $this->dispatch(new Request('GET', '/inventory'));
@@ -139,8 +150,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testNoUnsupportedActionColumnsOrButtonsRendered(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Tornillo Hexagonal 1/4', '0.25');
-        $lId = self::$locCmd->create('CAJA-A1');
+        $lId = self::$locCmd->create('CAJA-A1', $wId);
         self::$stockCmd->createPosition($pId, $lId, '100.000');
 
         $response = $this->dispatch(new Request('GET', '/inventory'));
@@ -169,8 +181,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationSucceedsWithValidDataAndRedirects(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Taladro Percutor 750W', '85.00');
-        $lId = self::$locCmd->create('BOD-A1', 'Bodega A Estante 1');
+        $lId = self::$locCmd->create('BOD-A1', $wId, 'Bodega A Estante 1');
 
         $response = $this->post('/inventory/stock', [
             'id_producto'  => (string) $pId,
@@ -200,9 +213,10 @@ final class InventoryHttpTest extends TestCase
             ['125.750', '125.750'],
         ];
 
+        $wId = $this->createWarehouseFixture();
         foreach ($cases as $idx => [$inputQty, $expectedQty]) {
             $p = self::$prodCmd->register("Prod Dec {$idx}", '10.00');
-            $l = self::$locCmd->create("LOC-D{$idx}");
+            $l = self::$locCmd->create("LOC-D{$idx}", $wId);
 
             $r = $this->post('/inventory/stock', [
                 'id_producto'  => (string) $p,
@@ -218,8 +232,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationRejectsNegativeMalformedAndOverprecisionQuantities(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Clavos 2 Pulgadas', '5.00');
-        $lId = self::$locCmd->create('LOC-C1');
+        $lId = self::$locCmd->create('LOC-C1', $wId);
 
         foreach (['-1', '-0.5', '10.1234', 'abc'] as $badQty) {
             $r = $this->post('/inventory/stock', [
@@ -242,8 +257,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationRejectsNonexistentOrInvalidProductAndLocation(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Lija al Agua 240', '1.50');
-        $lId = self::$locCmd->create('LOC-L1');
+        $lId = self::$locCmd->create('LOC-L1', $wId);
 
         // Invalid product ID
         $r1 = $this->post('/inventory/stock', [
@@ -276,8 +292,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationRejectsDuplicateProductLocationPair(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Disco de Corte 4.5', '3.50');
-        $lId = self::$locCmd->create('LOC-D1');
+        $lId = self::$locCmd->create('LOC-D1', $wId);
         self::$stockCmd->createPosition($pId, $lId, '10.000');
 
         $r = $this->post('/inventory/stock', [
@@ -299,8 +316,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationRequiresCsrf(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Cinta Aislante', '1.20');
-        $lId = self::$locCmd->create('LOC-CA');
+        $lId = self::$locCmd->create('LOC-CA', $wId);
 
         $response = $this->dispatch(new Request('POST', '/inventory/stock', body: [
             'id_producto'  => (string) $pId,
@@ -313,8 +331,9 @@ final class InventoryHttpTest extends TestCase
 
     public function testStockPositionCreationSupportsHtmx(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Destornillador Phillips', '6.00');
-        $lId = self::$locCmd->create('LOC-DP');
+        $lId = self::$locCmd->create('LOC-DP', $wId);
 
         $response = $this->post('/inventory/stock', [
             'id_producto'  => (string) $pId,
@@ -333,13 +352,15 @@ final class InventoryHttpTest extends TestCase
         $inactivePId = self::$prodCmd->register('Producto Inactivo', '12.00');
         self::$prodCmd->deactivate($inactivePId);
 
-        $activeLId = self::$locCmd->create('LOC-ACTIVA');
-        $inactiveLId = self::$locCmd->create('LOC-INACT');
+        $wId = $this->createWarehouseFixture();
+        $activeLId = self::$locCmd->create('LOC-ACTIVA', $wId);
+        $inactiveLId = self::$locCmd->create('LOC-INACT', $wId);
         self::$testDb->pdo()->exec("UPDATE ubicacion SET estado_activo = 0 WHERE id_ubicacion = {$inactiveLId}");
 
         $response = $this->dispatch(new Request('GET', '/inventory'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('id="modal-stock"', $response->body);
+        self::assertStringContainsString('name="id_producto"', $response->body);
         self::assertStringContainsString('name="id_producto"', $response->body);
         self::assertStringContainsString('name="id_ubicacion"', $response->body);
         self::assertStringContainsString('name="cantidad"', $response->body);

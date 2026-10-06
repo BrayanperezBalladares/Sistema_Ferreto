@@ -8,12 +8,14 @@ use App\Foundation\Config;
 use App\Foundation\Database;
 use App\Foundation\MigrationRunner;
 use App\Foundation\Transaction;
+use App\Modules\Inventory\AlmacenCommand;
 use App\Modules\Inventory\CountCommand;
 use App\Modules\Inventory\CountQuery;
 use App\Modules\Inventory\LocationCommand;
 use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\StockCommand;
 use App\Modules\Inventory\StockQuery;
+use App\Modules\Inventory\SucursalCommand;
 use InvalidArgumentException;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -61,7 +63,7 @@ final class CountTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'almacen', 'sucursal', 'producto', 'categoria'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE {$tbl}");
             }
@@ -71,8 +73,14 @@ final class CountTest extends TestCase
 
     private function createStockFixture(string $initialQty): int
     {
+        $tx = new Transaction(self::$testDb);
+        $sucursalCmd = new SucursalCommand($tx);
+        $bId = $sucursalCmd->create('SUC-' . uniqid(), 'Sucursal Count', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand($tx);
+        $wId = $almacenCmd->create($bId, 'ALM-' . uniqid(), 'Almacén Count');
+
         $pId = self::$prodCmd->register('Item-' . uniqid(), '10.00');
-        $lId = self::$locCmd->create('LOC-' . uniqid());
+        $lId = self::$locCmd->create('LOC-' . uniqid(), $wId);
 
         return self::$stockCmd->createPosition($pId, $lId, $initialQty);
     }

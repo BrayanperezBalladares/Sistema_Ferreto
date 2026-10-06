@@ -27,6 +27,7 @@ use App\Modules\Access\RoleGuard;
 use App\Modules\Access\RouteAccessPolicy;
 use App\Modules\Access\UserCommand;
 use App\Modules\Access\UserQuery;
+use App\Modules\Inventory\AlmacenQuery;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
 use App\Modules\Inventory\CategoryQuery;
@@ -172,6 +173,7 @@ final class HealthBoundaryTest extends TestCase
             self::$renderer,
             $locationQuery,
             new LocationCommand($tx),
+            new AlmacenQuery(self::$testDb),
             $actualCsrf
         );
         $inventoryHandler = new InventoryHandler(
@@ -185,10 +187,18 @@ final class HealthBoundaryTest extends TestCase
             new CountCommand($tx)
         );
 
+        $sucursalQuery = new \App\Modules\Inventory\SucursalQuery(self::$testDb);
+        $sucursalCommand = new \App\Modules\Inventory\SucursalCommand($tx);
+        $almacenCommand = new \App\Modules\Inventory\AlmacenCommand($tx);
+        $branchHandler = new \App\Modules\Inventory\BranchHandler(self::$renderer, $sucursalQuery, $sucursalCommand, $actualCsrf);
+        $warehouseHandler = new \App\Modules\Inventory\WarehouseHandler(self::$renderer, new \App\Modules\Inventory\AlmacenQuery(self::$testDb), $almacenCommand, $sucursalQuery, $actualCsrf);
+
         $handlers = [
             'health'    => $healthHandler->handle(...),
             'access'    => $accessHandler->handle(...),
             'catalog'   => $catalogHandler->handle(...),
+            'branch'    => $branchHandler->handle(...),
+            'warehouse' => $warehouseHandler->handle(...),
             'location'  => $locationHandler->handle(...),
             'inventory' => $inventoryHandler->handle(...),
         ];

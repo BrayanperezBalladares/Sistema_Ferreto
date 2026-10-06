@@ -8,12 +8,15 @@ use App\Foundation\Config;
 use App\Foundation\Database;
 use App\Foundation\MigrationRunner;
 use App\Foundation\Transaction;
+use App\Modules\Inventory\AlmacenCommand;
 use App\Modules\Inventory\LocationCommand;
 use App\Modules\Inventory\LocationQuery;
 use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\StockCommand;
 use App\Modules\Inventory\StockQuery;
 use App\Modules\Inventory\StockValidator;
+use App\Modules\Inventory\SucursalCommand;
+use DomainException;
 use PDO;
 use PDOException;
 use PHPUnit\Framework\TestCase;
@@ -57,7 +60,7 @@ final class StockTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'almacen', 'sucursal', 'producto', 'categoria'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE {$tbl}");
             }
@@ -65,9 +68,19 @@ final class StockTest extends TestCase
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
+    private function createWarehouseFixture(): int
+    {
+        $tx = new Transaction(self::$testDb);
+        $sucursalCmd = new SucursalCommand($tx);
+        $bId = $sucursalCmd->create('SUC-' . uniqid(), 'Sucursal Test', 'Tegucigalpa');
+        $almacenCmd = new AlmacenCommand($tx);
+        return $almacenCmd->create($bId, 'ALM-' . uniqid(), 'Almacén Test');
+    }
+
     public function testLocationCreationAndRetrieval(): void
     {
-        $id = self::$locCmd->create('PASILLO-A1', 'Pasillo principal estante 1');
+        $wId = $this->createWarehouseFixture();
+        $id = self::$locCmd->create('PASILLO-A1', $wId, 'Pasillo principal estante 1');
         self::assertGreaterThan(0, $id);
 
         $loc = self::$locQuery->findById($id);
@@ -86,15 +99,18 @@ final class StockTest extends TestCase
 
     public function testDuplicateLocationCodeRejection(): void
     {
-        self::$locCmd->create('BODEGA-01');
-        $this->expectException(PDOException::class);
-        self::$locCmd->create('BODEGA-01');
+        $wId = $this->createWarehouseFixture();
+        self::$locCmd->create('BODEGA-01', $wId);
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('El código de la ubicación ya existe.');
+        self::$locCmd->create('BODEGA-01', $wId);
     }
 
     public function testStockPositionCreationWithZeroAndFractionalQuantities(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId1 = self::$prodCmd->register('Tornillo 2 pulg', '2.50');
-        $lId1 = self::$locCmd->create('ESTANTE-01');
+        $lId1 = self::$locCmd->create('ESTANTE-01', $wId);
 
         $sId1 = self::$stockCmd->createPosition($pId1, $lId1, '0.000');
         self::assertGreaterThan(0, $sId1);
@@ -104,7 +120,7 @@ final class StockTest extends TestCase
         self::assertSame('0.000', $pos1['cantidad']);
 
         $pId2 = self::$prodCmd->register('Tuerca 3/8', '1.25');
-        $lId2 = self::$locCmd->create('ESTANTE-02');
+        $lId2 = self::$locCmd->create('ESTANTE-02', $wId);
 
         $sId2 = self::$stockCmd->createPosition($pId2, $lId2, '125.750');
         self::assertGreaterThan(0, $sId2);
@@ -116,8 +132,9 @@ final class StockTest extends TestCase
 
     public function testDuplicateStockPositionRejection(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Tuerca 1/4', '0.50');
-        $lId = self::$locCmd->create('CAJA-05');
+        $lId = self::$locCmd->create('CAJA-05', $wId);
 
         self::$stockCmd->createPosition($pId, $lId, '10.000');
         $this->expectException(PDOException::class);
@@ -133,8 +150,9 @@ final class StockTest extends TestCase
 
     public function testNegativeQuantityRejectedByDatabaseConstraint(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Clavo 3 pulg', '1.00');
-        $lId = self::$locCmd->create('ESTANTE-02');
+        $lId = self::$locCmd->create('ESTANTE-02', $wId);
 
         $this->expectException(PDOException::class);
         self::$stockCmd->createPosition($pId, $lId, '-1.000');
@@ -158,8 +176,9 @@ final class StockTest extends TestCase
 
     public function testReferentialIntegrityPreventsParentDeletionWhenStockExists(): void
     {
+        $wId = $this->createWarehouseFixture();
         $pId = self::$prodCmd->register('Pintura Azul', '50.00');
-        $lId = self::$locCmd->create('ALMACEN-A');
+        $lId = self::$locCmd->create('ALMACEN-A', $wId);
         self::$stockCmd->createPosition($pId, $lId, '5.000');
 
         $this->expectException(PDOException::class);
@@ -170,6 +189,12 @@ final class StockTest extends TestCase
     {
         $runner = new MigrationRunner(self::$testDb);
         $migrationsPath = dirname(__DIR__, 2) . '/database/migrations';
+        if (file_exists($migrationsPath . '/0010_add_ubicacion_almacen_nullable.up.sql')) {
+            $applied = self::$testDb->pdo()->query("SELECT 1 FROM schema_migrations WHERE identifier = '0010_add_ubicacion_almacen_nullable'")->fetch();
+            if ($applied !== false) {
+                $runner->revert('0010_add_ubicacion_almacen_nullable', $migrationsPath);
+            }
+        }
         if (file_exists($migrationsPath . '/0006_create_conteo_inventario.up.sql')) {
             $applied = self::$testDb->pdo()->query("SELECT 1 FROM schema_migrations WHERE identifier = '0006_create_conteo_inventario'")->fetch();
             if ($applied !== false) {

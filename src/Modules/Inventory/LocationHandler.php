@@ -9,6 +9,7 @@ use App\Foundation\Handler;
 use App\Foundation\Renderer;
 use App\Foundation\Request;
 use App\Foundation\Response;
+use DomainException;
 
 final readonly class LocationHandler implements Handler
 {
@@ -16,6 +17,7 @@ final readonly class LocationHandler implements Handler
         private Renderer $renderer,
         private LocationQuery $locationQuery,
         private LocationCommand $locationCommand,
+        private AlmacenQuery $almacenQuery,
         private Csrf $csrf,
     ) {
     }
@@ -36,14 +38,16 @@ final readonly class LocationHandler implements Handler
     private function browse(): Response
     {
         $locations = $this->locationQuery->all();
+        $warehouses = $this->almacenQuery->findActive();
 
         return new Response(200, [
             'Content-Type'  => 'text/html; charset=UTF-8',
             'Vary'          => 'HX-Request',
             'Cache-Control' => 'no-store',
         ], $this->renderer->render('page.locations', [
-            'locations' => $locations,
-            'csrf'      => $this->csrf->token(),
+            'locations'  => $locations,
+            'warehouses' => $warehouses,
+            'csrf'       => $this->csrf->token(),
         ]));
     }
 
@@ -62,8 +66,18 @@ final readonly class LocationHandler implements Handler
             );
         }
 
+        $idAlmacen = (int) $validation->safeInput['id_almacen'];
         $desc = ($validation->safeInput['descripcion'] ?? '') !== '' ? $validation->safeInput['descripcion'] : null;
-        $this->locationCommand->create($code, $desc);
+
+        try {
+            $this->locationCommand->create($code, $idAlmacen, $desc);
+        } catch (DomainException $e) {
+            $field = str_contains($e->getMessage(), 'código') ? 'codigo' : 'id_almacen';
+            return $this->renderWithErrors(
+                [$field => $e->getMessage()],
+                $validation->safeInput
+            );
+        }
 
         return $this->mutationSuccess($request, 'Ubicación registrada correctamente.');
     }
@@ -87,10 +101,11 @@ final readonly class LocationHandler implements Handler
             'Vary'          => 'HX-Request',
             'Cache-Control' => 'no-store',
         ], $this->renderer->render('page.locations', [
-            'locations' => $this->locationQuery->all(),
-            'csrf'      => $this->csrf->token(),
-            'errors'    => $errors,
-            'input'     => $input,
+            'locations'  => $this->locationQuery->all(),
+            'warehouses' => $this->almacenQuery->findActive(),
+            'csrf'       => $this->csrf->token(),
+            'errors'     => $errors,
+            'input'      => $input,
         ]));
     }
 }

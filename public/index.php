@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Foundation\{Config, Csrf, Database, ErrorMapper, HealthHandler, Kernel, Logger, NativeSession, Renderer, Request, Response, Router, Transaction, ViewContext};
 use App\Modules\Access\{AccessHandler, Authenticator, AuthGuard, AuthSession, RoleGuard, RouteAccessPolicy, UserCommand, UserQuery};
-use App\Modules\Inventory\{CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery};
+use App\Modules\Inventory\{AlmacenCommand, AlmacenQuery, BranchHandler, CatalogHandler, CategoryCommand, CategoryQuery, CountCommand, CountQuery, InventoryHandler, LocationCommand, LocationHandler, LocationQuery, ProductCommand, ProductQuery, StockCommand, StockQuery, SucursalCommand, SucursalQuery, WarehouseHandler};
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -35,6 +35,10 @@ $productQuery = new ProductQuery($database);
 $categoryQuery = new CategoryQuery($database);
 $locationQuery = new LocationQuery($database);
 $stockQuery = new StockQuery($database);
+$almacenQuery = new AlmacenQuery($database);
+$sucursalQuery = new SucursalQuery($database);
+$sucursalCommand = new SucursalCommand($tx);
+$almacenCommand = new AlmacenCommand($tx);
 
 $userQuery = new UserQuery($database);
 $userCommand = new UserCommand($tx);
@@ -54,10 +58,24 @@ $catalog = new CatalogHandler(
     new ProductCommand($tx),
     $csrf
 );
+$branch = new BranchHandler(
+    $renderer,
+    $sucursalQuery,
+    $sucursalCommand,
+    $csrf
+);
+$warehouse = new WarehouseHandler(
+    $renderer,
+    $almacenQuery,
+    $almacenCommand,
+    $sucursalQuery,
+    $csrf
+);
 $location = new LocationHandler(
     $renderer,
     $locationQuery,
     new LocationCommand($tx),
+    $almacenQuery,
     $csrf
 );
 $inventory = new InventoryHandler(
@@ -75,6 +93,8 @@ $handlers = [
     'health' => $health->handle(...),
     'access' => $access->handle(...),
     'catalog' => $catalog->handle(...),
+    'branch' => $branch->handle(...),
+    'warehouse' => $warehouse->handle(...),
     'location' => $location->handle(...),
     'inventory' => $inventory->handle(...),
 ];

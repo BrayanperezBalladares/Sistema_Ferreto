@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Foundation\{Config, Csrf, Database, MigrationRunner, Renderer, Request, Response, Router, Session, Transaction};
-use App\Modules\Inventory\{LocationCommand, LocationHandler, LocationQuery};
+use App\Modules\Inventory\{AlmacenCommand, AlmacenQuery, LocationCommand, LocationHandler, LocationQuery, SucursalCommand};
 use PDO;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\AuthSessionTrait;
@@ -55,8 +55,19 @@ final class LocationHttpTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $pdo->exec('TRUNCATE TABLE ubicacion');
+        $pdo->exec('TRUNCATE TABLE almacen');
+        $pdo->exec('TRUNCATE TABLE sucursal');
         $pdo->exec('TRUNCATE TABLE usuario');
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    private function createWarehouseFixture(string $code = 'ALM-LOC'): int
+    {
+        $tx = new Transaction(self::$testDb);
+        $sucCmd = new SucursalCommand($tx);
+        $almCmd = new AlmacenCommand($tx);
+        $sucId = $sucCmd->create('SUC-' . uniqid(), 'Sucursal Loc Test', 'Tegucigalpa');
+        return $almCmd->create($sucId, $code . '-' . uniqid(), 'Almacen Loc Test');
     }
 
     public function testLocationsPageReturns200AndRendersCanonicalHtml(): void
@@ -85,7 +96,7 @@ final class LocationHttpTest extends TestCase
         self::assertMatchesRegularExpression('/href="\/inventory"[^>]*class="nav-item\s*"/i', $response->body);
         self::assertMatchesRegularExpression('/href="\/inventory\/counts"[^>]*class="nav-item\s*"/i', $response->body);
 
-        foreach (['Ventas', 'Proveedores', 'Sucursales', 'Reportes', 'Configuración'] as $deadLink) {
+        foreach (['Ventas', 'Proveedores', 'Reportes', 'Configuración'] as $deadLink) {
             self::assertStringNotContainsString($deadLink, $response->body);
         }
     }
@@ -100,14 +111,16 @@ final class LocationHttpTest extends TestCase
 
     public function testLocationsListingWithData(): void
     {
-        self::$locCmd->create('ESTANTE-A1', 'Estantería metálica pasillo 1');
-        self::$locCmd->create('PASILLO-B2', null);
+        $wId = $this->createWarehouseFixture();
+        self::$locCmd->create('ESTANTE-A1', $wId, 'Estantería metálica pasillo 1');
+        self::$locCmd->create('PASILLO-B2', $wId, null);
 
         $response = $this->dispatch(new Request('GET', '/locations'));
-        self::assertSame(200, $response->status);
-        self::assertStringContainsString('<th scope="col" style="width: 30%;">Código</th>', $response->body);
-        self::assertStringContainsString('<th scope="col" style="width: 50%;">Descripción</th>', $response->body);
-        self::assertStringContainsString('<th scope="col" style="width: 20%;" class="has-text-centered">Estado</th>', $response->body);
+        self::assertStringContainsString('Código', $response->body);
+        self::assertStringContainsString('Almacén', $response->body);
+        self::assertStringContainsString('Sucursal', $response->body);
+        self::assertStringContainsString('Descripción', $response->body);
+        self::assertStringContainsString('Estado', $response->body);
         self::assertStringContainsString('ESTANTE-A1', $response->body);
         self::assertStringContainsString('Estantería metálica pasillo 1', $response->body);
         self::assertStringContainsString('PASILLO-B2', $response->body);
@@ -118,7 +131,8 @@ final class LocationHttpTest extends TestCase
 
     public function testHtmlEscapingInLocationCodeAndDescription(): void
     {
-        self::$locCmd->create('<script>alert("xss")</script>', '<img src=x onerror=alert(1)>');
+        $wId = $this->createWarehouseFixture();
+        self::$locCmd->create('<script>alert("xss")</script>', $wId, '<img src=x onerror=alert(1)>');
         $response = $this->dispatch(new Request('GET', '/locations'));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<script>alert("xss")</script>', $response->body);
@@ -129,7 +143,8 @@ final class LocationHttpTest extends TestCase
 
     public function testNoUnsupportedCrudActionsRendered(): void
     {
-        self::$locCmd->create('LOC-01', 'Test Location');
+        $wId = $this->createWarehouseFixture();
+        self::$locCmd->create('LOC-01', $wId, 'Test Location');
         $response = $this->dispatch(new Request('GET', '/locations'));
         self::assertSame(200, $response->status);
         self::assertStringNotContainsString('<th scope="col">Acciones</th>', $response->body);
@@ -142,7 +157,9 @@ final class LocationHttpTest extends TestCase
 
     public function testLocationCreationSucceedsAndRedirects(): void
     {
+        $wId = $this->createWarehouseFixture();
         $response = $this->post('/locations', [
+            'id_almacen'  => (string) $wId,
             'codigo'      => 'BODEGA-01',
             'descripcion' => 'Bodega central de almacenamiento',
         ]);
@@ -153,12 +170,15 @@ final class LocationHttpTest extends TestCase
         self::assertIsArray($loc);
         self::assertSame('BODEGA-01', $loc['codigo']);
         self::assertSame('Bodega central de almacenamiento', $loc['descripcion']);
+        self::assertSame($wId, (int) $loc['id_almacen']);
         self::assertSame(1, (int) $loc['estado_activo']);
     }
 
     public function testLocationCreationWithoutOptionalDescriptionWorks(): void
     {
+        $wId = $this->createWarehouseFixture();
         $response = $this->post('/locations', [
+            'id_almacen'  => (string) $wId,
             'codigo'      => 'ZONA-CARGA',
             'descripcion' => '',
         ]);
@@ -167,13 +187,16 @@ final class LocationHttpTest extends TestCase
         $loc = self::$locQuery->findByCode('ZONA-CARGA');
         self::assertIsArray($loc);
         self::assertNull($loc['descripcion']);
+        self::assertSame($wId, (int) $loc['id_almacen']);
     }
 
     public function testLocationCreationDuplicateCodeRejectedWith422(): void
     {
-        self::$locCmd->create('PASILLO-01');
+        $wId = $this->createWarehouseFixture();
+        self::$locCmd->create('PASILLO-01', $wId);
 
         $response = $this->post('/locations', [
+            'id_almacen'  => (string) $wId,
             'codigo'      => 'PASILLO-01',
             'descripcion' => 'Intento duplicado',
         ]);
@@ -184,8 +207,10 @@ final class LocationHttpTest extends TestCase
 
     public function testLocationCreationEmptyCodeRejectedWith422(): void
     {
+        $wId = $this->createWarehouseFixture();
         $response = $this->post('/locations', [
-            'codigo' => '   ',
+            'id_almacen' => (string) $wId,
+            'codigo'     => '   ',
         ]);
         self::assertSame(422, $response->status);
         self::assertStringContainsString('El código de la ubicación es obligatorio.', $response->body);
@@ -193,12 +218,23 @@ final class LocationHttpTest extends TestCase
 
     public function testLocationCreationCodeExceedingFiftyCharsRejectedWith422(): void
     {
+        $wId = $this->createWarehouseFixture();
         $longCode = str_repeat('A', 51);
         $response = $this->post('/locations', [
-            'codigo' => $longCode,
+            'id_almacen' => (string) $wId,
+            'codigo'     => $longCode,
         ]);
         self::assertSame(422, $response->status);
         self::assertStringContainsString('El código de la ubicación no debe exceder los 50 caracteres.', $response->body);
+    }
+
+    public function testLocationCreationMissingWarehouseRejectedWith422(): void
+    {
+        $response = $this->post('/locations', [
+            'codigo' => 'LOC-NO-WAREHOUSE',
+        ]);
+        self::assertSame(422, $response->status);
+        self::assertStringContainsString('El almacén es obligatorio.', $response->body);
     }
 
     public function testLocationCreationRequiresCsrfToken(): void
@@ -213,8 +249,10 @@ final class LocationHttpTest extends TestCase
 
     public function testHtmxLocationCreationReturnsHxRedirectAndTrigger(): void
     {
+        $wId = $this->createWarehouseFixture();
         $response = $this->post('/locations', [
-            'codigo' => 'HTMX-LOC',
+            'id_almacen' => (string) $wId,
+            'codigo'     => 'HTMX-LOC',
         ], headers: ['hx-request' => 'true']);
 
         self::assertSame(200, $response->status);
@@ -224,7 +262,9 @@ final class LocationHttpTest extends TestCase
 
     public function testLocationCreationAcceptsLowercaseAndMixedCaseCode(): void
     {
+        $wId = $this->createWarehouseFixture();
         $response = $this->post('/locations', [
+            'id_almacen'  => (string) $wId,
             'codigo'      => 'pasillo-norte-01',
             'descripcion' => 'Ubicación con código en minúsculas',
         ]);
@@ -235,6 +275,7 @@ final class LocationHttpTest extends TestCase
         self::assertIsArray($loc);
         self::assertSame('pasillo-norte-01', $loc['codigo']);
         self::assertSame('Ubicación con código en minúsculas', $loc['descripcion']);
+        self::assertSame($wId, (int) $loc['id_almacen']);
         self::assertSame(1, (int) $loc['estado_activo']);
     }
 
@@ -266,7 +307,8 @@ final class LocationHttpTest extends TestCase
     {
         $session = new LocationMemorySession();
         $actualCsrf = $csrf ?? new Csrf($session);
-        $handler = new LocationHandler(self::$renderer, self::$locQuery, self::$locCmd, $actualCsrf);
+        $almacenQuery = new AlmacenQuery(self::$testDb);
+        $handler = new LocationHandler(self::$renderer, self::$locQuery, self::$locCmd, $almacenQuery, $actualCsrf);
         /** @var list<array{string, string, string}> $routeConfig */
         $routeConfig = require dirname(__DIR__, 2) . '/config/routes.php';
         $routes = [];

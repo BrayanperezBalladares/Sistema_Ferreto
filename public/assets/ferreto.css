@@ -169,6 +169,12 @@ body.ferreto-app {
   gap: 6px;
   align-items: center;
 }
+.btn-action-toggle {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
+  box-sizing: border-box;
+}
 .btn-danger {
   background-color: var(--color-danger); color: #FFFFFF; border: none;
   border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; padding: 8px 16px;

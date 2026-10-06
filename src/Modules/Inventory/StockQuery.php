@@ -100,6 +100,93 @@ final readonly class StockQuery
         return $result;
     }
 
+    public function getWarehouseStock(int $productId, int $warehouseId): string
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COALESCE(SUM(s.cantidad), 0) AS total '
+            . 'FROM inventario_stock s '
+            . 'INNER JOIN ubicacion u ON u.id_ubicacion = s.id_ubicacion '
+            . 'WHERE s.id_producto = :prod AND u.id_almacen = :wh'
+        );
+        $stmt->bindValue(':prod', $productId, PDO::PARAM_INT);
+        $stmt->bindValue(':wh', $warehouseId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $val = $stmt->fetchColumn();
+        /** @var numeric-string $num */
+        $num = is_numeric($val) ? (string) $val : '0';
+        return bcadd($num, '0', 3);
+    }
+
+    public function getBranchStock(int $productId, int $branchId): string
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COALESCE(SUM(s.cantidad), 0) AS total '
+            . 'FROM inventario_stock s '
+            . 'INNER JOIN ubicacion u ON u.id_ubicacion = s.id_ubicacion '
+            . 'INNER JOIN almacen a ON a.id_almacen = u.id_almacen '
+            . 'WHERE s.id_producto = :prod AND a.id_sucursal = :branch'
+        );
+        $stmt->bindValue(':prod', $productId, PDO::PARAM_INT);
+        $stmt->bindValue(':branch', $branchId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $val = $stmt->fetchColumn();
+        /** @var numeric-string $num */
+        $num = is_numeric($val) ? (string) $val : '0';
+        return bcadd($num, '0', 3);
+    }
+
+    /**
+     * @return list<array{
+     *     id_almacen: ?int,
+     *     almacen_codigo: ?string,
+     *     almacen_nombre: ?string,
+     *     id_sucursal: ?int,
+     *     sucursal_codigo: ?string,
+     *     sucursal_nombre: ?string,
+     *     cantidad: string
+     * }>
+     */
+    public function getStockBreakdownByWarehouse(int $productId): array
+    {
+        $sql = 'SELECT a.id_almacen, a.codigo AS almacen_codigo, a.nombre AS almacen_nombre, '
+            . 's_branch.id_sucursal, s_branch.codigo AS sucursal_codigo, s_branch.nombre AS sucursal_nombre, '
+            . 'COALESCE(SUM(s.cantidad), 0) AS cantidad '
+            . 'FROM inventario_stock s '
+            . 'INNER JOIN ubicacion u ON u.id_ubicacion = s.id_ubicacion '
+            . 'LEFT JOIN almacen a ON a.id_almacen = u.id_almacen '
+            . 'LEFT JOIN sucursal s_branch ON s_branch.id_sucursal = a.id_sucursal '
+            . 'WHERE s.id_producto = :prod '
+            . 'GROUP BY a.id_almacen, a.codigo, a.nombre, s_branch.id_sucursal, s_branch.codigo, s_branch.nombre '
+            . 'ORDER BY a.nombre ASC';
+
+        $stmt = $this->db->pdo()->prepare($sql);
+        $stmt->bindValue(':prod', $productId, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($rows as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            /** @var numeric-string $cant */
+            $cant = isset($r['cantidad']) && is_numeric($r['cantidad']) ? (string) $r['cantidad'] : '0';
+            $result[] = [
+                'id_almacen'      => isset($r['id_almacen']) && is_numeric($r['id_almacen']) ? (int) $r['id_almacen'] : null,
+                'almacen_codigo'  => isset($r['almacen_codigo']) && is_string($r['almacen_codigo']) ? $r['almacen_codigo'] : null,
+                'almacen_nombre'  => isset($r['almacen_nombre']) && is_string($r['almacen_nombre']) ? $r['almacen_nombre'] : null,
+                'id_sucursal'     => isset($r['id_sucursal']) && is_numeric($r['id_sucursal']) ? (int) $r['id_sucursal'] : null,
+                'sucursal_codigo' => isset($r['sucursal_codigo']) && is_string($r['sucursal_codigo']) ? $r['sucursal_codigo'] : null,
+                'sucursal_nombre' => isset($r['sucursal_nombre']) && is_string($r['sucursal_nombre']) ? $r['sucursal_nombre'] : null,
+                'cantidad'        => bcadd($cant, '0', 3),
+            ];
+        }
+
+        return $result;
+    }
+
     /**
      * @param array<mixed, mixed> $r
      * @return array{id_stock: int, id_producto: int, producto_nombre: string, id_ubicacion: int, ubicacion_codigo: string, cantidad: string, created_at: string, updated_at: string}

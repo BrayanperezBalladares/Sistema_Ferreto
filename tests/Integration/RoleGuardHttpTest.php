@@ -26,6 +26,9 @@ use App\Modules\Access\RoleGuard;
 use App\Modules\Access\RouteAccessPolicy;
 use App\Modules\Access\UserCommand;
 use App\Modules\Access\UserQuery;
+use App\Modules\Inventory\AlmacenCommand;
+use App\Modules\Inventory\AlmacenQuery;
+use App\Modules\Inventory\BranchHandler;
 use App\Modules\Inventory\CatalogHandler;
 use App\Modules\Inventory\CategoryCommand;
 use App\Modules\Inventory\CategoryQuery;
@@ -39,6 +42,9 @@ use App\Modules\Inventory\ProductCommand;
 use App\Modules\Inventory\ProductQuery;
 use App\Modules\Inventory\StockCommand;
 use App\Modules\Inventory\StockQuery;
+use App\Modules\Inventory\SucursalCommand;
+use App\Modules\Inventory\SucursalQuery;
+use App\Modules\Inventory\WarehouseHandler;
 use Closure;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -83,7 +89,7 @@ final class RoleGuardHttpTest extends TestCase
         $pdo = self::$testDb->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'producto', 'categoria', 'usuario'] as $tbl) {
+        foreach (['conteo_inventario', 'inventario_stock', 'ubicacion', 'almacen', 'sucursal', 'producto', 'categoria', 'usuario'] as $tbl) {
             if (in_array($tbl, $tables, true)) {
                 $pdo->exec("TRUNCATE TABLE `{$tbl}`");
             }
@@ -137,6 +143,7 @@ final class RoleGuardHttpTest extends TestCase
             self::$renderer,
             $locationQuery,
             new LocationCommand($tx),
+            new AlmacenQuery(self::$testDb),
             $actualCsrf
         );
         $inventoryHandler = new InventoryHandler(
@@ -150,10 +157,18 @@ final class RoleGuardHttpTest extends TestCase
             new CountCommand($tx)
         );
 
+        $sucursalQuery = new SucursalQuery(self::$testDb);
+        $sucursalCommand = new SucursalCommand($tx);
+        $almacenCommand = new AlmacenCommand($tx);
+        $branchHandler = new BranchHandler(self::$renderer, $sucursalQuery, $sucursalCommand, $actualCsrf);
+        $warehouseHandler = new WarehouseHandler(self::$renderer, new AlmacenQuery(self::$testDb), $almacenCommand, $sucursalQuery, $actualCsrf);
+
         $handlers = [
             'health'    => $healthHandler->handle(...),
             'access'    => $accessHandler->handle(...),
             'catalog'   => $catalogHandler->handle(...),
+            'branch'    => $branchHandler->handle(...),
+            'warehouse' => $warehouseHandler->handle(...),
             'location'  => $locationHandler->handle(...),
             'inventory' => $inventoryHandler->handle(...),
         ];
@@ -806,5 +821,91 @@ final class RoleGuardHttpTest extends TestCase
         $res = $kernel->handle(new Request('GET', '/unmapped-registered-route'));
         self::assertSame(403, $res->status, 'Kernel must deny registered non-exempt route missing from RouteAccessPolicy with 403 Forbidden.');
         self::assertSame('Forbidden', $res->body);
+    }
+
+    public function testAdministratorAllowedOnMultisiteRoutes(): void
+    {
+        $userId = $this->createUser('admin_multisite', 'administrador');
+        $session = new NativeSession(false);
+        $csrf = new Csrf($session);
+        $token = $csrf->token();
+        $this->establishSession($userId, $session);
+
+        $tx = new Transaction(self::$testDb);
+        $sucCmd = new SucursalCommand($tx);
+        $almCmd = new AlmacenCommand($tx);
+        $sucId = $sucCmd->create('SUC-ADM', 'Sucursal Admin Test', 'Granada');
+        $almId = $almCmd->create($sucId, 'ALM-ADM', 'Almacen Admin Test');
+
+        /** @var list<array{string, string, array<string, mixed>}> $multisiteRoutes */
+        $multisiteRoutes = [
+            ['GET', '/branches', []],
+            ['POST', '/branches', ['_csrf' => $token, 'codigo' => 'SUC-NEW', 'nombre' => 'Nueva Sucursal', 'ciudad' => 'Leon']],
+            ['POST', '/branches/toggle-active', ['_csrf' => $token, 'id_sucursal' => (string) $sucId]],
+            ['GET', '/warehouses', []],
+            ['POST', '/warehouses', ['_csrf' => $token, 'id_sucursal' => (string) $sucId, 'codigo' => 'ALM-NEW', 'nombre' => 'Nuevo Almacen', 'tipo' => 'bodega']],
+            ['POST', '/warehouses/toggle-active', ['_csrf' => $token, 'id_almacen' => (string) $almId]],
+        ];
+
+        foreach ($multisiteRoutes as [$method, $path, $body]) {
+            $req = new Request($method, $path, body: $body);
+            $res = $this->dispatch($req, session: $session, csrf: $csrf);
+            self::assertNotSame(403, $res->status, "Administrator must NOT be denied with 403 on {$method} {$path}.");
+        }
+    }
+
+    public function testBodegueroAuthorizationOnMultisiteRoutes(): void
+    {
+        $userId = $this->createUser('bodeguero_multisite', 'bodeguero');
+        $session = new NativeSession(false);
+        $csrf = new Csrf($session);
+        $token = $csrf->token();
+        $this->establishSession($userId, $session);
+
+        // GET /warehouses is allowed for bodeguero
+        $resAllowed = $this->dispatch(new Request('GET', '/warehouses'), session: $session, csrf: $csrf);
+        self::assertNotSame(403, $resAllowed->status, 'Bodeguero must be allowed on GET /warehouses.');
+
+        // 5 multisite routes denied for bodeguero
+        $denied = [
+            ['GET', '/branches', []],
+            ['POST', '/branches', ['_csrf' => $token, 'codigo' => 'SUC-BOD', 'nombre' => 'Sucursal Prohibida', 'ciudad' => 'Masaya']],
+            ['POST', '/branches/toggle-active', ['_csrf' => $token, 'id_sucursal' => '1']],
+            ['POST', '/warehouses', ['_csrf' => $token, 'id_sucursal' => '1', 'codigo' => 'ALM-BOD', 'nombre' => 'Almacen Prohibido', 'tipo' => 'bodega']],
+            ['POST', '/warehouses/toggle-active', ['_csrf' => $token, 'id_almacen' => '1']],
+        ];
+
+        foreach ($denied as [$method, $path, $body]) {
+            $res = $this->dispatch(new Request($method, $path, body: $body), session: $session, csrf: $csrf);
+            self::assertSame(403, $res->status, "Bodeguero must receive 403 on {$method} {$path}.");
+            self::assertSame('Forbidden', $res->body);
+        }
+    }
+
+    public function testCajeroAndComprasDeniedOnAllMultisiteRoutes(): void
+    {
+        foreach (['cajero', 'compras'] as $role) {
+            $_SESSION = [];
+            $userId = $this->createUser("user_{$role}_ms", $role);
+            $session = new NativeSession(false);
+            $csrf = new Csrf($session);
+            $token = $csrf->token();
+            $this->establishSession($userId, $session);
+
+            $routes = [
+                ['GET', '/branches', []],
+                ['POST', '/branches', ['_csrf' => $token, 'codigo' => 'SUC-X', 'nombre' => 'X', 'ciudad' => 'X']],
+                ['POST', '/branches/toggle-active', ['_csrf' => $token, 'id_sucursal' => '1']],
+                ['GET', '/warehouses', []],
+                ['POST', '/warehouses', ['_csrf' => $token, 'id_sucursal' => '1', 'codigo' => 'ALM-X', 'nombre' => 'X', 'tipo' => 'bodega']],
+                ['POST', '/warehouses/toggle-active', ['_csrf' => $token, 'id_almacen' => '1']],
+            ];
+
+            foreach ($routes as [$method, $path, $body]) {
+                $res = $this->dispatch(new Request($method, $path, body: $body), session: $session, csrf: $csrf);
+                self::assertSame(403, $res->status, "Role '{$role}' must receive 403 on {$method} {$path}.");
+                self::assertSame('Forbidden', $res->body);
+            }
+        }
     }
 }

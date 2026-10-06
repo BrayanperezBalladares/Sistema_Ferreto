@@ -93,7 +93,7 @@ final class CatalogTest extends TestCase
         $runner = new MigrationRunner(self::$testDb);
         $migrationsPath = dirname(__DIR__, 2) . '/database/migrations';
 
-        foreach (['0006_create_conteo_inventario', '0005_create_inventario_stock', '0004_create_ubicacion'] as $child) {
+        foreach (['0010_add_ubicacion_almacen_nullable', '0006_create_conteo_inventario', '0005_create_inventario_stock', '0004_create_ubicacion'] as $child) {
             if (file_exists($migrationsPath . '/' . $child . '.up.sql')) {
                 $applied = self::$testDb->pdo()->query("SELECT 1 FROM schema_migrations WHERE identifier = '{$child}'")->fetch();
                 if ($applied !== false) {

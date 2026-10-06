@@ -6,6 +6,9 @@ namespace App\Foundation;
 
 use App\Modules\Access\UserCliHandler;
 use App\Modules\Access\UserCommand;
+use App\Modules\Inventory\AlmacenQuery;
+use App\Modules\Inventory\LocationQuery;
+use App\Modules\Inventory\MultisiteCliHandler;
 use InvalidArgumentException;
 use Throwable;
 
@@ -16,6 +19,7 @@ final class Console
     public function __construct(
         string $root,
         private readonly ?UserCliHandler $userCliHandler = null,
+        private readonly ?MultisiteCliHandler $multisiteCliHandler = null,
     ) {
         $resolved = realpath($root);
         if ($resolved === false || !is_file($resolved . '/composer.json')) {
@@ -35,13 +39,15 @@ final class Console
 
         try {
             return match ($command) {
-                'verify-assets' => count($arguments) === 1 ? $this->verifyAssets() : 64,
-                'config'        => count($arguments) === 1 ? $this->validateConfig() : 64,
-                'serve'         => count($arguments) === 1 ? $this->serve() : 64,
-                'migrate'       => count($arguments) === 1 ? $this->runMigrate() : 64,
-                'seed'          => count($arguments) === 1 ? $this->runSeed() : 64,
-                'create-user'   => $this->runCreateUser(array_slice($arguments, 1)),
-                'unlock-user'   => $this->runUnlockUser(array_slice($arguments, 1)),
+                'verify-assets'           => count($arguments) === 1 ? $this->verifyAssets() : 64,
+                'config'                  => count($arguments) === 1 ? $this->validateConfig() : 64,
+                'serve'                   => count($arguments) === 1 ? $this->serve() : 64,
+                'migrate'                 => count($arguments) === 1 ? $this->runMigrate() : 64,
+                'seed'                    => count($arguments) === 1 ? $this->runSeed() : 64,
+                'create-user'             => $this->runCreateUser(array_slice($arguments, 1)),
+                'unlock-user'             => $this->runUnlockUser(array_slice($arguments, 1)),
+                'map-location'            => $this->runMapLocation(array_slice($arguments, 1)),
+                'verify-locations-mapped' => $this->runVerifyLocationsMapped(array_slice($arguments, 1)),
                 default => 64,
             };
         } catch (Throwable $exception) {
@@ -80,6 +86,38 @@ final class Console
         $handler = new UserCliHandler($command);
 
         return $handler->handleUnlockUser($args);
+    }
+
+    /** @param list<string> $args */
+    private function runMapLocation(array $args): int
+    {
+        if ($this->multisiteCliHandler !== null) {
+            return $this->multisiteCliHandler->handleMapLocation($args);
+        }
+
+        $config        = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db            = new Database($config);
+        $locationQuery = new LocationQuery($db);
+        $almacenQuery  = new AlmacenQuery($db);
+        $handler       = new MultisiteCliHandler($db, $locationQuery, $almacenQuery);
+
+        return $handler->handleMapLocation($args);
+    }
+
+    /** @param list<string> $args */
+    private function runVerifyLocationsMapped(array $args): int
+    {
+        if ($this->multisiteCliHandler !== null) {
+            return $this->multisiteCliHandler->handleVerifyLocationsMapped($args);
+        }
+
+        $config        = Config::fromEnvironment(require $this->root . '/config/defaults.php');
+        $db            = new Database($config);
+        $locationQuery = new LocationQuery($db);
+        $almacenQuery  = new AlmacenQuery($db);
+        $handler       = new MultisiteCliHandler($db, $locationQuery, $almacenQuery);
+
+        return $handler->handleVerifyLocationsMapped($args);
     }
 
     private function verifyAssets(): int

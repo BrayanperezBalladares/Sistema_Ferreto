@@ -39,6 +39,22 @@ final readonly class ViewPermissions
     }
 
     /**
+     * Determines whether the current role may manage commercial branches.
+     */
+    public function canManageBranches(): bool
+    {
+        return $this->can('POST', '/branches');
+    }
+
+    /**
+     * Determines whether the current role may manage warehouses.
+     */
+    public function canManageWarehouses(): bool
+    {
+        return $this->can('POST', '/warehouses');
+    }
+
+    /**
      * Invocable shorthand: $can($method, $path).
      */
     public function __invoke(string $method, string $path): bool
