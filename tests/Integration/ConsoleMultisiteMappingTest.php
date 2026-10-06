@@ -418,7 +418,7 @@ final class ConsoleMultisiteMappingTest extends TestCase
         rewind($err);
         self::assertStringContainsString('Usage: php scripts/console.php map-location <location> <warehouse>', stream_get_contents($err));
 
-        // map-location rejecting options starting with '-'
+        // map-location rejecting options starting with '--'
         ftruncate($err, 0);
         rewind($err);
         self::assertSame(64, $handler->handleMapLocation(['--help', 'WH']));
@@ -616,13 +616,51 @@ final class ConsoleMultisiteMappingTest extends TestCase
         rewind($err);
         self::assertStringContainsString("Error: La ubicación '0' no existe.", stream_get_contents($err));
 
-        // 10. Negative
+        // 10. Negative token handling (code candidate, never cast to ID)
+        // 10a. Setup: Location with ID 1 exists with code "LOC-ID-1"
+        $locWithId1 = $this->insertLegacyLocation('LOC-ID-1');
+        $prodLoc1 = self::$prodCmd->register('Producto Loc ID 1', '15.00');
+        $stockLoc1 = self::$stockCmd->createPosition($prodLoc1, $locWithId1, '75.000');
+        $countLoc1 = self::$countCmd->record($stockLoc1, '75.000', 'Count Loc 1 initial');
+
+        $stmtStock = $pdo->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtCount = $pdo->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+
+        $stmtStock->execute([':id' => $stockLoc1]);
+        $stockLoc1Before = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        $stmtCount->execute([':id' => $countLoc1]);
+        $countLoc1Before = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
+        // 10b. Nonexistent "-1": rejected without mutation (never cast to integer ID 1)
         ftruncate($err, 0);
         rewind($err);
-        $resNeg = $handler->handleMapLocation(['-1', (string) $whId]);
-        self::assertSame(64, $resNeg);
+        $resNonexistentNeg = $handler->handleMapLocation(['-1', (string) $whId]);
+        self::assertSame(1, $resNonexistentNeg, 'Nonexistent negative token must return exit code 1, not usage error.');
         rewind($err);
-        self::assertStringContainsString("Usage: php scripts/console.php map-location <location> <warehouse>", stream_get_contents($err));
+        self::assertStringContainsString("Error: La ubicación '-1' no existe.", stream_get_contents($err));
+
+        // Verify location with ID 1 was NOT affected (proves "-1" is never cast to integer ID 1)
+        $loc1Row = self::$locationQuery->findById($locWithId1);
+        self::assertNotNull($loc1Row);
+        self::assertNull($loc1Row['id_almacen'], 'Location with ID 1 must remain unmapped.');
+
+        // Verify stock and count history on location with ID 1 remain completely unchanged
+        $stmtStock->execute([':id' => $stockLoc1]);
+        $stockLoc1After = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockLoc1Before, $stockLoc1After, 'Stock on location with ID 1 must remain unchanged.');
+
+        $stmtCount->execute([':id' => $countLoc1]);
+        $countLoc1After = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countLoc1Before, $countLoc1After, 'Count on location with ID 1 must remain unchanged.');
+
+        // 10c. Existing location with codigo = "-1": resolves by exact code
+        $locNegId = $this->insertLegacyLocation('-1', 'Legacy negative code location');
+        $resNegExist = $handler->handleMapLocation(['-1', (string) $whId]);
+        self::assertSame(0, $resNegExist, 'Existing location with code "-1" must resolve by exact code and map successfully.');
+        $locNegRow = self::$locationQuery->findById($locNegId);
+        self::assertNotNull($locNegRow);
+        self::assertSame($whId, $locNegRow['id_almacen']);
+        self::assertSame('-1', $locNegRow['codigo']);
 
         // 11. Nonexistent identifier
         ftruncate($err, 0);
@@ -770,17 +808,51 @@ final class ConsoleMultisiteMappingTest extends TestCase
         self::assertNotNull($rowZero);
         self::assertNull($rowZero['id_almacen']);
 
-        // 10. Negative
-        $locNeg = $this->insertLegacyLocation('LOC-WH-NEG');
+        // 10. Negative token handling (code candidate, never cast to ID)
+        // 10a. Target location with stock and counts
+        $locTarget = $this->insertLegacyLocation('LOC-WH-NEG-TARGET');
+        $prodWh1 = self::$prodCmd->register('Producto Wh Neg', '30.00');
+        $stockWh1 = self::$stockCmd->createPosition($prodWh1, $locTarget, '40.000');
+        $countWh1 = self::$countCmd->record($stockWh1, '40.000', 'Count Wh Neg initial');
+
+        $stmtStock = $pdo->prepare('SELECT id_stock, id_producto, id_ubicacion, cantidad FROM inventario_stock WHERE id_stock = :id');
+        $stmtCount = $pdo->prepare('SELECT id_conteo, id_stock, cantidad_sistema, cantidad_contada, diferencia, notas, created_at FROM conteo_inventario WHERE id_conteo = :id');
+
+        $stmtStock->execute([':id' => $stockWh1]);
+        $stockWh1Before = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        $stmtCount->execute([':id' => $countWh1]);
+        $countWh1Before = $stmtCount->fetch(PDO::FETCH_ASSOC);
+
+        // 10b. Nonexistent "-1": rejected without mutation (never interpreted as ID)
         ftruncate($err, 0);
         rewind($err);
-        $resNeg = $handler->handleMapLocation([(string) $locNeg, '-1']);
-        self::assertSame(64, $resNeg);
+        $resNonexistentWh = $handler->handleMapLocation([(string) $locTarget, '-1']);
+        self::assertSame(1, $resNonexistentWh, 'Nonexistent negative token for warehouse must return exit code 1, not usage error.');
         rewind($err);
-        self::assertStringContainsString("Usage: php scripts/console.php map-location <location> <warehouse>", stream_get_contents($err));
-        $rowNeg = self::$locationQuery->findById($locNeg);
-        self::assertNotNull($rowNeg);
-        self::assertNull($rowNeg['id_almacen']);
+        self::assertStringContainsString("Error: El almacén '-1' no existe.", stream_get_contents($err));
+
+        // Verify target location remains unmapped
+        $locTargetRow = self::$locationQuery->findById($locTarget);
+        self::assertNotNull($locTargetRow);
+        self::assertNull($locTargetRow['id_almacen'], 'Target location must remain unmapped when warehouse resolution fails.');
+
+        // Verify stock and count on target location remain completely untouched
+        $stmtStock->execute([':id' => $stockWh1]);
+        $stockWh1After = $stmtStock->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($stockWh1Before, $stockWh1After, 'Stock on target location must remain unchanged.');
+
+        $stmtCount->execute([':id' => $countWh1]);
+        $countWh1After = $stmtCount->fetch(PDO::FETCH_ASSOC);
+        self::assertSame($countWh1Before, $countWh1After, 'Count on target location must remain unchanged.');
+
+        // 10c. Existing warehouse with codigo = "-1": resolves by exact code
+        $whNegId = self::$almacenCmd->create($branchId, '-1', 'Almacen Negative Code');
+        $resWhNegExist = $handler->handleMapLocation([(string) $locTarget, '-1']);
+        self::assertSame(0, $resWhNegExist, 'Existing warehouse with code "-1" must resolve by exact code and map successfully.');
+        $locTargetRowAfter = self::$locationQuery->findById($locTarget);
+        self::assertNotNull($locTargetRowAfter);
+        self::assertSame($whNegId, $locTargetRowAfter['id_almacen']);
+        self::assertSame('-1', $locTargetRowAfter['almacen_codigo']);
 
         // 11. Nonexistent identifier
         $locNon = $this->insertLegacyLocation('LOC-WH-NON');

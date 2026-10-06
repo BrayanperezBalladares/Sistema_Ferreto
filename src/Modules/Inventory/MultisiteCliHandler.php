@@ -36,7 +36,7 @@ final class MultisiteCliHandler
         $locInput = trim($arguments[0]);
         $whInput  = trim($arguments[1]);
 
-        if (str_starts_with($locInput, '-') || str_starts_with($whInput, '-')) {
+        if (str_starts_with($locInput, '--') || str_starts_with($whInput, '--')) {
             $this->writeErr("Usage: php scripts/console.php map-location <location> <warehouse>" . PHP_EOL);
             return 64;
         }
