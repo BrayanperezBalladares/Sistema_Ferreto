@@ -1,2 +1,3 @@
 public/assets/*.css text eol=lf
 public/assets/*.js text eol=lf
+database/migrations/*.sql text eol=lf
